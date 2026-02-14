@@ -49,6 +49,7 @@ class DamageableEnvironment:
         # ── Damage flags ────────────────────────────────────────────────
         self._damage_config: dict = {
             "enable_damage": True,
+            # TODO: Check if these are needed
             "auto_replace_objects": True,
             "track_robot_damage": True,
         }
@@ -70,7 +71,7 @@ class DamageableEnvironment:
         self._health_ax = None
         self._health_bars_dict = None
         self._health_tracked_object_names: Optional[List[str]] = None
-        self.health_list_part_names: List[str] = []
+        self.health_list_link_names: List[str] = []
 
     # ── Config loading ──────────────────────────────────────────────────
 
@@ -168,8 +169,9 @@ class DamageableEnvironment:
 
             if should_track:
                 obj.set_track_damage(True)
-                obj.set_damageable_parts()
-                obj._initialize_health()
+                obj.set_damageable_links_and_params()
+                obj.initialize_health()
+                obj._initialize_damage_evaluators()
             else:
                 obj.set_track_damage(False)
 
@@ -198,17 +200,17 @@ class DamageableEnvironment:
         for obj in self._get_all_objects():
             if isinstance(obj, DamageableMixin) and obj.track_damage:
                 obj.reset_damage_evaluators()
-                obj._initialize_health()
+                obj.initialize_health()
 
-        self.health_list_part_names = self._build_health_list()
+        self.health_list_link_names = self._build_health_list()
 
     def _build_health_list(self) -> List[str]:
         """Return ``['obj_name@part_name', ...]`` for all tracked parts."""
         result: List[str] = []
         for obj in self._get_all_objects():
             if isinstance(obj, DamageableMixin) and obj.track_damage:
-                for part_name in obj.part_healths:
-                    result.append(f"{obj.name}@{part_name}")
+                for link_name in obj.damageable_links:
+                    result.append(f"{obj.name}@{link_name}")
         return result
 
     # ── Step helpers ────────────────────────────────────────────────────
@@ -248,8 +250,8 @@ class DamageableEnvironment:
         health_values: List[float] = []
         for obj in self._get_all_objects():
             if isinstance(obj, DamageableMixin) and obj.track_damage:
-                for part_name in obj.part_healths:
-                    health_values.append(obj.part_healths[part_name])
+                for link_name in obj.damageable_links:
+                    health_values.append(obj.link_healths[link_name])
         obs["health"] = np.array(health_values, dtype=np.float32)
         return obs
 

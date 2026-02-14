@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Dict, List, Optional
 
 from damagesim.core.damageable_mixin import DamageableMixin
+from damagesim.omnigibson.params import PARAMS
 from damagesim.omnigibson.evaluators import DAMAGE_EVALUATORS
 
 # ── Lazy OG imports (fail gracefully when OG is not installed) ──────────
@@ -68,28 +69,41 @@ class OGDamageableMixin(DamageableMixin):
             return list(self.links.keys())
         return []
 
-    # ── Aliases for backward-compatibility ──────────────────────────────
+    # ── Setters ─────────────────────────────────────────────────────────
+    def set_damageable_links_and_params(self) -> None:
+        """
+        Set which links track damage and the parameters for those links.
+        """
+        params = PARAMS
+        if not self.track_damage:
+            return
+        cat = getattr(self, "category", "default")
 
-    @property
-    def link_healths(self) -> Dict[str, float]:
-        return self.part_healths
+        if cat in params:
+            # 1. Set the parameters for the object. These parameters are shared across all the links of the object.
+            # We provide functionality to override these parameters for each part / link of the object through link_config_overrides
+            self.set_params(params[cat])
 
-    @link_healths.setter
-    def link_healths(self, value: Dict[str, float]):
-        self.part_healths = value
+            # 2. Set the links of the object to be tracked for damage
+            # For regular objects, we use a default key to get the damageable links
+            links_key = params[cat].get("damageable_links")
 
-    @property
-    def damageable_links(self) -> List[str]:
-        return self.damageable_parts
-
-    @damageable_links.setter
-    def damageable_links(self, value):
-        self.damageable_parts = list(value)
-
-    def set_damageable_links(self, links=None):
-        """OG-idiomatic alias for ``set_damageable_parts``."""
-        self.set_damageable_parts(links)
-
+            # For robots, we need to use the class name to get the damageable links
+            cls_links_key = params[cat].get(
+                f"{self.__class__.__name__.lower()}_damageable_links"
+            )
+            if cat == "agent" and cls_links_key is not None:
+                self._set_damageable_links(cls_links_key)
+            elif links_key:
+                self._set_damageable_links(links_key)
+            else:
+                # In case config file is missing the damageable_links key, we use all the links of the object
+                self._set_damageable_links(self.links.keys())
+                    
+        else:
+            print(f"Warning: no damage params found for {self.category}, using default params. If you would like custom damage params, please add them to damage_params.py")
+            self.set_params(params["default"])
+            self._set_damageable_links(self.links.keys())
 
 # ═══════════════════════════════════════════════════════════════════════
 # Concrete damageable object classes

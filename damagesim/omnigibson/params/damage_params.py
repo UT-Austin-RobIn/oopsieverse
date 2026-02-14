@@ -7,6 +7,17 @@ which evaluators are active and their tuning constants.
 
 from damagesim.omnigibson.evaluators import DAMAGE_EVALUATORS  # noqa: F401
 
+DAMAGEABLE_OBJECTS = {
+    "default": {
+        "categories": ["agent"],
+        "names": [],
+    },
+    "shelve_item": {
+        "categories": ["bottle_of_beer", "bottle_of_wine", "wineglass", "bag_of_flour", "box_of_crackers"],
+        "names": [],
+    }
+}
+
 PARAMS = {
     # ── Default ─────────────────────────────────────────────────────────
     "default": {

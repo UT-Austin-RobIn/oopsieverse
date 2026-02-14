@@ -3,7 +3,7 @@ Simulator-agnostic mixin that adds health / damage tracking to any object.
 
 Terminology
 -----------
-This base class uses the word **part** to refer to the atomic rigid element
+This base class uses the word **link** to refer to the atomic rigid element
 that health is tracked on.  In OmniGibson that element is a USD *link*; in
 MuJoCo / Robosuite it is a *body*.  Simulator-specific subclasses should
 provide the expected aliases (``link_healths``, ``body_healths``, …) as
@@ -31,22 +31,14 @@ class DamageableMixin:
         super().__init__(*args, **kwargs)
 
         # ── Core state ──────────────────────────────────────────────────
-        self.params: dict = params or {}
-        self.damage_evaluators: list = []
         self.track_damage: bool = False
-        self.damageable_parts: List[str] = []
+        self.damageable_links: List[str] = []
+        self.damage_params: dict = params or {}
+        self.damage_evaluators: list = []
 
-        # Health tracking  (part_name → float in [0, 100])
-        self.part_healths: Dict[str, float] = {}
+        self.link_healths: Dict[str, float] = {}
         self.damage_info: Dict[str, dict] = {}
 
-        # Health thresholds for status categorisation
-        thresholds = self.params.get("health_thresholds", [90.0, 60.0, 30.0])
-        self.minor_threshold: float = thresholds[0]
-        self.major_threshold: float = thresholds[1]
-        self.critical_threshold: float = thresholds[2]
-
-        self.previous_health: float = 100.0
 
     # ── Evaluator registry (set by subclass / backend __init__.py) ─────
 
@@ -74,18 +66,17 @@ class DamageableMixin:
             "Subclass must implement _get_all_part_names()"
         )
 
-    def _initialize_health(self) -> None:
+    def initialize_health(self) -> None:
         """Set all damageable-part healths to 100."""
         self.damage_info = {}
-        for part_name in self.damageable_parts:
-            self.part_healths[part_name] = 100.0
-        self.previous_health = 100.0
+        for link_name in self.damageable_links:
+            self.link_healths[link_name] = 100.0
 
     # ── Evaluator lifecycle ─────────────────────────────────────────────
 
     def _initialize_damage_evaluators(self) -> None:
         """
-        Instantiate evaluators listed in ``self.params["damage_evaluators"]``.
+        Instantiate evaluators listed in ``self.damage_params["damage_evaluators"]``.
 
         Clears existing evaluators first to prevent duplication on repeated
         calls (e.g. after ``env.reset``).
@@ -93,12 +84,12 @@ class DamageableMixin:
         self.damage_evaluators = []
         registry = self._get_evaluator_registry()
 
-        for name in self.params.get("damage_evaluators", []):
+        for name in self.damage_params.get("damage_evaluators", []):
             if name not in registry:
                 print(f"Warning: unknown damage evaluator '{name}'")
                 continue
             cls = registry[name]
-            eval_params = self.params.get(name, {})
+            eval_params = self.damage_params.get(name, {})
             self.damage_evaluators.append(cls(self, **eval_params))
 
     def reset_damage_evaluators(self) -> None:
@@ -113,52 +104,32 @@ class DamageableMixin:
                 ev.reinitialize_tracking()
 
     # ── Setters ─────────────────────────────────────────────────────────
-
+    
+    def _set_damageable_links(self, value):
+        self.damageable_links = list(value)
+    
     def set_track_damage(self, enabled: bool) -> None:
         self.track_damage = enabled
 
     def set_params(self, params: dict) -> None:
-        self.params = params
+        self.damage_params = params
 
-    def set_damageable_parts(self, parts: Optional[List[str]] = None) -> None:
+    def set_link_healths(self, value: Dict[str, float]):
+        self.link_healths = value
+    
+    def set_damageable_links_and_params(self) -> None:
         """
-        Set which parts track damage.
-
-        If *parts* is ``None``, defaults to all parts returned by
-        ``_get_all_part_names()``.
+        Set which links track damage and the parameters for those links.
         """
-        if parts is None:
-            self.damageable_parts = list(self._get_all_part_names())
-        else:
-            self.damageable_parts = list(parts)
+        pass
 
-    # ── Health queries ──────────────────────────────────────────────────
+
+    # ── Getters ──────────────────────────────────────────────────
 
     @property
     def health(self) -> float:
         """Minimum health across all tracked parts (100 = full)."""
-        if not self.part_healths:
-            return 100.0
-        return min(self.part_healths.values())
-
-    @property
-    def health_percentage(self) -> float:
-        return self.health
-
-    @property
-    def damage_status(self) -> str:
-        h = self.health
-        if h <= 0.0:
-            return "destroyed"
-        if h < self.critical_threshold:
-            return "critical"
-        if h < self.major_threshold:
-            return "major"
-        if h < self.minor_threshold:
-            return "minor"
-        if h < 100.0:
-            return "negligible"
-        return "none"
+        return min(self.link_healths.values())
 
     def is_destroyed(self) -> bool:
         return self.health <= 0.0
@@ -175,11 +146,11 @@ class DamageableMixin:
             part_damages = evaluator.generate_damage()
 
             for part_name, damage in part_damages.items():
-                if part_name not in self.part_healths:
-                    self.part_healths[part_name] = 100.0
+                if part_name not in self.link_healths:
+                    self.link_healths[part_name] = 100.0
 
-                new_health = max(0.0, self.part_healths[part_name] - damage)
-                self.part_healths[part_name] = new_health
+                new_health = max(0.0, self.link_healths[part_name] - damage)
+                self.link_healths[part_name] = new_health
 
                 if part_name not in self.damage_info:
                     self.damage_info[part_name] = {}
@@ -241,9 +212,8 @@ class DamageableMixin:
 
     def reset_health(self) -> None:
         """Reset all part healths to 100."""
-        for part_name in list(self.part_healths.keys()):
-            self.part_healths[part_name] = 100.0
-        self.previous_health = 100.0
+        for part_name in list(self.link_healths.keys()):
+            self.link_healths[part_name] = 100.0
 
     # ── Observation / state dicts ───────────────────────────────────────
 
@@ -265,7 +235,7 @@ class DamageableMixin:
             "health": self.health,
             "health_percentage": self.health_percentage,
             "damage_status": self.damage_status,
-            "part_healths": dict(self.part_healths),
+            "link_healths": dict(self.link_healths),
             "damage_info": self.damage_info,
             "is_destroyed": self.is_destroyed(),
             "raw_force": raw_force,
