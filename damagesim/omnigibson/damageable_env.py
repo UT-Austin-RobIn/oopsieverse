@@ -47,7 +47,7 @@ from damagesim.omnigibson.damageable_mixin import (
     DamageableTiago,
     DamageableR1Pro,
 )
-from damagesim.omnigibson.params import PARAMS
+from damagesim.omnigibson.params import PARAMS, DAMAGEABLE_OBJECTS
 
 # Flag to ensure we only patch the OG object registry once per process
 _BEHAVIOR_DAMAGEABLE_PATCHED = False
@@ -65,17 +65,6 @@ DAMAGEABLE_OBJECT_MAPPING = {
     "Tiago": DamageableTiago,
     "R1Pro": DamageableR1Pro,
 }
-
-
-def _load_og_damage_config() -> dict:
-    config_path = Path(__file__).parent / "params" / "damageable_objects.yaml"
-    if not config_path.exists():
-        return {}
-    try:
-        with config_path.open("r") as f:
-            return yaml.safe_load(f) or {}
-    except Exception:
-        return {}
 
 
 def create_damageable_object_from_config(cls_name, cls_registry, cfg, cls_type_descriptor="object"):
@@ -111,13 +100,13 @@ class OGDamageableEnvironment(DamageableEnvironment, Environment):
     OmniGibson environment with integrated damage tracking.
     """
 
-    def __init__(self, configs, in_vec_env: bool = False,
-                 debug_physics_frequency: bool = False,
+    def __init__(self, configs,
+                 in_vec_env: bool = False,
                  reward_fn=None, **kwargs):
         # Load OG-specific damage config
         dtoc = kwargs.pop(
             "damage_trackable_objects_config",
-            _load_og_damage_config(),
+            DAMAGEABLE_OBJECTS,
         )
         # Initialise the damage layer first so attributes exist before
         # Environment.__init__ (which may call reset).
@@ -125,8 +114,8 @@ class OGDamageableEnvironment(DamageableEnvironment, Environment):
             self, damage_trackable_objects_config=dtoc, **kwargs,
         )
 
-        self._debug_physics_frequency = debug_physics_frequency
         self._reward_fn = reward_fn
+        self.task_name = configs["task"].get("activity_name", None) if "task" in configs else None
 
         # Now initialise the OG Environment (may trigger reset / load)
         Environment.__init__(self, configs, in_vec_env)
@@ -146,7 +135,6 @@ class OGDamageableEnvironment(DamageableEnvironment, Environment):
         og.sim.play()
 
         self.initialize_damageable_objects()
-        self.set_damageable_object_params()
 
     def _load_robots(self):
         if len(self.scene.robots) == 0:
@@ -200,26 +188,6 @@ class OGDamageableEnvironment(DamageableEnvironment, Environment):
     def _get_all_objects(self) -> list:
         return list(self.scene.objects)
 
-    # ── Params ──────────────────────────────────────────────────────────
-
-    def set_damageable_object_params(self):
-        for obj in self.scene.objects:
-            if not (hasattr(obj, "track_damage") and obj.track_damage):
-                continue
-            cat = getattr(obj, "category", "default")
-            if cat in PARAMS:
-                obj.set_params(PARAMS[cat])
-                # Per-class damageable links
-                links_key = PARAMS[cat].get("damageable_links")
-                cls_links_key = PARAMS[cat].get(
-                    f"{obj.__class__.__name__.lower()}_damageable_links"
-                )
-                if cat == "agent" and cls_links_key is not None:
-                    obj.set_damageable_links(cls_links_key)
-                elif links_key is not None:
-                    obj.set_damageable_links(links_key)
-            else:
-                obj.set_params(PARAMS["default"])
 
     # ── Reset ───────────────────────────────────────────────────────────
 

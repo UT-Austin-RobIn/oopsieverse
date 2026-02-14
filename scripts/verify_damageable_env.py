@@ -26,6 +26,29 @@ def __main__():
         cfg["scene"]["scene_model"] = "house_single_floor"
         cfg["scene"]["not_load_object_categories"] = ["ottoman"]
         cfg["scene"]["load_room_instances"] = ["kitchen_0", "dining_room_0", "entryway_0", "living_room_0"]
+        TASK_OBJECTS = {
+            "box_of_crackers": {
+                "type": "DatasetObject",
+                "name": "box_of_crackers",
+                "category": "box_of_crackers",
+                "model": "cmdigf",
+                "position": [6.0, 0.2, 2.0],
+                "orientation": [0.0, 0.0, 0.70710678, 0.70710678],
+            }, 
+            "bag_of_flour": {
+                "type": "DatasetObject",
+                "name": "bag_of_flour",
+                "category": "bag_of_flour",
+                "model": "rlejxx",
+                "position": [6.00, 0.35, 1.35],
+                "orientation": [0.0, 0.0, 0.0, 1.0],
+                "scale": [1.0, 1.0, 0.9],
+            }
+        }
+        cfg["objects"] = [TASK_OBJECTS[obj] for obj in TASK_OBJECTS]
+        cfg["task"] = {
+            "activity_name": "shelve_item",
+        }
 
         # TODO: Arnav: currently the rest of the objects are not damageable
         # env.scene.objects = [ ..., <omnigibson.objects.dataset_object.DatasetObject object at 0x7f2f26fd4460>, 
@@ -37,9 +60,27 @@ def __main__():
     else:
         raise ValueError(f"Invalid simulation framework: {args.sim_framework}")
 
-    breakpoint()
     env.reset()
 
+    if args.sim_framework == "robosuite":
+        test_passed = True
+    elif args.sim_framework == "omnigibson":
+        robot_name = env.scene.robots[0].name
+        objects = ["box_of_crackers", "bag_of_flour", robot_name]
+        for obj_name in objects:
+            obj = env.scene.object_registry("name", obj_name)
+            assert obj is not None, f"Object {obj_name} not found"
+            assert obj.track_damage, f"Object {obj_name} is not trackable"
+            assert obj.damageable_links, f"Object {obj_name} has no damageable links"
+            assert obj.damage_params, f"Object {obj_name} has no damage parameters"
+            assert obj.damage_evaluators, f"Object {obj_name} has no damage evaluators"
+            for link_name in obj.damageable_links:
+                assert link_name in obj.link_healths, f"Object {obj_name} has no link health for {link_name}"
+                assert obj.link_healths[link_name] == 100.0, f"Object {obj_name} link {link_name} health is not 100.0"
+        print("Test passed for Omnigibson")
+        og.shutdown()
+    else:
+        raise ValueError(f"Invalid simulation framework: {args.sim_framework}")
 
 if __name__ == "__main__":
     __main__()
