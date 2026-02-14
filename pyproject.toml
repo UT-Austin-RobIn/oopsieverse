@@ -1,0 +1,25 @@
+# pyproject.toml
+
+[build-system]
+requires = ["setuptools>=65.5.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "oopsieverse"
+version = "0.1.0"
+description = "OopsieVerse research project for simulation and benchmarking"
+authors = [{ name="Arpit Bahety" }]
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["robotics", "simulation", "benchmarking"]
+license = { text = "MIT" }
+
+dependencies = [
+    "open3d",
+    "scipy",
+    "tqdm",           # useful for progress bars in install.py
+    # add more Python-only dependencies here
+]
+
+[tool.setuptools.packages.find]
+where = ["."]

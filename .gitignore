@@ -1,0 +1,15 @@
+# External dependencies (cloned by install.py)
+externals/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Environment
+.env
+*.swp
+
