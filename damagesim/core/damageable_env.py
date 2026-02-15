@@ -269,5 +269,5 @@ class DamageableEnvironment:
         """Re-initialise health for all tracked objects without resetting evaluators."""
         for obj in self._get_all_objects():
             if isinstance(obj, DamageableMixin) and obj.track_damage:
-                obj._initialize_health()
+                obj.initialize_health()
 

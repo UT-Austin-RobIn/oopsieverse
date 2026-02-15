@@ -33,6 +33,10 @@ PARAMS = {
     # ── Robots (OG category = "agent") ──────────────────────────────────
     "agent": {
         "damage_evaluators": ["mechanical", "thermal"],
+        # dict_keys(['panda_link0', 'panda_link1', 'panda_link2', 'panda_link3', 'panda_link4', 'panda_link5', 'panda_link6', 'panda_link7', 'panda_hand', 'panda_leftfinger', 'panda_rightfinger', 'eef_link'])
+        "damageablefrankapanda_damageable_links": [
+            "panda_link0", "panda_link1", "panda_link2", "panda_link3", "panda_link4", "panda_link5", "panda_link6", "panda_link7", "panda_hand", "panda_leftfinger", "panda_rightfinger", "eef_link"
+        ],
         "damageabletiago_damageable_links": [
             "base_link",
             "arm_right_1_link", "arm_right_2_link", "arm_right_3_link",

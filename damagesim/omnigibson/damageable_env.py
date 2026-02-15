@@ -203,7 +203,7 @@ class OGDamageableEnvironment(DamageableEnvironment, Environment):
                 obj_damage_info[obj.name] = obj.damage_info
         info["damage_info"] = obj_damage_info
 
-        self.health_list_part_names = self._build_health_list()
+        self.health_list_link_names = self._build_health_list()
 
         if self._health_visualization_enabled:
             self.update_health_visualization(obs)
@@ -356,7 +356,7 @@ class OGDamageableDataCollectionWrapper(DataCollectionWrapper):
         health_list = []
         for obj in self.scene.objects:
             if hasattr(obj, "track_damage") and obj.track_damage:
-                for ln in obj.part_healths:
+                for ln in obj.link_healths:
                     health_list.append(f"{obj.name}@{ln}")
 
         grp = super().process_traj_to_hdf5(traj_data, traj_grp_name, nested_keys, data_grp)
