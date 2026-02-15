@@ -119,7 +119,7 @@ class OGMechanicalDamageEvaluator(MechanicalDamageEvaluator):
         contacts = []
         dt = max(self._get_timestep(), 1e-8)
         for c in raw:
-            impulse = np.asarray(c.impulse, dtype=np.float64)
+            impulse = np.array([c.impulse["x"], c.impulse["y"], c.impulse["z"]], dtype=np.float64)
             force = impulse / dt
             mag = float(np.linalg.norm(force))
             if mag > 1e-8:

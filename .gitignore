@@ -13,3 +13,6 @@ build/
 .env
 *.swp
 
+# Other custom files/folders
+resources/
+

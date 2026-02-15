@@ -18,6 +18,7 @@ dependencies = [
     "open3d",
     "scipy",
     "tqdm",           # useful for progress bars in install.py
+    "numba==0.62.1"
     # add more Python-only dependencies here
 ]
 
