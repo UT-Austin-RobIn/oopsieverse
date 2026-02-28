@@ -8,30 +8,19 @@ Handles damage tracking, segmentation observations, and health visualization.
 from __future__ import annotations
 
 import inspect
-import re
-from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict
 
 import numpy as np
 
 from damagesim.core.damageable_env import DamageableEnvironment
 from damagesim.core.damageable_mixin import DamageableMixin
 from damagesim.robosuite.damageable_mixin import (
-    RSDamageableMixin,
-    DamageableRobotMixin,
-    DamageableFixtureMixin,
     get_damageable_robot_class,
     create_damageable_from_fixture,
     DAMAGEABLE_OBJECT_MAPPING,
-    DamageableMJCFObject,
-    DamageableBox,
-    DamageableBall,
-    DamageableCylinder,
-    DamageableCapsule,
 )
 from damagesim.robosuite.params import (
     DAMAGEABLE_OBJECTS,
-    OBJECT_PARAMS,
     get_params_for_object,
 )
 
@@ -270,130 +259,17 @@ class RSDamageableEnvironment(DamageableEnvironment):
                         df.control_freq = control_freq
                     self.fixtures[key] = df
 
-    # ── Evaluator initialisation ────────────────────────────────────────
-
-    def _initialize_damage_evaluators_on_first_step(self):
-        control_freq = getattr(self, "control_freq", None)
-        for obj in self._get_all_objects():
-            if isinstance(obj, DamageableMixin):
-                if obj.sim is None:
-                    obj.sim = self.sim
-                if control_freq is not None:
-                    obj.control_freq = control_freq
-                obj.initialize_health()
-                obj._initialize_damage_evaluators()
+    # ── Damageable object initialisation ──────────────────────────────────
 
     def initialize_damageable_objects(self):
-        control_freq = getattr(self, "control_freq", None)
-        dtnames: set = set()
-        dtcats: set = set()
-        has_restrictions = False
-
-        default_cfg = self.damage_trackable_objects_config.get("default", {})
-        cats = default_cfg.get("categories", []) or []
-        names = default_cfg.get("names", []) or []
-        dtcats.update(cats)
-        dtnames.update(names)
-        if cats or names:
-            has_restrictions = True
-
-        if self.task_name is not None:
-            tcfg = self.damage_trackable_objects_config.get(self.task_name) or {}
-            if not tcfg:
-                snake = re.sub(r"(?<!^)(?=[A-Z])", "_", self.task_name).lower()
-                tcfg = self.damage_trackable_objects_config.get(snake) or {}
-            tc = tcfg.get("categories", []) or []
-            tn = tcfg.get("names", []) or []
-            dtcats.update(tc)
-            dtnames.update(tn)
-            if tc or tn:
-                has_restrictions = True
-
-        for obj in self._get_all_objects():
-            if not isinstance(obj, DamageableMixin):
-                continue
-            if obj.sim is None and hasattr(self, "sim"):
-                obj.sim = self.sim
-            if control_freq is not None:
-                obj.control_freq = control_freq
-
-            obj_name = getattr(obj, "name", None)
-            obj_category = getattr(obj, "category", None)
-
-            should_track = False
-            if not has_restrictions:
-                should_track = True
-            else:
-                if obj_category is None:
-                    cn = type(obj).__name__.lower()
-                    for c in dtcats:
-                        if c in cn:
-                            obj_category = c
-                            break
-                name_matches = False
-                if obj_name:
-                    on = obj_name.lower()
-                    for c in dtcats:
-                        if c and (c.lower() == on or c.lower() in on or on in c.lower()):
-                            name_matches = True
-                            break
-                should_track = (
-                    obj_category in dtcats
-                    or obj_name in dtnames
-                    or name_matches
-                )
-                if "agent" in dtcats:
-                    is_robot = (
-                        (hasattr(self, "robots") and obj in self.robots)
-                        or hasattr(obj, "robot_type")
-                        or (obj_name and "robot" in obj_name.lower())
-                    )
-                    if is_robot:
-                        should_track = True
-
-            if should_track:
-                if hasattr(self, "sim"):
-                    obj.sim = self.sim
-                obj.set_track_damage(True)
-                obj._initialize_damage_evaluators()
-                self.damage_evaluators_initialized = True
-                db = None
-                if obj_name and obj_name in OBJECT_PARAMS and "damageable_links" in OBJECT_PARAMS[obj_name]:
-                    db = OBJECT_PARAMS[obj_name]["damageable_links"]
-                obj.set_damageable_links(db)
-                obj.initialize_health()
-            else:
-                obj.set_track_damage(False)
+        self._setup_damageable_objects()
+        super().initialize_damageable_objects()
+        self.damage_evaluators_initialized = True
 
     # ── Observation processing ──────────────────────────────────────────
 
     def _process_obs(self, obs):
         self._append_health_to_obs(obs)
-
-        obs["object_health_states"] = {}
-        obs["robot_health_states"] = {}
-        for obj in self._get_all_objects():
-            if isinstance(obj, DamageableMixin) and obj.track_damage:
-                raw_force = 0.0
-                for ev in obj.damage_evaluators:
-                    if hasattr(ev, "get_current_raw_force"):
-                        raw_force = max(raw_force, ev.get_current_raw_force())
-                hs = {
-                    "health": obj.health,
-                    "link_healths": dict(obj.link_healths),
-                    "damage_info": obj.damage_info,
-                    "is_destroyed": obj.is_destroyed(),
-                    "raw_force": raw_force,
-                }
-                is_robot = (
-                    (hasattr(self, "robots") and obj in self.robots)
-                    or hasattr(obj, "robot_type")
-                    or (hasattr(obj, "name") and obj.name and "robot" in obj.name.lower())
-                )
-                if is_robot:
-                    obs["robot_health_states"][obj.name] = hs
-                else:
-                    obs["object_health_states"][obj.name] = hs
 
         if self.render_segmentation:
             seg = self.obtain_segmentation_observations()
@@ -508,40 +384,26 @@ class RSDamageableEnvironment(DamageableEnvironment):
         if self._damage_config.get("auto_replace_objects", True):
             self._replace_objects_with_damageable()
         self.initialize_damageable_objects()
+        self._reset_damage_tracking()
 
-        obj_damage_info: dict = {}
-        for obj in self._get_all_objects():
-            if isinstance(obj, DamageableMixin) and obj.track_damage:
-                obj.reset_damage_evaluators()
-                obj_damage_info[obj.name] = obj.damage_info
         if self.render_segmentation:
             self.setup_segmentation_observations()
         obs, obs_info = self._process_obs(obs)
-        info = {"damage_info": obj_damage_info, "obs_info": obs_info}
 
-        health_list = []
-        for obj in self._get_all_objects():
-            if isinstance(obj, DamageableMixin) and obj.track_damage:
-                for bn in obj.link_healths:
-                    health_list.append(f"{obj.name}@{bn}")
-        self.health_list_link_names = health_list
+        obj_damage_info = {}
+        for obj in self.get_damageable_objects():
+            obj_damage_info[obj.name] = obj.damage_info
+        info = {"damage_info": obj_damage_info, "obs_info": obs_info}
 
         return obs, info
 
     def step(self, action):
         if not self.damage_evaluators_initialized:
-            self._initialize_damage_evaluators_on_first_step()
-            self.damage_evaluators_initialized = True
+            self._initialize_all_evaluators()
 
         obs, reward, done, info = super(DamageableEnvironment, self).step(action)
 
-        obj_damage_info: dict = {}
-        if not self.lock_health:
-            for obj in self._get_all_objects():
-                if isinstance(obj, DamageableMixin) and obj.track_damage:
-                    obj.update_health()
-                    obj_damage_info[obj.name] = obj.damage_info
-        info["damage_info"] = obj_damage_info
+        info["damage_info"] = self._update_all_health()
         obs, obs_info = self._process_obs(obs)
         info["obs_info"] = obs_info
         return obs, reward, done, info
@@ -550,28 +412,10 @@ class RSDamageableEnvironment(DamageableEnvironment):
 
     def get_observations(self):
         obs = super(DamageableEnvironment, self)._get_observations()
-        obj_damage_info: dict = {}
+        obj_damage_info = {}
         if not self.lock_health:
-            for obj in self._get_all_objects():
-                if isinstance(obj, DamageableMixin) and obj.track_damage:
-                    obj_damage_info[obj.name] = obj.damage_info
+            for obj in self.get_damageable_objects():
+                obj_damage_info[obj.name] = obj.damage_info
         obs, obs_info = self._process_obs(obs)
         return obs, {"damage_info": obj_damage_info, "obs_info": obs_info}
-
-    def get_all_damageable_objects(self) -> list:
-        return [
-            obj for obj in self._get_all_objects()
-            if isinstance(obj, DamageableMixin) and obj.track_damage
-        ]
-
-    def initialize_env_health(self):
-        for obj in self._get_all_objects():
-            if isinstance(obj, DamageableMixin) and obj.track_damage:
-                obj.initialize_health()
-
-    def lock_health_changes(self):
-        self.lock_health = True
-
-    def unlock_health_changes(self):
-        self.lock_health = False
 
