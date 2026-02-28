@@ -10,11 +10,9 @@ from __future__ import annotations
 import inspect
 import re
 from collections import OrderedDict
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
-import yaml
 
 from damagesim.core.damageable_env import DamageableEnvironment
 from damagesim.core.damageable_mixin import DamageableMixin
@@ -32,6 +30,7 @@ from damagesim.robosuite.damageable_mixin import (
     DamageableCapsule,
 )
 from damagesim.robosuite.params import (
+    DAMAGEABLE_OBJECTS,
     OBJECT_PARAMS,
     get_params_for_object,
 )
@@ -124,17 +123,6 @@ def convert_obs_to_float32(obs):
     return obs
 
 
-def _load_rs_damage_config() -> dict:
-    config_path = Path(__file__).parent / "params" / "damageable_objects.yaml"
-    if not config_path.exists():
-        return {}
-    try:
-        with config_path.open("r") as f:
-            return yaml.safe_load(f) or {}
-    except Exception:
-        return {}
-
-
 def create_damageable_object_from_config(cls_name, cls_registry, cfg):
     if cls_name not in cls_registry:
         raise ValueError(f"Invalid object type '{cls_name}'")
@@ -200,7 +188,7 @@ class RSDamageableEnvironment(DamageableEnvironment):
         *args,
         **kwargs,
     ):
-        dtoc = kwargs.pop("damage_trackable_objects_config", _load_rs_damage_config())
+        dtoc = kwargs.pop("damage_trackable_objects_config", DAMAGEABLE_OBJECTS)
         DamageableEnvironment.__init__(
             self, damage_trackable_objects_config=dtoc,
         )
