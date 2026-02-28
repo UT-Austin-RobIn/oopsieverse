@@ -12,7 +12,7 @@ Provides:
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import List
 
 from damagesim.core.damageable_mixin import DamageableMixin
 from damagesim.robosuite.evaluators import DAMAGE_EVALUATORS
@@ -103,20 +103,19 @@ class RSDamageableMixin(DamageableMixin):
                 pass
         return []
 
-    def set_damageable_links(self, links=None):
-        """Auto-detect damageable links if none provided."""
-        if links is None:
-            if hasattr(self, "root_body") and self.sim is not None:
-                try:
-                    bid = self.sim.model.body_name2id(self.root_body)
-                    name = self.sim.model.body_id2name(bid)
-                    self.damageable_links = [name]
-                    return
-                except Exception:
-                    pass
-            self.damageable_links = []
+    def set_damageable_links_and_params(self):
+        """Set damageable links from damage_params or auto-detect from root_body."""
+        db = self.damage_params.get("damageable_links")
+        if db:
+            self.damageable_links = list(db)
+        elif hasattr(self, "root_body") and self.sim is not None:
+            try:
+                bid = self.sim.model.body_name2id(self.root_body)
+                self.damageable_links = [self.sim.model.body_id2name(bid)]
+            except Exception:
+                self.damageable_links = []
         else:
-            self.damageable_links = list(links)
+            self.damageable_links = []
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -133,6 +132,15 @@ class DamageableRobotMixin(RSDamageableMixin):
             params = OBJECT_PARAMS.get(robot_type, OBJECT_PARAMS.get("default", {})).copy()
         super().__init__(*args, params=params, **kwargs)
         self.track_damage = True
+
+    def set_damageable_links_and_params(self):
+        if self.sim is None:
+            return
+        db = self.damage_params.get("damageable_links")
+        if db:
+            self.damageable_links = list(db)
+        elif not self.damageable_links:
+            self.damageable_links = self._get_robot_body_names()
 
     def initialize_health(self):
         if self.sim is None:
@@ -238,6 +246,15 @@ class DamageableFixtureMixin(RSDamageableMixin, _RobocasaFixture):
         super().__init__(*args, params=params, **kwargs)
         self.track_damage = True
 
+    def set_damageable_links_and_params(self):
+        if self.sim is None:
+            return
+        db = self.damage_params.get("damageable_links")
+        if db:
+            self.damageable_links = list(db)
+        elif not self.damageable_links:
+            self.damageable_links = self._get_fixture_body_names()
+
     def initialize_health(self):
         if self.sim is None:
             return
@@ -278,23 +295,6 @@ class DamageableFixtureMixin(RSDamageableMixin, _RobocasaFixture):
             except Exception:
                 pass
         return bodies
-
-    def set_damageable_links(self, links=None):
-        if links is not None:
-            self.damageable_links = list(links)
-        else:
-            detected = self._get_fixture_body_names()
-            if detected:
-                self.damageable_links = detected
-            elif hasattr(self, "root_body") and self.sim is not None:
-                try:
-                    bid = self.sim.model.body_name2id(self.root_body)
-                    self.damageable_links = [self.sim.model.body_id2name(bid)]
-                except Exception:
-                    if not self.damageable_links:
-                        self.damageable_links = []
-            elif not self.damageable_links:
-                self.damageable_links = []
 
 
 def create_damageable_from_fixture(fixture):
@@ -338,7 +338,7 @@ def create_damageable_from_fixture(fixture):
     if found is None:
         found = OBJECT_PARAMS.get("fixture_default", OBJECT_PARAMS.get("default", {})).copy()
 
-    fixture.params = found
+    fixture.damage_params = found
     fixture.damage_evaluators = []
     fixture.track_damage = True
     fixture.damageable_links = []
