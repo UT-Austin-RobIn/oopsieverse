@@ -129,7 +129,30 @@ class DamageableMixin:
     @property
     def health(self) -> float:
         """Minimum health across all tracked parts (100 = full)."""
+        if not self.link_healths:
+            return 100.0
         return min(self.link_healths.values())
+
+    @property
+    def health_percentage(self) -> float:
+        """Health as a percentage (0-100)."""
+        return self.health
+
+    @property
+    def damage_status(self) -> str:
+        """Categorical damage status based on health thresholds."""
+        h = self.health
+        thresholds = self.damage_params.get("health_thresholds", [90.0, 60.0, 30.0])
+        minor, major, critical = thresholds
+        if h <= 0.0:
+            return "destroyed"
+        if h <= critical:
+            return "critical"
+        if h <= major:
+            return "major"
+        if h <= minor:
+            return "minor"
+        return "none"
 
     def is_destroyed(self) -> bool:
         return self.health <= 0.0
