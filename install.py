@@ -37,7 +37,7 @@ def install_behavior1k():
     else:
         print(f"[INFO] Repository already exists at {repo}, skipping clone.")
     print("[INFO] Installing behavior1k...")
-    run(f"bash -c 'source activate {ENV_NAME} && ./setup.sh --omnigibson --bddl --dataset'", cwd=repo)
+    run(f"conda run --no-capture-output -n {ENV_NAME} bash setup.sh --omnigibson --bddl --dataset", cwd=repo)
 
 def install_robocasa():
     rc = ROOT / "robocasa"
@@ -52,12 +52,12 @@ def install_robocasa():
         run(f"git clone https://github.com/robocasa/robocasa {rc}")
 
     print("[INFO] Installing RoboSuite...")
-    run(f"bash -c 'source activate {ENV_NAME} && pip install -e .'", cwd=rs)
+    run(f"conda run --no-capture-output -n {ENV_NAME} pip install -e .", cwd=rs)
     print("[INFO] Installing RoboCasa...")
-    run(f"bash -c 'source activate {ENV_NAME} && pip install -e .'", cwd=rc)
+    run(f"conda run --no-capture-output -n {ENV_NAME} pip install -e .", cwd=rc)
 
-    run(f"bash -c 'source activate {ENV_NAME} && python robocasa/scripts/download_kitchen_assets.py'", cwd=rc)
-    run(f"bash -c 'source activate {ENV_NAME} && python robocasa/scripts/setup_macros.py'", cwd=rc)
+    run(f"conda run --no-capture-output -n {ENV_NAME} python robocasa/scripts/download_kitchen_assets.py", cwd=rc)
+    run(f"conda run --no-capture-output -n {ENV_NAME} python robocasa/scripts/setup_macros.py", cwd=rc)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Install OopsieVerse submodules")
