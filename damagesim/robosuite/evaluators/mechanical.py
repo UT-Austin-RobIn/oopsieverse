@@ -61,10 +61,7 @@ class RSMechanicalDamageEvaluator(MechanicalDamageEvaluator):
     # ── Abstract-method implementations ─────────────────────────────────
 
     def _get_damageable_part_names(self) -> List[str]:
-        parts = getattr(self.entity, "damageable_bodies", None)
-        if parts is None:
-            parts = getattr(self.entity, "damageable_parts", [])
-        return list(parts)
+        return list(self.entity.damageable_links)
 
     def _get_part_linear_velocity(self, part_name: str) -> np.ndarray:
         """Read linear velocity from MuJoCo cvel (spatial velocity of COM)."""

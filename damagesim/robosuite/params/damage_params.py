@@ -49,7 +49,7 @@ OBJECT_PARAMS = {
     # ── Robots ──
     "PandaOmron": {
         "damage_evaluators": ["mechanical"],
-        "damageable_bodies": [
+        "damageable_links": [
             "robot0_link0", "robot0_link1", "robot0_link2",
             "robot0_link3", "robot0_link4", "robot0_link5",
             "robot0_link6", "robot0_link7", "robot0_right_hand",
