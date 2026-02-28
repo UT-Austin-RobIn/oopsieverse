@@ -43,7 +43,25 @@ def __main__():
                 "position": [6.00, 0.35, 1.35],
                 "orientation": [0.0, 0.0, 0.0, 1.0],
                 "scale": [1.0, 1.0, 0.9],
-            }
+            },
+            "bottle_of_wine": {
+                "type": "DatasetObject",
+                "name": "bottle_of_wine",
+                "category": "bottle_of_wine",
+                "model": "hnkiog",
+                "position": [6.00, 0.2, 1.35],
+                "orientation": [0.0, 0.0, 0.0, 1.0],
+                "scale": [1.0, 1.0, 1.0],
+            },
+            "apple": {
+                "type": "DatasetObject",
+                "name": "apple",
+                "category": "apple",
+                "model": "agveuv",
+                "position": [6.00, 0.12, 1.35],
+                "orientation": [0.0, 0.0, 0.0, 1.0],
+                "scale": [1.0, 1.0, 1.0],
+            },
         }
         cfg["objects"] = [TASK_OBJECTS[obj] for obj in TASK_OBJECTS]
         cfg["task"] = {
@@ -57,6 +75,10 @@ def __main__():
         # Fix this
 
         env = OGDamageableEnvironment(cfg)
+
+        # Verify scene loading
+        print(env.scene.objects)
+        breakpoint()
     else:
         raise ValueError(f"Invalid simulation framework: {args.sim_framework}")
 
@@ -78,6 +100,7 @@ def __main__():
                 assert link_name in obj.link_healths, f"Object {obj_name} has no link health for {link_name}"
                 assert obj.link_healths[link_name] == 100.0, f"Object {obj_name} link {link_name} health is not 100.0"
         print("Test passed for Omnigibson")
+        breakpoint()
         og.shutdown()
     else:
         raise ValueError(f"Invalid simulation framework: {args.sim_framework}")
