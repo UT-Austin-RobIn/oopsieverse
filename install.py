@@ -12,6 +12,10 @@ def run(cmd, cwd=None):
     print(f"[RUN] {cmd}")
     subprocess.check_call(cmd, shell=True, cwd=cwd)
 
+def conda_run(cmd, cwd=None):
+    """Run a command inside the conda environment without needing base activated."""
+    run(f"conda run -n {ENV_NAME} --no-capture-output {cmd}", cwd=cwd)
+
 def create_conda_env():
     """Create a new conda environment if it doesn't exist yet"""
     try:
@@ -45,7 +49,7 @@ def install_robocasa():
 
     if not rs.exists():
         print("[INFO] Cloning RoboSuite repository...")
-        run(f"git clone https://github.com/ARISE-Initiative/robosuite {rs}") 
+        run(f"git clone https://github.com/ARISE-Initiative/robosuite {rs}")
 
     if not rc.exists():
         print("[INFO] Cloning RoboCasa repository...")
