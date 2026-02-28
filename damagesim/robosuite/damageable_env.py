@@ -150,10 +150,9 @@ def create_damageable_from_object(obj):
     dcls = DAMAGEABLE_OBJECT_MAPPING[cn]
     cfg: dict = {"name": obj.name}
     if cn == "MJCFObject":
-        fname = getattr(obj, "fname", None)
-        if fname is None:
+        if obj.mjcf_path is None:
             return None
-        cfg["fname"] = fname
+        cfg["mjcf_path"] = obj.mjcf_path
     cfg["params"] = get_params_for_object(obj.name, "default")
     try:
         return dcls(**cfg)
@@ -196,7 +195,7 @@ class RSDamageableEnvironment(DamageableEnvironment):
         self.task_name = task_name
         self.render_segmentation = render_segmentation
         self.low_dim = low_dim
-        self.use_external_camera = True
+        self.use_external_camera = kwargs.get("has_offscreen_renderer", True)
         self.damageable_robots: list = []
 
         # Call the Robosuite env __init__ (next in MRO)

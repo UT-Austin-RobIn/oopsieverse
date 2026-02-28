@@ -105,6 +105,27 @@ class RSDamageableMixin(DamageableMixin):
                 pass
         return []
 
+    # ── Bridge to core attributes ──────────────────────────────────────
+
+    @property
+    def damageable_parts(self) -> List[str]:
+        return self.damageable_links
+
+    @damageable_parts.setter
+    def damageable_parts(self, value):
+        self.damageable_links = list(value)
+
+    @property
+    def part_healths(self) -> Dict[str, float]:
+        return self.link_healths
+
+    @part_healths.setter
+    def part_healths(self, value: Dict[str, float]):
+        self.link_healths = value
+
+    def _initialize_health(self):
+        self.initialize_health()
+
     # ── Aliases ─────────────────────────────────────────────────────────
 
     @property
