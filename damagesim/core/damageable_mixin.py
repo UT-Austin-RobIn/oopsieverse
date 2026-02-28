@@ -133,27 +133,6 @@ class DamageableMixin:
             return 100.0
         return min(self.link_healths.values())
 
-    @property
-    def health_percentage(self) -> float:
-        """Health as a percentage (0-100)."""
-        return self.health
-
-    @property
-    def damage_status(self) -> str:
-        """Categorical damage status based on health thresholds."""
-        h = self.health
-        thresholds = self.damage_params.get("health_thresholds", [90.0, 60.0, 30.0])
-        minor, major, critical = thresholds
-        if h <= 0.0:
-            return "destroyed"
-        if h <= critical:
-            return "critical"
-        if h <= major:
-            return "major"
-        if h <= minor:
-            return "minor"
-        return "none"
-
     def is_destroyed(self) -> bool:
         return self.health <= 0.0
 
@@ -237,30 +216,3 @@ class DamageableMixin:
         """Reset all part healths to 100."""
         for part_name in list(self.link_healths.keys()):
             self.link_healths[part_name] = 100.0
-
-    # ── Observation / state dicts ───────────────────────────────────────
-
-    def get_obs_dict(self) -> dict:
-        return {
-            "health": self.health,
-            "health_percentage": self.health_percentage,
-            "damage_status": self.damage_status,
-            "damage_info": self.damage_info,
-        }
-
-    def get_health_state(self) -> dict:
-        """Full health snapshot for visualization components."""
-        raw_force = 0.0
-        for ev in self.damage_evaluators:
-            if hasattr(ev, "get_current_raw_force"):
-                raw_force = max(raw_force, ev.get_current_raw_force())
-        return {
-            "health": self.health,
-            "health_percentage": self.health_percentage,
-            "damage_status": self.damage_status,
-            "link_healths": dict(self.link_healths),
-            "damage_info": self.damage_info,
-            "is_destroyed": self.is_destroyed(),
-            "raw_force": raw_force,
-        }
-

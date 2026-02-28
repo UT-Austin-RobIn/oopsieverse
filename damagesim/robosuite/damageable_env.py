@@ -280,7 +280,7 @@ class RSDamageableEnvironment(DamageableEnvironment):
                     obj.sim = self.sim
                 if control_freq is not None:
                     obj.control_freq = control_freq
-                obj._initialize_health()
+                obj.initialize_health()
                 obj._initialize_damage_evaluators()
 
     def initialize_damageable_objects(self):
@@ -358,28 +358,33 @@ class RSDamageableEnvironment(DamageableEnvironment):
                 obj._initialize_damage_evaluators()
                 self.damage_evaluators_initialized = True
                 db = None
-                if obj_name and obj_name in OBJECT_PARAMS and "damageable_bodies" in OBJECT_PARAMS[obj_name]:
-                    db = OBJECT_PARAMS[obj_name]["damageable_bodies"]
-                obj.set_damageable_bodies(db)
-                obj._initialize_health()
+                if obj_name and obj_name in OBJECT_PARAMS and "damageable_links" in OBJECT_PARAMS[obj_name]:
+                    db = OBJECT_PARAMS[obj_name]["damageable_links"]
+                obj.set_damageable_links(db)
+                obj.initialize_health()
             else:
                 obj.set_track_damage(False)
 
     # ── Observation processing ──────────────────────────────────────────
 
     def _process_obs(self, obs):
-        obs["health"] = []
-        for obj in self._get_all_objects():
-            if hasattr(obj, "track_damage") and obj.track_damage:
-                for bn, h in obj.part_healths.items():
-                    obs["health"].append(h)
-        obs["health"] = np.array(obs["health"], dtype=np.float32)
+        self._append_health_to_obs(obs)
 
         obs["object_health_states"] = {}
         obs["robot_health_states"] = {}
         for obj in self._get_all_objects():
             if isinstance(obj, DamageableMixin) and obj.track_damage:
-                hs = obj.get_health_state()
+                raw_force = 0.0
+                for ev in obj.damage_evaluators:
+                    if hasattr(ev, "get_current_raw_force"):
+                        raw_force = max(raw_force, ev.get_current_raw_force())
+                hs = {
+                    "health": obj.health,
+                    "link_healths": dict(obj.link_healths),
+                    "damage_info": obj.damage_info,
+                    "is_destroyed": obj.is_destroyed(),
+                    "raw_force": raw_force,
+                }
                 is_robot = (
                     (hasattr(self, "robots") and obj in self.robots)
                     or hasattr(obj, "robot_type")
@@ -517,7 +522,7 @@ class RSDamageableEnvironment(DamageableEnvironment):
         health_list = []
         for obj in self._get_all_objects():
             if isinstance(obj, DamageableMixin) and obj.track_damage:
-                for bn in obj.part_healths:
+                for bn in obj.link_healths:
                     health_list.append(f"{obj.name}@{bn}")
         self.health_list_link_names = health_list
 
@@ -562,7 +567,7 @@ class RSDamageableEnvironment(DamageableEnvironment):
     def initialize_env_health(self):
         for obj in self._get_all_objects():
             if isinstance(obj, DamageableMixin) and obj.track_damage:
-                obj._initialize_health()
+                obj.initialize_health()
 
     def lock_health_changes(self):
         self.lock_health = True
