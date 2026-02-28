@@ -32,15 +32,22 @@ def _find_bash():
             return str(candidate)
     return None
 
-def create_conda_env():
-    """Create a new conda environment if it doesn't exist yet."""
+def _conda_env_exists():
+    """Return True if the oopsieverse conda environment already exists."""
     try:
         envs = subprocess.check_output("conda env list", shell=True, text=True)
-        if ENV_NAME in envs:
-            print(f"[INFO] Conda env '{ENV_NAME}' already exists.")
-            return
+        for line in envs.splitlines():
+            if line.split() and line.split()[0] == ENV_NAME:
+                return True
     except Exception:
         pass
+    return False
+
+def create_conda_env():
+    """Create a new conda environment if it doesn't exist yet."""
+    if _conda_env_exists():
+        print(f"[INFO] Conda env '{ENV_NAME}' already exists.")
+        return
 
     print(f"[INFO] Creating new conda env '{ENV_NAME}' with Python {PYTHON_VERSION}...")
     run(f"conda create -y -n {ENV_NAME} python={PYTHON_VERSION}")
@@ -154,6 +161,13 @@ if __name__ == "__main__":
 
     if not args.behavior1k and not args.robocasa:
         print("[WARNING] No submodule selected. Use --behavior1k, --robocasa, or both.")
+        exit(1)
+
+    # Ensure the conda env exists before trying to install anything into it
+    if not _conda_env_exists():
+        print(f"[ERROR] Conda environment '{ENV_NAME}' does not exist.")
+        print(f"[ERROR] Re-run with --new_env to create it:")
+        print(f"[ERROR]   python install.py --new_env --robocasa")
         exit(1)
 
     if args.behavior1k:
