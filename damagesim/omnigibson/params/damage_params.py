@@ -8,6 +8,7 @@ which evaluators are active and their tuning constants.
 from damagesim.omnigibson.evaluators import DAMAGE_EVALUATORS  # noqa: F401
 
 DAMAGEABLE_OBJECTS = {
+    "track_everything": False,
     "default": {
         "categories": ["agent"],
         "names": [],

@@ -24,6 +24,8 @@ try:
     from omnigibson.envs.data_wrapper import DataPlaybackWrapper, DataCollectionWrapper
     from omnigibson.objects import REGISTERED_OBJECTS
     from omnigibson.robots import REGISTERED_ROBOTS
+    from omnigibson.scenes import REGISTERED_SCENES
+    from omnigibson.utils.python_utils import create_class_from_registry_and_config
 except ImportError:
     th = None
     og = None
@@ -32,6 +34,8 @@ except ImportError:
     DataCollectionWrapper = object
     REGISTERED_OBJECTS = {}
     REGISTERED_ROBOTS = {}
+    REGISTERED_SCENES = {}
+    create_class_from_registry_and_config = None
 
 from damagesim.core.damageable_env import DamageableEnvironment
 from damagesim.omnigibson.damageable_mixin import (
@@ -80,8 +84,12 @@ def create_damageable_object_from_config(cls_name, cls_registry, cfg, cls_type_d
     damageable_cls = DAMAGEABLE_OBJECT_MAPPING.get(base_cls.__name__)
     cls_to_use = damageable_cls if damageable_cls is not None else base_cls
 
+    # Use OG base class for signature so required args (name, category, etc.) are forwarded
+    sig_cls = base_cls.__bases__[1] if (
+        len(base_cls.__bases__) >= 2 and base_cls.__name__.startswith("Damageable")
+    ) else base_cls
     cls_kwargs = {}
-    for k in inspect.signature(base_cls.__init__).parameters:
+    for k in inspect.signature(sig_cls.__init__).parameters:
         if k != "self" and k in cfg:
             cls_kwargs[k] = cfg[k]
 
@@ -135,6 +143,33 @@ class OGDamageableEnvironment(DamageableEnvironment, Environment):
         og.sim.play()
 
         self.initialize_damageable_objects()
+
+    def _load_scene(self):
+        """Load the scene so that scene-file objects are created as damageable classes."""
+        assert og.sim.is_stopped(), "Simulator must be stopped before loading scene!"
+
+        global _BEHAVIOR_DAMAGEABLE_PATCHED
+        if not _BEHAVIOR_DAMAGEABLE_PATCHED:
+            for cname, dcls in {
+                "DatasetObject": DamageableDatasetObject,
+                "PrimitiveObject": DamageablePrimitiveObject,
+                "USDObject": DamageableUSDObject,
+                "ControllableObject": DamageableControllableObject,
+                "LightObject": DamageableLightObject,
+                "StatefulObject": DamageableStatefulObject,
+            }.items():
+                if cname in REGISTERED_OBJECTS:
+                    REGISTERED_OBJECTS[cname] = dcls
+            _BEHAVIOR_DAMAGEABLE_PATCHED = True
+
+        self._scene = create_class_from_registry_and_config(
+            cls_name=self.scene_config["type"],
+            cls_registry=REGISTERED_SCENES,
+            cfg=self.scene_config,
+            cls_type_descriptor="scene",
+        )
+        og.sim.import_scene(self._scene)
+        assert og.sim.is_stopped(), "Simulator must be stopped after loading scene!"
 
     def _load_robots(self):
         if len(self.scene.robots) == 0:
