@@ -1,5 +1,6 @@
 import subprocess
 import platform
+import shutil
 from pathlib import Path
 import argparse
 
@@ -8,13 +9,31 @@ ROOT.mkdir(exist_ok=True)
 
 ENV_NAME = "oopsieverse"
 PYTHON_VERSION = "3.10"
+IS_WINDOWS = platform.system() == "Windows"
 
 def run(cmd, cwd=None):
     print(f"[RUN] {cmd}")
     subprocess.check_call(cmd, shell=True, cwd=cwd)
 
+def conda_run(cmd, cwd=None):
+    """Run a command inside the conda environment."""
+    run(f"conda run --no-capture-output -n {ENV_NAME} {cmd}", cwd=cwd)
+
+def _find_bash():
+    """Locate a bash executable on Windows."""
+    bash = shutil.which("bash")
+    if bash:
+        return bash
+    for candidate in [
+        Path(r"C:\Program Files\Git\bin\bash.exe"),
+        Path(r"C:\Program Files (x86)\Git\bin\bash.exe"),
+    ]:
+        if candidate.exists():
+            return str(candidate)
+    return None
+
 def create_conda_env():
-    """Create a new conda environment if it doesn't exist yet"""
+    """Create a new conda environment if it doesn't exist yet."""
     try:
         envs = subprocess.check_output("conda env list", shell=True, text=True)
         if ENV_NAME in envs:
@@ -37,11 +56,22 @@ def install_behavior1k():
         run(f"git clone --branch {branch} {url} {repo}")
     else:
         print(f"[INFO] Repository already exists at {repo}, skipping clone.")
+
     print("[INFO] Installing behavior1k...")
-    run(f"conda run --no-capture-output -n {ENV_NAME} bash setup.sh --omnigibson --bddl --dataset", cwd=repo)
+    if IS_WINDOWS:
+        bash = _find_bash()
+        if bash is None:
+            print("[ERROR] bash is required to install behavior1k but was not found.")
+            print("[ERROR] Install Git for Windows (https://git-scm.com) which includes bash,")
+            print("[ERROR] then re-run this script.")
+            exit(1)
+        print(f"[INFO] Using bash at: {bash}")
+        conda_run(f'"{bash}" setup.sh --omnigibson --bddl --dataset', cwd=repo)
+    else:
+        conda_run("bash setup.sh --omnigibson --bddl --dataset", cwd=repo)
 
 def patch_robocasa_numba_pin(rc):
-    """Prevent robocasa strict numba pin, no conflict with version needed by oopsieverse."""
+    """Relax robocasa's strict numba pin, no conflict with the version required by oopsieverse."""
     setup_py = rc / "setup.py"
     text = setup_py.read_text()
     old = '"numba==0.61.2"'
@@ -51,8 +81,9 @@ def patch_robocasa_numba_pin(rc):
         setup_py.write_text(text.replace(old, new))
 
 def patch_robocasa_for_windows(rc):
-    """Patch robocasa files that use Unix-only modules, work on Windows."""
-    if platform.system() != "Windows":
+    """Patch robocasa files that use Unix-only modules so they
+    work on Windows."""
+    if not IS_WINDOWS:
         return
 
     demo = rc / "robocasa" / "demos" / "demo_kitchen_scenes.py"
@@ -102,12 +133,12 @@ def install_robocasa():
     patch_robocasa_for_windows(rc)
 
     print("[INFO] Installing RoboSuite...")
-    run(f"conda run --no-capture-output -n {ENV_NAME} pip install -e .", cwd=rs)
+    conda_run("pip install -e .", cwd=rs)
     print("[INFO] Installing RoboCasa...")
-    run(f"conda run --no-capture-output -n {ENV_NAME} pip install -e .", cwd=rc)
+    conda_run("pip install -e .", cwd=rc)
 
-    run(f"conda run --no-capture-output -n {ENV_NAME} python robocasa/scripts/download_kitchen_assets.py", cwd=rc)
-    run(f"conda run --no-capture-output -n {ENV_NAME} python robocasa/scripts/setup_macros.py", cwd=rc)
+    conda_run("python robocasa/scripts/download_kitchen_assets.py", cwd=rc)
+    conda_run("python robocasa/scripts/setup_macros.py", cwd=rc)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Install OopsieVerse submodules")
