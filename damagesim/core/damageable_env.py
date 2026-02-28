@@ -117,24 +117,27 @@ class DamageableEnvironment:
         damage_trackable_categories: Set[str] = set()
         has_restrictions = False
 
-        default_cfg = self.damage_trackable_objects_config.get("default", {})
-        cats = default_cfg.get("categories", []) or []
-        names = default_cfg.get("names", []) or []
-        damage_trackable_categories.update(cats)
-        damage_trackable_names.update(names)
-        if cats or names:
-            has_restrictions = True
-
-        # Task-specific rules (subclass may set self._task_name or similar)
-        task_name = getattr(self, "task_name", None) or getattr(self, "_task_name", None)
-        if task_name and task_name in self.damage_trackable_objects_config:
-            task_cfg = self.damage_trackable_objects_config[task_name] or {}
-            t_cats = task_cfg.get("categories", []) or []
-            t_names = task_cfg.get("names", []) or []
-            damage_trackable_categories.update(t_cats)
-            damage_trackable_names.update(t_names)
-            if t_cats or t_names:
+        if self.damage_trackable_objects_config.get("track_everything", False):
+            has_restrictions = False
+        else:
+            default_cfg = self.damage_trackable_objects_config.get("default", {})
+            cats = default_cfg.get("categories", []) or []
+            names = default_cfg.get("names", []) or []
+            damage_trackable_categories.update(cats)
+            damage_trackable_names.update(names)
+            if cats or names:
                 has_restrictions = True
+
+            # Task-specific rules (subclass may set self._task_name or similar)
+            task_name = getattr(self, "task_name", None) or getattr(self, "_task_name", None)
+            if task_name and task_name in self.damage_trackable_objects_config:
+                task_cfg = self.damage_trackable_objects_config[task_name] or {}
+                t_cats = task_cfg.get("categories", []) or []
+                t_names = task_cfg.get("names", []) or []
+                damage_trackable_categories.update(t_cats)
+                damage_trackable_names.update(t_names)
+                if t_cats or t_names:
+                    has_restrictions = True
 
         for obj in self._get_all_objects():
             if not isinstance(obj, DamageableMixin):
