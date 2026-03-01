@@ -11,54 +11,17 @@ from damagesim.robosuite.evaluators import DAMAGE_EVALUATORS  # noqa: F401
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# Robot parameters
+# Damageable object tracking config
 # ═══════════════════════════════════════════════════════════════════════
 
-ROBOT_PARAMS = {
+DAMAGEABLE_OBJECTS = {
     "default": {
-        "damage_evaluators": ["mechanical"],
-        "damageable_bodies": [],
-        "mechanical": {
-            "impact_damage_sensitivity": 0.01,
-            "qs_damage_sensitivity": 1.0,
-            "damage_threshold": 30.0,
-            "damage_scale": 0.1,
-        },
+        "categories": ["agent"],
+        "names": [],
     },
-    "PandaOmron": {
-        "damage_evaluators": ["mechanical"],
-        "damageable_bodies": [],
-        "mechanical": {
-            "impact_damage_sensitivity": 0.01,
-            "qs_damage_sensitivity": 1.0,
-            "damage_threshold": 30.0,
-            "damage_scale": 0.1,
-            "link_config_overrides": {
-                "gripper": {
-                    "impact_damage_sensitivity": 0.005,
-                    "qs_damage_sensitivity": 0.5,
-                    "damage_threshold": 1000.0,
-                    "damage_scale": 0.1,
-                },
-                "link0": {
-                    "impact_damage_sensitivity": 0.0,
-                    "qs_damage_sensitivity": 0.0,
-                    "damage_threshold": 1000.0,
-                },
-                "hand": {
-                    "impact_damage_sensitivity": 0.005,
-                    "qs_damage_sensitivity": 0.5,
-                    "damage_threshold": 1000.0,
-                    "damage_scale": 0.1,
-                },
-                "link": {
-                    "impact_damage_sensitivity": 0.01,
-                    "qs_damage_sensitivity": 0.5,
-                    "damage_threshold": 1000.0,
-                    "damage_scale": 0.1,
-                },
-            },
-        },
+    "pick_egg": {
+        "categories": ["agent"],
+        "names": ["egg"],
     },
 }
 
@@ -83,10 +46,10 @@ OBJECT_PARAMS = {
         },
     },
 
-    # ── Robots (also in OBJECT_PARAMS for precedence) ──
+    # ── Robots ──
     "PandaOmron": {
         "damage_evaluators": ["mechanical"],
-        "damageable_bodies": [
+        "damageable_links": [
             "robot0_link0", "robot0_link1", "robot0_link2",
             "robot0_link3", "robot0_link4", "robot0_link5",
             "robot0_link6", "robot0_link7", "robot0_right_hand",
