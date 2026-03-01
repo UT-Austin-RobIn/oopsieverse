@@ -304,7 +304,7 @@ class OGDamageableEnvironment(DamageableEnvironment, Environment):
         else:
             health_arr = np.asarray(health_arr)
         link_healths = {}
-        for idx, name in enumerate(self.health_list_part_names):
+        for idx, name in enumerate(self.health_list_link_names):
             if idx < len(health_arr):
                 link_healths[name] = health_arr[idx]
         current = {}
@@ -343,7 +343,10 @@ class OGDamageableDataCollectionWrapper(DataCollectionWrapper):
 
     @property
     def health_list_part_names(self):
-        return getattr(self.env, "health_list_part_names", None)
+        return getattr(
+            self.env, "health_list_part_names",
+            getattr(self.env, "health_list_link_names", None),
+        )
 
     def process_traj_to_hdf5(self, traj_data, traj_grp_name,
                               nested_keys=("obs",), data_grp=None):

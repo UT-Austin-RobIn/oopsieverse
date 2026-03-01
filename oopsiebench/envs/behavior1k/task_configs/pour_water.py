@@ -134,3 +134,4 @@ def get_task_config() -> TaskConfig:
         default_video_dir="resources/videos/pour_water",
     )
 
+
