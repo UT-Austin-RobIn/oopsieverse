@@ -67,7 +67,7 @@ teleop_hdf5_path = f"tests/data/teleop_data/behavior1k/{file_name}"
 original_playback_hdf5_path = f"tests/data/playback_data/behavior1k/{file_name}"
 new_playback_hdf5_path = f"tests/data/tmp/behavior1k/{file_name}"
 
-# run_playback(activity_name, teleop_hdf5_path, new_playback_hdf5_path)
+run_playback(activity_name, teleop_hdf5_path, new_playback_hdf5_path)
 
 # Compare healths between original playback hdf5 and new playback hdf5
 f_original_playback = h5py.File(original_playback_hdf5_path, "r")
