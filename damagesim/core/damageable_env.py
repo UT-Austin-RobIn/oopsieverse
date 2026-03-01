@@ -271,3 +271,7 @@ class DamageableEnvironment:
             if isinstance(obj, DamageableMixin) and obj.track_damage:
                 obj.initialize_health()
 
+    def get_env_health(self) -> dict:
+        """Return the health of the environment."""
+        return {obj.name: obj.health for obj in self._get_all_objects() if isinstance(obj, DamageableMixin) and obj.track_damage}
+
