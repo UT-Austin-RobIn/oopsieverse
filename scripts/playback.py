@@ -213,36 +213,43 @@ def run_playback(args, task_cfg):
     robot_name = task_cfg.robot_name
     robot_type = task_cfg.robot_type
 
-    if args.high_resolution:
-        image_h, image_w = 1280, 1280
-    else:
-        image_h, image_w = 256, 256
+    robot_sensor_config, external_sensors_config = None, None
+    if args.save_images:
+        if args.high_resolution:
+            image_h, image_w = 1280, 1280
+        else:
+            image_h, image_w = 256, 256
 
-    external_sensors_config = build_external_sensors_config(
-        task_cfg, robot_name, robot_type, image_h, image_w,
-    )
+        external_sensors_config = build_external_sensors_config(
+            task_cfg, robot_name, robot_type, image_h, image_w,
+        )
 
-    robot_sensor_config = {
-        "VisionSensor": {
-            "modalities": ["rgb", "seg_instance"],
-            "sensor_kwargs": {
-                "image_height": image_h,
-                "image_width": image_w,
+        robot_sensor_config = {
+            "VisionSensor": {
+                "modalities": ["rgb", "seg_instance"],  # This config applies to these modalities only.
+                "sensor_kwargs": {
+                    "image_height": image_h,
+                    "image_width": image_w,
+                },
             },
-        },
-    }
+        }
 
     # Allow task-specific playback wrapper (e.g. firewood overrides playback_episode)
     wrapper_cls = task_cfg.playback_wrapper_cls or OGDamageableDataPlaybackWrapper
 
+    if args.save_images:
+        robot_obs_modalities = ["proprio", "rgb", "seg_instance"]
+    else:
+        robot_obs_modalities = ["proprio"]
     env = wrapper_cls.create_from_hdf5(
         input_path=args.collect_hdf5_path,
         output_path=args.playback_hdf5_path,
-        robot_obs_modalities=["proprio", "rgb", "seg_instance"],
+        robot_obs_modalities=robot_obs_modalities,
         robot_sensor_config=robot_sensor_config,
         external_sensors_config=external_sensors_config,
         n_render_iterations=1,
         only_successes=False,
+        activity_name=args.activity_name,
     )
 
     # Viewer camera
@@ -258,6 +265,7 @@ def run_playback(args, task_cfg):
         task_cfg.post_playback_env_setup(env)
 
     # Run playback
+    # breakpoint()
     demo_ids = args.demo_ids if args.demo_ids else None
     env.playback_dataset(record_data=True, demo_ids=demo_ids)
     env.save_data()
@@ -413,9 +421,11 @@ def parse_args():
     parser.add_argument("--video_dir", type=str, default=None, help="Directory for saved videos.")
 
     # Playback options
+    parser.add_argument("--activity_name", type=str, default="shelve_item", help="Activity name.", choices=["shelve_item", "add_firewood", "pour_water"])
     parser.add_argument("--demo_ids", nargs="*", type=int, default=None, help="Specific demo IDs to playback.")
     parser.add_argument("--high_resolution", action="store_true", help="Use 1280×1280 images.")
     parser.add_argument("--camera_name", type=str, default="external_sensor0", help="Camera for visualisation.")
+    parser.add_argument("--save_images", action="store_true", help="Save images from playback.")
 
     return parser.parse_args()
 
