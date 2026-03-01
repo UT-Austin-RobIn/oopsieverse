@@ -129,6 +129,8 @@ class DamageableMixin:
     @property
     def health(self) -> float:
         """Minimum health across all tracked parts (100 = full)."""
+        if not self.link_healths:
+            return 100.0
         return min(self.link_healths.values())
 
     def is_destroyed(self) -> bool:
@@ -214,30 +216,3 @@ class DamageableMixin:
         """Reset all part healths to 100."""
         for part_name in list(self.link_healths.keys()):
             self.link_healths[part_name] = 100.0
-
-    # ── Observation / state dicts ───────────────────────────────────────
-
-    def get_obs_dict(self) -> dict:
-        return {
-            "health": self.health,
-            "health_percentage": self.health_percentage,
-            "damage_status": self.damage_status,
-            "damage_info": self.damage_info,
-        }
-
-    def get_health_state(self) -> dict:
-        """Full health snapshot for visualization components."""
-        raw_force = 0.0
-        for ev in self.damage_evaluators:
-            if hasattr(ev, "get_current_raw_force"):
-                raw_force = max(raw_force, ev.get_current_raw_force())
-        return {
-            "health": self.health,
-            "health_percentage": self.health_percentage,
-            "damage_status": self.damage_status,
-            "link_healths": dict(self.link_healths),
-            "damage_info": self.damage_info,
-            "is_destroyed": self.is_destroyed(),
-            "raw_force": raw_force,
-        }
-

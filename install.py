@@ -88,8 +88,7 @@ def patch_robocasa_numba_pin(rc):
         setup_py.write_text(text.replace(old, new))
 
 def patch_robocasa_for_windows(rc):
-    """Patch robocasa files that use Unix-only modules so they
-    work on Windows."""
+    """Patch robocasa files that use Unix-only modules so they work on Windows."""
     if not IS_WINDOWS:
         return
 

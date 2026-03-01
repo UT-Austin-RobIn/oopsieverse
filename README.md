@@ -10,5 +10,13 @@ OopsieVerse provides a damage-aware, simulator-agnostic framework and benchmark 
 2. Run the installer with `python install.py --new_env` and the simulators you need `--robocasa` or `--behavior1k`
 3. `conda activate oopsieverse`
 4. `pip install -e .`
-5. Test OG installation: `python -m omnigibson.examples.robots.all_robots_visualizer`
-6. Test RoboCasa installation: `python -m robocasa.demos.demo_kitchen_scenes`
+5. test OG installation by: `python -m omnigibson.examples.robots.all_robots_visualizer`
+6. test Robocasa installation by: `python -m robocasa.demos.demo_kitchen_scenes`
+
+# Commands
+
+1. playback
+
+```bash
+python scripts/playback.py --task_name shelve_item --playback --collect_hdf5_path /mnt/ssd/safe-manipulation-benchmark/resources/teleop_data/shelve_item/trial_1.hdf5 --playback_hdf5_path resources/playback_data/temp.hdf5 --demo_ids 0
+```
