@@ -6,7 +6,7 @@ OopsieVerse provides a damage-aware, simulator-agnostic framework and benchmark 
 
 1. Clone and enter the repository:
    - **Linux / macOS**: `git clone https://github.com/UT-Austin-RobIn/oopsieverse.git && cd oopsieverse`
-   - **Windows (PowerShell)**: `git clone https://github.com/UT-Austin-RobIn/oopsieverse.git; cd oopsieverse`
+   - **Windows**: `git clone https://github.com/UT-Austin-RobIn/oopsieverse.git; cd oopsieverse`
 2. Run the installer with `python install.py --new_env` and the simulators you need `--robocasa` or `--behavior1k`
 3. `conda activate oopsieverse`
 4. `pip install -e .`
