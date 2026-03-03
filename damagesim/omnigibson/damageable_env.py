@@ -531,12 +531,43 @@ class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
             **kwargs,
         )
 
+    def playback_dataset(
+        self, record_data=False, demo_ids=None, save_images=True
+    ):
+        """
+        Playback all episodes from the input HDF5 file, and optionally record observation data if @record is True
+
+        Args:
+            record_data (bool): Whether to record data during playback or not
+            video_writers (None or list of imageio.Writer): If specified, writer object that RGB frames will be written to
+            demo_ids (None or list of int): If specified, a list of episode IDs to playback. If None, all episodes will be played
+            save_images (bool): If True, save images to the output hdf5 file
+        """
+        results = []
+        if demo_ids is None:
+            for episode_id in range(self.input_hdf5["data"].attrs["n_episodes"]):
+                results.append(
+                    self.playback_episode(
+                        episode_id=episode_id,
+                        record_data=record_data,
+                        save_images=save_images,
+                    )
+                )
+        else:
+            for episode_id in demo_ids:
+                results.append(
+                    self.playback_episode(
+                        episode_id=episode_id,
+                        record_data=record_data,
+                        save_images=save_images,
+                    )
+                )
+        return results
+    
     def playback_episode(self,
                          episode_id,
                          record_data=True,
-                         video_writers=None,
-                         callback=None,
-                         replay_for_annotation=False,
+                         save_images=True,
                          break_after_n_steps=100):
         """
         Playback episode @episode_id, and optionally record observation data if @record is True.
@@ -548,9 +579,8 @@ class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
             episode_id (int): Episode to playback. This should be a valid demo ID number from the inputted collected
                 data hdf5 file
             record_data (bool): Whether to record data during playback or not
-            video_writers (Any): Optional video writers to record the playback
-            replay_for_annotation (bool): If True, replay the dataset to break after X steps to note down the MP_end_step and subtask_term_step for each subtask
-            break_after_n_steps (int): Number of steps to break after when replay_for_annotation is True
+            save_images (bool): If True, save images to the output hdf5 file
+            break_after_n_steps (int): Number of steps to break after when save_images is True
         """
         import h5py
         import json
@@ -648,18 +678,12 @@ class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
         saved_state_size = int(state_size[0])
         self._load_state_with_size_fallback(state[0], saved_state_size)
         for _ in range(10): og.sim.step()
-        if callback is not None:
-            result.append(callback(action=action[0]))
 
         # We need to step the environment to get the initial observations propagated
         first_time_load_n_iteration = 10
         self.current_obs, _, _, _, init_info = self.env.step(
             action=action[0], n_render_iterations=self.n_render_iterations + first_time_load_n_iteration, playback=True, init_skip_steps=self.init_skip_steps
         )
-        # # Skipping adding to hdf5 here cause for some reason the initial state is not correct. The initial obs is added later
-        # # so this logic is kept intact.
-        # step_data = {"obs": self._process_obs(obs=self.current_obs, info=init_info)}
-        # self.current_traj_history.append(step_data)
 
         print("After reset health: ", self.current_obs["health"])
         # breakpoint()
@@ -692,15 +716,9 @@ class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
                     elif self.task.activity_name == "clean_a_trumpet":
                         scrub = self.scene.object_registry("name", "scrub_brush_86")
                         print(f"healths: scrub {scrub.health}, robot {robot.health}")
-
-            if replay_for_annotation:
-                if i % break_after_n_steps == 0:
-                    # Note: You can use the following to step the rendering in OG: for _ in range(500): og.sim.render()
-                    # And then you can click on objects in the viewer to get the OG specific name of the object
-                    breakpoint()
         
             # # For debugging
-            # if i > 10:
+            # if i > 20:
             #     break
 
             if i == self.init_skip_steps:
@@ -712,13 +730,22 @@ class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
                                 evaluator.update_link_positions_and_velocities()
             
             if i == self.init_skip_steps + 1:
-                step_data = {"obs": self._process_obs(obs=self.current_obs, info=info)}
+                # Save the initial obs
+                obs_data = self._process_obs(obs=self.current_obs, info=info)
+                if not save_images:
+                    obs_data_modified = dict()
+                    for key in obs_data:
+                        if key.endswith("rgb") or key.endswith("depth") or key.endswith("seg_instance") or key.endswith("seg_semantic"):
+                            continue
+                    step_data = {"obs": obs_data_modified}
+                else:
+                    step_data = {"obs": obs_data}
+
                 # Overwrite the health and damage info with the datacollection values
                 if datacollection_health is not None:
                     step_data["obs"]["health"] = datacollection_health[i]
                 self.current_traj_history.append(step_data)
                 print("After first computation of health: ", self.current_obs["health"])
-                # breakpoint()
 
             # Execute any transitions that should occur at this current step
             # print("Action", a)
@@ -745,8 +772,6 @@ class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
             if not og.sim.is_playing():
                 og.sim.play()
             self._load_state_with_size_fallback(s, int(ss))
-            if callback is not None:
-                result.append(callback(action=a))
 
             # Restore the sim state, and take a very small step with the action to make sure physics are
             # properly propagated after the sim state update
@@ -767,6 +792,9 @@ class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
             self.current_obs, _, _, _, info = self.env.step(action=a, n_render_iterations=self.n_render_iterations, episode_step_count=i, playback=True, init_skip_steps=self.init_skip_steps)
             # If recording, record data
             if record_data and i > self.init_skip_steps:
+                # for link_name in info["damage_info"]["franka0"]:
+                #     print("damage: ", link_name, info["damage_info"]["franka0"][link_name]["mechanical"]["damage"], info["damage_info"]["franka0"][link_name]["thermal"]["damage"])
+                # print("temperature: ", info["damage_info"]["franka0"]["panda_link6"]["thermal"]["temperature"])
                 step_data = self._parse_step_data(
                     action=a,
                     obs=self.current_obs,
@@ -776,14 +804,15 @@ class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
                     info=info,
                     datacollection_health=datacollection_health[i] if datacollection_health is not None else None,
                     datacollection_damage_info=datacollection_damage_info[i] if datacollection_damage_info is not None else None,
+                    save_images=save_images,
                 )
                 if self.flush_every_n_steps > 0:
                     if i == 0:
                         self.current_traj_grp, self.traj_dsets = self.allocate_traj_to_hdf5(
-                            step_data, f"demo_{episode_id}", num_samples=len(action), video_writers=video_writers
+                            step_data, f"demo_{episode_id}", num_samples=len(action)
                         )
                     if i % self.flush_every_n_steps == 0:
-                        self.flush_partial_traj(num_samples=len(action), video_writers=video_writers)
+                        self.flush_partial_traj(num_samples=len(action))
                 # append to current trajectory history
                 self.current_traj_history.append(step_data)
 
@@ -792,15 +821,27 @@ class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
 
         if record_data:
             if self.flush_every_n_steps > 0:
-                self.flush_partial_traj(num_samples=len(action), video_writers=video_writers)
+                self.flush_partial_traj(num_samples=len(action))
             self.flush_current_traj(traj_grp_name=f"demo_{episode_id}")
 
+        print("Final health: ", self.current_obs["health"])
+        
         return result
 
-    def _parse_step_data(self, action, obs, reward, terminated, truncated, info, datacollection_health=None, datacollection_damage_info=None):
+    def _parse_step_data(self, action, obs, reward, terminated, truncated, info, datacollection_health=None, datacollection_damage_info=None, save_images=True):
         # Store action, obs, reward, terminated, truncated, info
         step_data = dict()
-        step_data["obs"] = self._process_obs(obs=obs, info=info)
+        obs_data = self._process_obs(obs=obs, info=info)
+        if not save_images:
+            obs_data_modified = dict()
+            for key in obs_data:
+                if key.endswith("rgb") or key.endswith("depth") or key.endswith("seg_instance") or key.endswith("seg_semantic"):
+                    continue
+                else:
+                    obs_data_modified[key] = obs_data[key]
+            step_data["obs"] = obs_data_modified
+        else:
+            step_data["obs"] = obs_data
         step_data["action"] = action
         step_data["reward"] = reward
         step_data["terminated"] = terminated

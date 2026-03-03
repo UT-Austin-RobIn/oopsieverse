@@ -15,6 +15,7 @@ from typing import Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
+import matplotlib.animation as animation
 
 try:
     import matplotlib
@@ -420,4 +421,109 @@ def save_rgb_health_video_with_overlay(
 
     # Delegate to camera video saver (AVI → MP4)
     save_rgb_camera_video(output_video_path, np.array(processed_imgs), fps=fps)
+
+def save_rgb_force_video(
+    output_video_path,
+    imgs,
+    target_objects,
+    data,
+    forces_to_plot=("dynamic_forces", "static_forces", "raw_forces_from_sim"),
+    fps=30,
+):
+    T = len(data[target_objects[0]][forces_to_plot[0]])
+
+    # ---------------------------
+    # FIGURE: 1 row, 2 columns
+    # ---------------------------
+    fig = plt.figure(figsize=(14, 6))
+    gs = fig.add_gridspec(1, 2, width_ratios=[1, 1.2])
+
+    # ---------------------------
+    # LEFT: RGB VIDEO
+    # ---------------------------
+    ax_video = fig.add_subplot(gs[0, 0])
+    ax_video.axis("off")
+    video_im = ax_video.imshow(imgs[0][:, :, :3])
+
+    # ---------------------------
+    # RIGHT: FORCE PLOT
+    # ---------------------------
+    ax_force = fig.add_subplot(gs[0, 1])
+    ax_force.set_title("Force History")
+    ax_force.set_xlabel("Time (s)")
+    ax_force.set_ylabel("End-effector Force (N)")
+    ax_force.set_xlim(0, T / fps)
+    ax_force.set_ylim(0, 500.0)
+    ax_force.grid(True)
+
+    force_lines = {}
+
+    for obj_name in target_objects:
+        for force_key in forces_to_plot:
+            force_lines[f"{obj_name}_{force_key}"], = ax_force.plot(
+                [],
+                [],
+                lw=2,
+                label=f"{obj_name} {force_key}",
+            )
+
+    ax_force.legend(loc="upper right", fontsize=9)
+
+    fig.subplots_adjust(left=0.05, right=0.97, wspace=0.25)
+
+    # Precompute time axis
+    time = [i / fps for i in range(T)]
+
+    # ---------------------------
+    # INIT
+    # ---------------------------
+    def init():
+        video_im.set_data(imgs[0][:, :, :3])
+        for line in force_lines.values():
+            line.set_data([], [])
+        return [video_im] + list(force_lines.values())
+
+    # ---------------------------
+    # ANIMATE
+    # ---------------------------
+    def animate(i):
+        # RGB frame
+        video_im.set_data(imgs[i][:, :, :3])
+
+        # Force plot
+        for obj_name in target_objects:
+            for force_key in forces_to_plot:
+                force_lines[f"{obj_name}_{force_key}"].set_data(
+                    time[: i + 1],
+                    data[obj_name][force_key][: i + 1],
+                )
+
+        return [video_im] + list(force_lines.values())
+
+    # ---------------------------
+    # SAVE
+    # ---------------------------
+    ani = animation.FuncAnimation(
+        fig,
+        animate,
+        init_func=init,
+        frames=T,
+        interval=1000 / fps,
+        blit=True,
+    )
+
+    writer = animation.FFMpegWriter(
+        fps=fps,
+        codec="libx264",
+        extra_args=[
+            "-pix_fmt", "yuv420p",
+            "-movflags", "+faststart",
+            "-loglevel", "error",
+            "-hide_banner",
+            "-nostats",
+        ],
+    )
+
+    ani.save(output_video_path, writer=writer)
+    plt.close(fig)
 
