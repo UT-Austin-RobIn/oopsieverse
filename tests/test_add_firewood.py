@@ -26,7 +26,7 @@ def run_playback(activity_name, teleop_hdf5_path, new_playback_hdf5_path):
         only_successes=False,
         activity_name=activity_name,
     )
-    env.playback_dataset(record_data=True)
+    env.playback_dataset(record_data=True, save_images=False)
     env.save_data()
 
 def parse_args():
@@ -37,8 +37,8 @@ args = parse_args()
 
 # loop over all hdf5 files in the current directory
 # print(file)
-activity_name = "shelve_item"
-file_name = f"{activity_name}_safe.hdf5"
+activity_name = "add_firewood"
+file_name = f"{activity_name}_unsafe.hdf5"
 teleop_hdf5_path = f"tests/data/teleop_data/behavior1k/{file_name}"
 original_playback_hdf5_path = f"tests/data/playback_data/behavior1k/{file_name}"
 new_playback_hdf5_path = f"tests/data/tmp/behavior1k/{file_name}"
@@ -48,6 +48,7 @@ run_playback(activity_name, teleop_hdf5_path, new_playback_hdf5_path)
 # Compare healths between original playback hdf5 and new playback hdf5
 f_original_playback = h5py.File(original_playback_hdf5_path, "r")
 f_new_playback = h5py.File(new_playback_hdf5_path, "r")
+breakpoint()
 for demo_key in sorted(f_original_playback["data"].keys()):
     demo_idx = int(demo_key.split("_")[-1])
     print(f"Comparing episode {demo_idx} …")

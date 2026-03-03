@@ -4,17 +4,25 @@ Unified playback & visualisation script for OmniGibson damage-tracking tasks.
 
 Usage examples
 --------------
+python scripts/playback.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
+     --playback_hdf5_path resources/playback_data/shelve_item_safe.hdf5 
+
 # Playback shelve_item demos and save observations + health to a new HDF5
-python scripts/playback.py --task_name shelve_item --playback
+python scripts/playback.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
+     --playback_hdf5_path resources/playback_data/shelve_item_safe.hdf5 --playback
 
 # Visualise health-overlay videos from an already-played-back HDF5
-python scripts/playback.py --task_name shelve_item --visualize
+python scripts/playback.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
+     --playback_hdf5_path resources/playback_data/shelve_item_safe.hdf5 --visualize
 
 # Compute per-object health metrics
-python scripts/playback.py --task_name shelve_item --compute_metrics
+python scripts/playback.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
+     --playback_hdf5_path resources/playback_data/shelve_item_safe.hdf5 --compute_metrics
 
-# High-res playback with specific demo IDs
-python scripts/playback.py --task_name shelve_item --playback --high_resolution --demo_ids 0 1 2
+You can also use the 3 flags at the same time
+
+# Low-res playback
+python scripts/playback.py --task_name shelve_item --playback --low_resolution
 
 Supported task names
 --------------------
@@ -37,6 +45,14 @@ from typing import Dict, List, Optional
 import cv2
 import h5py
 import numpy as np
+import torch as th
+
+import omnigibson as og
+from omnigibson.macros import gm
+
+from damagesim.omnigibson.damageable_env import (
+    OGDamageableDataPlaybackWrapper,
+)
 
 # ── Task-config registry ────────────────────────────────────────────────
 
@@ -139,6 +155,28 @@ def extract_health_from_hdf5(
 
     return health
 
+def extract_forces_from_hdf5(
+    f: h5py.File,
+    demo_key: str,
+    target_objects_forces: List[str],
+    force_keys: List[str],
+):
+    """
+    Read per-link forces from the HDF5 and aggregate per-object (min across links).
+    """
+    forces: Dict[str, Dict[str, List[float]]] = dict()
+    for obj_name in target_objects_forces:
+        forces[obj_name] = dict()
+        for force_key in force_keys:
+            forces[obj_name][force_key] = []
+    for i in range(len(f[f"data/{demo_key}/info/damage_info"])):
+        damage_info = json.loads(f[f"data/{demo_key}/info/damage_info"][i].decode("utf-8"))
+        for obj_name in target_objects_forces:
+            for force_key in force_keys:
+                forces[obj_name][force_key].append(damage_info[obj_name.split("@")[0]][obj_name.split("@")[1]]["mechanical"][force_key])
+    return forces
+
+
 
 def overlay_health_on_frames(
     f: h5py.File,
@@ -199,13 +237,7 @@ def overlay_health_on_frames(
 
 def run_playback(args, task_cfg):
     """Create an OG env from HDF5 and replay demonstrations."""
-    import torch as th
-    import omnigibson as og
-    from omnigibson.macros import gm
 
-    from damagesim.omnigibson.damageable_env import (
-        OGDamageableDataPlaybackWrapper,
-    )
 
     gm.USE_GPU_DYNAMICS = task_cfg.use_gpu_dynamics
     gm.ENABLE_TRANSITION_RULES = task_cfg.enable_transition_rules
@@ -214,8 +246,8 @@ def run_playback(args, task_cfg):
     robot_type = task_cfg.robot_type
 
     robot_sensor_config, external_sensors_config = None, None
-    if args.save_images:
-        if args.high_resolution:
+    if not args.skip_save_images:
+        if not args.low_resolution:
             image_h, image_w = 1280, 1280
         else:
             image_h, image_w = 256, 256
@@ -237,7 +269,7 @@ def run_playback(args, task_cfg):
     # Allow task-specific playback wrapper (e.g. firewood overrides playback_episode)
     wrapper_cls = task_cfg.playback_wrapper_cls or OGDamageableDataPlaybackWrapper
 
-    if args.save_images:
+    if not args.skip_save_images:
         robot_obs_modalities = ["proprio", "rgb", "seg_instance"]
     else:
         robot_obs_modalities = ["proprio"]
@@ -270,7 +302,6 @@ def run_playback(args, task_cfg):
     env.playback_dataset(record_data=True, demo_ids=demo_ids)
     env.save_data()
 
-    og.shutdown()
     print(f"Playback complete.  Output → {args.playback_hdf5_path}")
 
 
@@ -283,6 +314,7 @@ def run_visualize(args, task_cfg):
     from damagesim.utils.visualization import (  # noqa: F401 – lazy import
         save_rgb_camera_video,
         save_rgb_health_video_with_overlay,
+        save_rgb_force_video,
     )
 
     f = h5py.File(args.playback_hdf5_path, "r")
@@ -304,6 +336,12 @@ def run_visualize(args, task_cfg):
             task_cfg.target_objects_health_with_links,
             task_cfg.target_objects_health,
         )
+        forces = extract_forces_from_hdf5(
+            f,
+            demo_key,
+            task_cfg.target_objects_forces,
+            task_cfg.force_keys,
+        )
 
         imgs = overlay_health_on_frames(
             f,
@@ -314,9 +352,9 @@ def run_visualize(args, task_cfg):
             health,
         )
 
-        # Plain camera video (with health tint)
-        cam_path = os.path.join(output_dir, f"demo_{demo_idx}_camera_video.mp4")
-        save_rgb_camera_video(output_video_path=cam_path, imgs=imgs, fps=30)
+        # # Plain camera video (with health tint)
+        # cam_path = os.path.join(output_dir, f"demo_{demo_idx}_camera_video.mp4")
+        # save_rgb_camera_video(output_video_path=cam_path, imgs=imgs, fps=30)
 
         # Health overlay bars
         overlay_path = os.path.join(
@@ -331,6 +369,17 @@ def run_visualize(args, task_cfg):
             n_columns=3,
             fps=30,
         )
+
+        # Save videos for forces plot
+        forces_video_path = os.path.join(output_dir, f"demo_{demo_idx}_forces_video.mp4")
+        save_rgb_force_video(
+            output_video_path=forces_video_path,
+            imgs=imgs,
+            target_objects=task_cfg.target_objects_forces,
+            data=forces, 
+            forces_to_plot=task_cfg.force_keys
+        )
+
 
     f.close()
     print(f"Videos saved to {output_dir}")
@@ -375,7 +424,7 @@ def run_compute_metrics(args, task_cfg):
 
     # Summary
     print("\n" + "=" * 60)
-    print("METRICS SUMMARY")
+    print("METRICS SUMMARY (over all episodes)")
     print("=" * 60)
     for obj_name, vals in final_obj_healths.items():
         print(f"  {obj_name:30s}  avg = {np.mean(vals):.2f}")
@@ -423,9 +472,9 @@ def parse_args():
     # Playback options
     parser.add_argument("--activity_name", type=str, default="shelve_item", help="Activity name.", choices=["shelve_item", "add_firewood", "pour_water"])
     parser.add_argument("--demo_ids", nargs="*", type=int, default=None, help="Specific demo IDs to playback.")
-    parser.add_argument("--high_resolution", action="store_true", help="Use 1280×1280 images.")
+    parser.add_argument("--low_resolution", action="store_true", help="Use 256×256 images.")
     parser.add_argument("--camera_name", type=str, default="external_sensor0", help="Camera for visualisation.")
-    parser.add_argument("--save_images", action="store_true", help="Save images from playback.")
+    parser.add_argument("--skip_save_images", action="store_true", help="Save images from playback.")
 
     return parser.parse_args()
 
@@ -454,6 +503,8 @@ def main():
 
     if args.compute_metrics:
         run_compute_metrics(args, task_cfg)
+
+    og.shutdown()
 
 
 if __name__ == "__main__":

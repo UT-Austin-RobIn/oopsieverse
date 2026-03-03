@@ -15,4 +15,5 @@ build/
 
 # Other custom files/folders
 resources/
+tmp/
 

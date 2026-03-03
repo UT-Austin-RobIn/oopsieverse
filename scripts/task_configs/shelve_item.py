@@ -171,7 +171,7 @@ def get_task_config() -> TaskConfig:
             "wineglass@base_link",
             "bottle_of_beer@base_link",
         ],
-        force_keys=["filtered_qs_forces"],
+        force_keys=["filtered_qs_forces", "impact_forces"],
         target_contact_bodies=["stand"],
 
         # Default paths
