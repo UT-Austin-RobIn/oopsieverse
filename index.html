@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OopsieVerse: A Safety Benchmark with Damage-Aware Simulation for Robot Manipulation</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Noto Sans', sans-serif; background: #fff; }
+    .hero, .section { background: #fff !important; }
+    .section.abstract-section { background: #f5f5f5 !important; }
+    .publication-title { font-family: 'Noto Sans', sans-serif; font-weight: 600; }
+    .publication-subtitle { font-family: 'Noto Sans', sans-serif; font-weight: 400; font-size: 1.5rem; color: #363636; }
+    .publication-authors { font-family: 'Noto Sans', sans-serif; font-size: 1.1rem; }
+    .publication-venue { color: #555; font-weight: 600; width: fit-content; }
+    .hero.teaser .hero-body { padding-top: 0; padding-bottom: 3rem; }
+    .hero.teaser video { width: 100%; height: auto; border-radius: 10px; }
+    .section .title { font-weight: 600; }
+    .section .title.is-2 { font-size: 2rem; }
+    .video-section { padding: 2rem 0; }
+    .video-section video { width: 100%; height: auto; border-radius: 10px; }
+    .content-row { margin-bottom: 3rem; }
+    .content-row video, .content-row img { width: 100%; height: auto; border-radius: 10px; border: 1px solid #ddd; margin: 0.5%; }
+    .content-row .column { display: flex; align-items: center; }
+    .content-row img { display: block; border: none; box-shadow: none; object-fit: contain; }
+    .damagesim-caption { text-align: center; font-weight: 600; margin-top: 0.5rem; font-size: 0.95rem; }
+    .section[id] { scroll-margin-top: 4.5rem; }
+
+    /* Top navbar */
+    body { padding-top: 3.5rem; }
+    .navbar.is-fixed-top { box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+
+    /* DamageSim: three damage types row (larger videos) */
+    .damagesim-types-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.5rem;
+      margin-top: 2rem;
+    }
+    .damagesim-types-row video {
+      width: 100%;
+      height: auto;
+      border-radius: 10px;
+      border: 1px solid #ddd;
+      display: block;
+    }
+    .damagesim-types-row .damagesim-caption { margin-top: 0.5rem; }
+    .damagesim-fig-caption {
+      margin-top: 0.75rem;
+      /* font-size: 0.9rem; */
+      line-height: 1.55;
+      color: #363636;
+      max-width: 960px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .damagesim-fig-caption strong { font-weight: 700; }
+    .damagesim-sim-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.5rem;
+      margin-top: 2.5rem;
+    }
+    .damagesim-sim-label {
+      text-align: center;
+      font-weight: 700;
+      font-size: 1.05rem;
+      margin-bottom: 0.5rem;
+    }
+    .damagesim-sim-row video {
+      width: 100%;
+      height: auto;
+      border-radius: 10px;
+      border: 1px solid #ddd;
+      display: block;
+    }
+    .damagesim-sim-caption {
+      margin-top: 1rem;
+      /* text-align: center; */
+      /* font-size: 0.95rem; */
+      line-height: 1.5;
+      color: #363636;
+      grid-column: 1 / -1;
+    }
+    @media (max-width: 768px) {
+      .damagesim-types-row { grid-template-columns: 1fr; }
+      .damagesim-sim-row { grid-template-columns: 1fr; }
+    }
+
+    /* Use-cases: tabbed panels */
+    .usecase-tabs { margin-top: 1rem; }
+    .usecase-panel { display: none; margin-top: 1.5rem; }
+    .usecase-panel.is-active { display: block; }
+    .usecase-subtitle { text-align: center; margin-bottom: 0.75rem; }
+
+    /* Use-case tabs: clearer active state */
+    .usecase-tabs-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1rem;
+    }
+    .usecase-tabs-wrapper .tabs { margin-top: 0; margin-bottom: 0; }
+    .usecase-tabs-wrapper .tabs ul { border-bottom: none; }
+    .usecase-tabs li.is-active a {
+      font-weight: 700;
+      color: #fff !important;
+      background-color: #3273dc !important;
+      border-color: #3273dc !important;
+    }
+    .usecase-tabs li a {
+      font-weight: 500;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .usecase-content-wrapper {
+      margin-top: 1.5rem;
+    }
+    .usecase-content-inner {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .usecase-nav {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+      padding: 0.75rem 0;
+    }
+    .usecase-nav .carousel-btn {
+      padding: 0.75rem 1.5rem;
+      font-size: 1.1rem;
+      min-width: 140px;
+    }
+    .usecase-nav .carousel-btn .arrow { font-size: 1.4rem; }
+
+    /* Carousel */
+    .carousel-wrapper { position: relative; overflow: hidden; }
+    .carousel-viewport { overflow: hidden; width: 100%; }
+    .carousel-track {
+      display: flex;
+      transition: transform 0.4s ease;
+    }
+    .carousel-col {
+      min-width: calc(100% / 3);
+      flex: 0 0 calc(100% / 3);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 0 0.4rem;
+      box-sizing: border-box;
+    }
+    .carousel-cell {
+      text-align: center;
+    }
+    .carousel-cell .video-box {
+      width: 100%;
+      padding-top: 100%; /* 1:1 aspect ratio */
+      position: relative;
+      overflow: hidden;
+      border-radius: 10px;
+      border: 1px solid #ddd;
+    }
+    .carousel-cell .video-box video {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .carousel-cell p {
+      margin-top: 0.4rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #363636;
+    }
+    .carousel-nav {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 1.5rem;
+      margin-top: 1.25rem;
+      padding: 0.75rem 0;
+    }
+    .carousel-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1.25rem;
+      font-size: 1rem;
+      font-weight: 600;
+      font-family: inherit;
+      color: #fff;
+      background: #363636;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      min-width: 120px;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .carousel-btn:hover { background: #505050; }
+    .carousel-btn:active { transform: scale(0.98); }
+    .carousel-btn .arrow { font-size: 1.25rem; line-height: 1; }
+
+    /* OopsieBench: 3x5 grid, small tiles, hover to expand and show task name */
+    .oopsiebench-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-rows: repeat(3, auto);
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+    .oopsiebench-tile {
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+      transition: transform 0.25s ease, z-index 0s;
+      cursor: pointer;
+    }
+    .oopsiebench-tile:hover {
+      transform: scale(1.5);
+      z-index: 5;
+    }
+    .oopsiebench-tile .video-box {
+      width: 100%;
+      padding-top: 100%;
+      position: relative;
+      overflow: hidden;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      background: #000;
+    }
+    .oopsiebench-tile .video-box video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .oopsiebench-tile .oopsiebench-label {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 0.4rem 0.5rem;
+      background: rgba(0,0,0,0.75);
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+    }
+    .oopsiebench-tile:hover .oopsiebench-label {
+      opacity: 1;
+    }
+
+    .oopsiebench-hint {
+      margin-top: 0.75rem;
+      text-align: center;
+      font-size: 0.95rem;
+      color: #6b6b6b;
+    }
+
+    /* OopsieBench fullscreen modal */
+    .oopsiebench-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      background: rgba(0,0,0,0.85);
+      cursor: pointer;
+    }
+    .oopsiebench-modal.is-active {
+      display: flex;
+    }
+    .oopsiebench-modal-content {
+      position: relative;
+      max-width: 90vw;
+      max-height: 85vh;
+      cursor: default;
+    }
+    .oopsiebench-modal-content video {
+      display: block;
+      width: 100%;
+      max-height: 80vh;
+      border-radius: 10px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    .oopsiebench-modal-caption {
+      margin-top: 0.75rem;
+      text-align: center;
+      font-weight: 600;
+      font-size: 1.1rem;
+      color: #fff;
+    }
+    .oopsiebench-modal-close {
+      position: absolute;
+      top: -12px;
+      right: -12px;
+      width: 40px;
+      height: 40px;
+      border: none;
+      border-radius: 50%;
+      background: #fff;
+      color: #333;
+      font-size: 1.5rem;
+      line-height: 1;
+      cursor: pointer;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: background 0.15s ease;
+    }
+    .oopsiebench-modal-close:hover {
+      background: #f0f0f0;
+    }
+
+    /* VLA evals: 2x4 grid */
+    .vla-video-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    .vla-video-grid .carousel-cell { margin: 0; }
+
+    /* VLA per-tile mini-carousel controls */
+    .vla-mini-btn {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.25);
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      font-size: 1.25rem;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.1s ease;
+      z-index: 2;
+    }
+    .vla-mini-btn:hover { background: rgba(0,0,0,0.7); }
+    .vla-mini-btn:active { transform: translateY(-50%) scale(0.98); }
+    .vla-mini-btn.prev { left: 8px; }
+    .vla-mini-btn.next { right: 8px; }
+    .vla-mini-indicator {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 2px 10px;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 600;
+      z-index: 2;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    /* IL unsafe/safe grid */
+    .il-video-grid {
+      display: flex;
+      justify-content: center;
+      gap: 1.25rem;
+      margin-top: 1.75rem;
+      flex-wrap: wrap;
+    }
+    .il-task-col {
+      flex: 0 1 18%;
+      text-align: center;
+    }
+    .il-task-label {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
+    }
+    .il-video-grid .video-row {
+      margin-bottom: 0.75rem;
+    }
+    .il-video-grid .video-box {
+      position: relative;
+      width: 100%;
+      padding-top: 100%;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      background: #000;
+    }
+    .il-video-grid .video-box video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Sim2Real 2x2 collage */
+    .sim2real-video-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.25rem;
+      margin-top: 1.5rem;
+    }
+    .sim2real-video-grid .video-box {
+      position: relative;
+      width: 100%;
+      padding-top: 100%;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      background: #000;
+    }
+    .sim2real-video-grid .video-box video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .sim2real-caption {
+      margin-top: 0.5rem;
+      font-weight: 600;
+      text-align: center;
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 1023px) {
+      .vla-video-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .il-task-col { flex: 0 1 45%; }
+      .oopsiebench-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (max-width: 600px) {
+      .vla-video-grid { grid-template-columns: 1fr; }
+      .il-task-col { flex: 0 1 100%; }
+      .oopsiebench-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    .content.has-text-justified p { line-height: 1.6; }
+    video { outline: none; }
+    .footer { padding: 3rem 1.5rem; background: #fff !important; }
+    .footer .content p { font-size: 0.9rem; color: #666; }
+    /* Hide volume controls but keep timeline */
+    video::-webkit-media-controls-volume-slider { display: none !important; }
+    video::-webkit-media-controls-mute-button { display: none !important; }
+    video::-webkit-media-controls-timeline { display: flex !important; }
+    video::-webkit-media-controls-play-button { display: flex !important; }
+    video::-webkit-media-controls-current-time-display { display: flex !important; }
+    video::-webkit-media-controls-time-remaining-display { display: flex !important; }
+    video::-webkit-media-controls-fullscreen-button { display: flex !important; }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar is-fixed-top is-white" role="navigation" aria-label="main navigation">
+    <div class="container is-max-desktop">
+      <div class="navbar-brand">
+        <a class="navbar-item" href="#top" style="font-weight: 700;">OopsieVerse</a>
+        <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="mainNavbarMenu">
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
+        </a>
+      </div>
+      <div id="mainNavbarMenu" class="navbar-menu">
+        <div class="navbar-end">
+          <a class="navbar-item" href="#damagesim">DamageSim</a>
+          <a class="navbar-item" href="#oopsiebench">OopsieBench</a>
+          <a class="navbar-item" href="#use-cases">OopsieVerse Use Cases</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <section class="hero" id="top">
+    <div class="hero-body">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column has-text-centered">
+            <h1 class="title is-1 publication-title">OopsieVerse:</h1>
+            <h2 class="subtitle is-2 publication-subtitle">A Safety Benchmark with Damage-Aware Simulation for Robot Manipulation</h2>
+            <div class="is-size-5 publication-authors">
+              <span class="author-block">Paper-ID 1018</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Teaser video -->
+  <section class="hero teaser">
+    <div class="container is-max-desktop">
+      <div class="hero-body">
+        <video id="teaser" autoplay controls muted loop playsinline>
+          <source src="static/videos/oopsieverse_pull.mp4" type="video/mp4">
+        </video>
+      </div>
+    </div>
+  </section>
+
+  <!-- Paper abstract -->
+  <section class="section abstract-section">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered has-text-centered">
+        <div class="column is-four-fifths">
+          <h2 class="title is-3" style="text-align: center;">Abstract</h2>
+          <div class="content has-text-justified" style="margin-top: 1rem;">
+            <p>
+              While robotic manipulation capabilities have advanced rapidly, physical safety remains a major barrier to deploying household robots: task success is insufficient if the robot damages itself or its surroundings. Simulation offers a harm-free alternative to costly and dangerous real-world training and evaluation, yet existing simulators lack general mechanisms to detect, quantify, and represent damage. To address this gap, we introduce OopsieVerse, a unified simulation framework and benchmark for damage-aware household manipulation. At a theoretical level, OopsieVerse augments an existing Markov Decision Problem with additional damage-related observations, rewards and/or termination conditions based on user preferences. OopsieVerse provides damage as an explicit, physically-grounded, and task-agnostic signal by converting sources such as contact forces, temperature changes, and liquid interactions into corresponding mechanical, thermal or fluid damage. OopsieVerse comprises two core elements: (1) DamageSim, a simulator-agnostic framework for detecting and quantifying damage during navigation and manipulation, and (2) a suite of household tasks designed to evaluate common damage modes and distinguish between task completion and safe execution. We demonstrate the generality of our framework by instantiating DamageSim in two simulators with different physics backends, BEHAVIOR-1k (Nvidia Omniverse) and RoboCasa (MuJoCo). We further showcase the utility of OopsieVerse across multiple use cases, including (1) guiding safer demonstration collection via real- time damage feedback, (2) learning safer manipulation policies through damage-conditioned imitation learning and reinforcement learning, (3) benchmarking the safety of state-of-the-art Vision Language Action policies, and (4) improving real-world safety of sim-to-real transferred policies. Together, our results highlight the potential of OopsieVerse as an open-source foundation for systematic, scalable research on safe robot manipulation.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DamageSim -->
+  <section class="section" id="damagesim">
+    <div class="container is-max-desktop">
+      <h2 class="title is-2" style="text-align: center; margin-bottom: 0.5rem;">DamageSim</h2>
+      <div class="columns is-centered">
+        <div class="column is-five-fifths">
+          <div class="content has-text-justified" style="margin-top: 1rem;">
+            <p>DamageSim is our simulator-agnostic plugin that makes physical safety measurable 
+              by tracking object-centric “health.” It monitors simulator signals—such as contact 
+              forces, temperature, and liquid exposure—and converts them into mechanical 
+              (e.g., impact or compression), thermal, and fluid damage, which can be used as 
+              observations, rewards, or termination conditions. 
+              We instantiate it in RoboCasa (MuJoCo) and BEHAVIOR-1K (Omniverse) showcasing its consistency across simulators.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="damagesim-types-row">
+        <div>
+          <video autoplay controls muted loop playsinline>
+            <source src="static/videos/lift_egg.mp4" type="video/mp4">
+          </video>
+          <p class="damagesim-caption">Mechanical Damage</p>
+        </div>
+        <div>
+          <video autoplay controls muted loop playsinline>
+            <source src="static/videos/place_log.mp4" type="video/mp4">
+          </video>
+          <p class="damagesim-caption">Thermal Damage</p>
+        </div>
+        <div>
+          <video autoplay controls muted loop playsinline>
+            <source src="static/videos/pour_water.mp4" type="video/mp4">
+          </video>
+          <p class="damagesim-caption">Fluid Damage</p>
+        </div>
+      </div>
+
+      <div class="columns is-centered" style="margin-top: 2.5rem;">
+        <div class="column is-five-fifths">
+          <p class="damagesim-fig-caption">
+            <strong>Damage-Augmented POMDP Implementation with DamageSim.</strong> Conceptually, our DamageSim plugin (<em>blue</em>) extends an existing POMDP in simulation (<em>green</em>, dotted arrow to agent) by augmenting the state with <em>health</em>. The health state can in turn influence the observations and rewards, and/or provide access to new damage-aware terminal states. DamageSim implements the health state to augment the original POMDP state into a <em>Damage Aware</em> state (s<sup>DA</sup> ∈ S<sup>DA</sup> = S × S<sup>h</sup>) as a per-object physical property, updated at every timestep by a set of <em>damage evaluator models (DEM)</em> that compute mechanical, thermal, and fluid damage (d<sub>DEM</sub>) from simulator state and interactions, reducing per-entity health accordingly. The augmented POMDP provided by DamageSim approximates better the conditions of the real-world task.
+          </p>
+          <br>
+          <img src="static/images/mdp_fig.png" alt="Damage-Augmented POMDP diagram" style="width: 100%; height: auto; border-radius: 10px;" />
+        </div>
+      </div>
+
+      
+      <div class="damagesim-sim-row">
+        <p class="damagesim-sim-caption"><b>DamageSim is simulator-agnostic.</b> we instantiate it in BEHAVIOR-1k (Nvidia Omniverse) 
+          and RoboCasa (MuJoCo) to demonstrate consistent safety measurement across different physics backends.</p>
+        <div>
+          <video autoplay controls muted loop playsinline>
+            <source src="static/videos/open_drawer_health.mp4" type="video/mp4">
+          </video>
+          <p class="damagesim-sim-label">RoboCasa</p>
+        </div>
+        <div>
+          <video autoplay controls muted loop playsinline>
+            <source src="static/videos/shelve_item.mp4" type="video/mp4">
+          </video>
+          <p class="damagesim-sim-label">BEHAVIOR-1k</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- OopsieBench -->
+  <section class="section abstract-section" id="oopsiebench">
+    <div class="container is-max-desktop">
+      <h2 class="title is-2" style="text-align: center; margin-bottom: 0.5rem;">OopsieBench</h2>
+      <div class="columns is-centered" style="margin-top: 1rem;">
+        <div class="column is-five-fifths">
+          <div class="content has-text-justified">
+            <p>OopsieBench is a suite of 32 household tasks in total (15 tasks shown in the grid below; hover a tile to see its name). 
+              The suite is designed to (i) expose policies to realistic, physically damaging failure modes in household manipulation, 
+              and (ii) make safety measurable by contrasting easy but risky strategies with safer ones that require more careful 
+              interaction (e.g., gentler contact, safer approaches, or avoiding hazards). 
+              The benchmark spans diverse scenes, objects, and damage modalities, is cross-platform (BEHAVIOR-1k and RoboCasa), 
+              and includes a dataset of safe and unsafe human teleop demonstrations for five tasks.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="oopsiebench-grid" aria-label="OopsieBench tasks (hover to see task name)">
+        <!-- Row 1: pour water, shelve item, place log, place bowl, open drawer -->
+        <div class="oopsiebench-tile">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/pour_glass_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Pour Glass</span>
+        </div>
+        <div class="oopsiebench-tile">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/ignite_wood_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Ignite Wood</span>
+        </div>
+        <div class="oopsiebench-tile">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/place_log_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Place Log</span>
+        </div>
+        <div class="oopsiebench-tile">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/pick_bowl_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Place Bowl in Sink</span>
+        </div>
+        <div class="oopsiebench-tile">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/open_drawer_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Open Drawer</span>
+        </div>
+        <!-- Row 2: nav to table (leftmost), then rest -->
+        <div class="oopsiebench-tile">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/nav_to_table_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Nav to Table</span>
+        </div>
+        <div class="oopsiebench-tile">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/attach_camera_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Attach Camera</span>
+        </div>
+        <div class="oopsiebench-tile">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/clean_trumpet_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Pick Scrub</span>
+        </div>
+        <div class="oopsiebench-tile">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/shelve_item_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Shelve Item</span>
+        </div>
+        <div class="oopsiebench-tile">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/open_single_door_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Open Single Door</span>
+        </div>
+        <!-- Row 3: lift egg (leftmost), then rest -->
+        <div class="oopsiebench-tile">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/pick_egg_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Lift Egg</span>
+        </div>
+        <div class="oopsiebench-tile">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/place_plate_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Place Plate</span>
+        </div>
+        <div class="oopsiebench-tile">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/place_in_microwave_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Put Cup in Microwave</span>
+        </div>
+        <div class="oopsiebench-tile">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/turn_on_microwave_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Turn on Microwave</span>
+        </div>
+        <div class="oopsiebench-tile">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/wipe_counter_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Wipe Counter</span>
+        </div>
+      </div>
+
+      <p class="oopsiebench-hint">Click a tile to enlarge.</p>
+
+      <div id="oopsiebenchModal" class="oopsiebench-modal" aria-hidden="true">
+        <div class="oopsiebench-modal-content" onclick="event.stopPropagation()">
+          <button type="button" class="oopsiebench-modal-close" id="oopsiebenchModalClose" aria-label="Close">×</button>
+          <video id="oopsiebenchModalVideo" controls muted loop playsinline></video>
+          <p class="oopsiebench-modal-caption" id="oopsiebenchModalCaption"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Experiments / How can OopsieVerse enable safer policy learning and evaluation -->
+  <section class="section" id="use-cases">
+    <div class="container is-max-desktop">
+      <h2 class="title is-2" style="text-align: center; margin-bottom: 1.5rem;">How can OopsieVerse enable safer policy learning and evaluation?</h2>
+
+      <div class="usecase-tabs-wrapper">
+        <div class="tabs is-centered is-boxed usecase-tabs" aria-label="Use case tabs">
+          <ul>
+            <li class="is-active"><a href="javascript:void(0)" data-usecase="safety" aria-controls="usecase-panel-safety">Safety-aware data collection</a></li>
+            <li><a href="javascript:void(0)" data-usecase="il" aria-controls="usecase-panel-il">IL</a></li>
+            <li><a href="javascript:void(0)" data-usecase="rl" aria-controls="usecase-panel-rl">RL</a></li>
+            <li><a href="javascript:void(0)" data-usecase="vla" aria-controls="usecase-panel-vla">VLA evals</a></li>
+            <li><a href="javascript:void(0)" data-usecase="sim2real" aria-controls="usecase-panel-sim2real">Sim2Real</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="usecase-content-wrapper">
+        <div class="usecase-content-inner">
+      <div id="usecase-panel-safety" class="usecase-panel is-active" data-usecase-panel="safety">
+        <!-- <h3 class="title is-4 usecase-subtitle">Safety-aware data collection</h3> -->
+        <div class="content has-text-justified">
+          OopsieVerse can provide real-time safety feedback during data collection, enabling data collectors to collect safer data.
+            This feedback is provided in two ways: (1) damage-based coloration and (2) health bars of tracked objects. 
+            The health bars are particularly helpful when damage occurs outside the current camera view
+            (e.g., the wineglass falling behind the counter).
+        </div> 
+        <div class="columns is-centered" style="margin-top: 1rem;">
+          <div class="column is-full">
+            <video autoplay muted loop playsinline>
+              <source src="static/videos/gui.mp4" type="video/mp4">
+            </video>
+          </div>
+        </div>
+      </div>
+
+      <div id="usecase-panel-il" class="usecase-panel" data-usecase-panel="il">
+        <!-- <h3 class="title is-4 usecase-subtitle">Imitation Learning (IL)</h3> -->
+        <div class="content has-text-justified" style="margin-top: 0.75rem;">
+          Many real-world (or sim-collected) demonstration datasets mix safe and unsafe behavior. Using DamageSim, we can automatically flag trajectories that incur damage and filter them out to construct a dataset of only safe demonstrations. In the videos below, the top row shows an IL policy trained on the full dataset (including unsafe trajectories), while the bottom row shows a policy trained on the filtered safe-only demonstrations.
+        </div>
+        <div class="il-video-grid" aria-label="Imitation Learning unsafe/safe demonstrations">
+          <div class="il-task-col">
+            <p class="il-task-label">Pour Glass</p>
+            <div class="video-row">
+              <div class="video-box">
+                <video autoplay muted playsinline>
+                  <source src="static/il_videos/pour_water_il_unsafe.mp4" type="video/mp4">
+                </video>
+              </div>
+            </div>
+            <div class="video-row">
+              <div class="video-box">
+                <video autoplay muted playsinline>
+                  <source src="static/il_videos/pour_glass_il_safe.mp4" type="video/mp4">
+                </video>
+              </div>
+            </div>
+          </div>
+
+          <div class="il-task-col">
+            <p class="il-task-label">Add Firewood</p>
+            <div class="video-row">
+              <div class="video-box">
+                <video autoplay muted playsinline>
+                  <source src="static/il_videos/place_log_il_unsafe.mp4" type="video/mp4">
+                </video>
+              </div>
+            </div>
+            <div class="video-row">
+              <div class="video-box">
+                <video autoplay muted playsinline>
+                  <source src="static/il_videos/place_log_il_safe.mp4" type="video/mp4">
+                </video>
+              </div>
+            </div>
+          </div>
+
+          <div class="il-task-col">
+            <p class="il-task-label">Lift Egg</p>
+            <div class="video-row">
+              <div class="video-box">
+                <video autoplay muted playsinline>
+                  <source src="static/il_videos/lift_egg_il_unsafe.mp4" type="video/mp4">
+                </video>
+              </div>
+            </div>
+            <div class="video-row">
+              <div class="video-box">
+                <video autoplay muted playsinline>
+                  <source src="static/il_videos/lift_egg_il_safe.mp4" type="video/mp4">
+                </video>
+              </div>
+            </div>
+          </div>
+
+          <div class="il-task-col">
+            <p class="il-task-label">Shelve Item</p>
+            <div class="video-row">
+              <div class="video-box">
+                <video autoplay muted playsinline>
+                  <source src="static/il_videos/shelve_item_il_unsafe.mp4" type="video/mp4">
+                </video>
+              </div>
+            </div>
+            <div class="video-row">
+              <div class="video-box">
+                <video autoplay muted playsinline>
+                  <source src="static/il_videos/shelve_item_il_safe.mp4" type="video/mp4">
+                </video>
+              </div>
+            </div>
+          </div>
+
+          <div class="il-task-col">
+            <p class="il-task-label">Wipe Countertop</p>
+            <div class="video-row">
+              <div class="video-box">
+                <video autoplay muted playsinline>
+                  <source src="static/il_videos/wipe_dirt_il_unsafe.mp4" type="video/mp4">
+                </video>
+              </div>
+            </div>
+            <div class="video-row">
+              <div class="video-box">
+                <video autoplay muted playsinline>
+                  <source src="static/il_videos/wipe_dirt_il_safe.mp4" type="video/mp4">
+                </video>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="columns is-centered content-row" style="margin-top: 1rem;">
+          <div class="column">
+            <img src="static/images/IL_plot.png" alt="Imitation Learning Results" />
+          </div>
+        </div>
+      </div>
+
+      <div id="usecase-panel-rl" class="usecase-panel" data-usecase-panel="rl">
+        <!-- <h3 class="title is-4 usecase-subtitle">Reinforcement Learning (RL)</h3> -->
+        <div class="content has-text-justified" style="margin-top: 0.75rem;">
+          DamageSim lets us turn physically-grounded damage signals into a shaping reward that penalizes harmful interactions. 
+          Combined with the task reward, this yields a learning signal that encourages agents to complete the task while minimizing damage. 
+          We evaluate this idea in three settings: (i) pure RL on the <i>Place Plate</i> task with and without the damage reward (PPO),
+           (ii) behavior cloning on <i>Move Glass of Water</i> task followed by PPO finetuning with the damage reward, 
+           and (iii) fine-tuning a <i>Shelve Item</i> policy—initially trained on the full IL dataset—using an additional damage-reward using <a href="https://diffusion-steering.github.io/">DSRL</a>.
+           The video below shows the training process for (iii), illustrating that over time the agent learns to reduce damage while maintaining high task performance.
+        </div>
+        <div class="columns is-centered content-row" style="margin-top: 1.5rem;">
+          <div class="column">
+            <video autoplay controls muted loop playsinline>
+              <source src="static/videos/rl_video.mp4" type="video/mp4">
+            </video>
+          </div>
+        </div>
+        <div class="columns is-centered content-row" style="margin-top: 1rem;">
+          <div class="column is-two-thirds">
+            <img src="static/images/rl_plot.png" alt="Reinforcement Learning Results" />
+          </div>
+        </div>
+      </div>
+
+      <div id="usecase-panel-vla" class="usecase-panel" data-usecase-panel="vla">
+        <div class="content has-text-justified" style="margin-top: 0.75rem;">
+          We evaluate the safety of modern manipulation policies by benchmarking <a href="https://github.com/NVIDIA/Isaac-GR00T">GR00T</a>, a state-of-the-art Vision-Language-Action model
+          from NVIDIA. Even when GR00T achieves high task success, it frequently causes damage, resulting in much lower safe success 
+          rates and degraded environment health. This underscores the limits of evaluating VLAs solely by task completion and highlights
+          the need for benchmarks and learning signals that explicitly account for harmful interactions.          
+        </div>
+        
+        <div class="vla-video-grid">
+          <div class="carousel-cell vla-mini-carousel" data-sources="static/vla_evals/attach_camera_1.mp4|static/vla_evals/attach_camera_1.mp4|static/vla_evals/attach_camera_1.mp4" data-index="0">
+            <div class="video-box">
+              <video autoplay muted loop playsinline><source src="static/vla_evals/attach_camera_1.mp4" type="video/mp4"></video>
+              <!-- <button type="button" class="vla-mini-btn prev" data-mini-shift="-1" aria-label="Previous eval">&#8249;</button>
+              <button type="button" class="vla-mini-btn next" data-mini-shift="1" aria-label="Next eval">&#8250;</button>
+              <div class="vla-mini-indicator" aria-hidden="true">1 / 3</div> -->
+            </div>
+            <p>Attach Camera</p>
+          </div>
+
+          <div class="carousel-cell vla-mini-carousel" data-sources="static/vla_evals/open_microwave_door.mp4|static/vla_evals/vla_eval3.mp4|static/vla_evals/vla_eval4.mp4" data-index="0">
+            <div class="video-box">
+              <video autoplay muted loop playsinline><source src="static/vla_evals/open_microwave_door.mp4" type="video/mp4"></video>
+              <!-- <button type="button" class="vla-mini-btn prev" data-mini-shift="-1" aria-label="Previous eval">&#8249;</button>
+              <button type="button" class="vla-mini-btn next" data-mini-shift="1" aria-label="Next eval">&#8250;</button>
+              <div class="vla-mini-indicator" aria-hidden="true">1 / 3</div> -->
+            </div>
+            <p>Open Microwave Door</p>
+          </div>
+
+          <div class="carousel-cell vla-mini-carousel" data-sources="static/vla_evals/pick_scrub.mp4|static/vla_evals/vla_eval4.mp4|static/vla_evals/vla_eval5.mp4" data-index="0">
+            <div class="video-box">
+              <video autoplay muted loop playsinline><source src="static/vla_evals/pick_scrub.mp4" type="video/mp4"></video>
+              <!-- <button type="button" class="vla-mini-btn prev" data-mini-shift="-1" aria-label="Previous eval">&#8249;</button>
+              <button type="button" class="vla-mini-btn next" data-mini-shift="1" aria-label="Next eval">&#8250;</button>
+              <div class="vla-mini-indicator" aria-hidden="true">1 / 3</div> -->
+            </div>
+            <p>Pick up Scrubber</p>
+          </div>
+
+          <div class="carousel-cell vla-mini-carousel" data-sources="static/vla_evals/ignite_wood.mp4|static/vla_evals/vla_eval5.mp4|static/vla_evals/vla_eval6.mp4" data-index="0">
+            <div class="video-box">
+              <video autoplay muted loop playsinline><source src="static/vla_evals/ignite_wood.mp4" type="video/mp4"></video>
+              <!-- <button type="button" class="vla-mini-btn prev" data-mini-shift="-1" aria-label="Previous eval">&#8249;</button>
+              <button type="button" class="vla-mini-btn next" data-mini-shift="1" aria-label="Next eval">&#8250;</button>
+              <div class="vla-mini-indicator" aria-hidden="true">1 / 3</div> -->
+            </div>
+            <p>Ignite Wood</p>
+          </div>
+
+          <div class="carousel-cell vla-mini-carousel" data-sources="static/vla_evals/open_single_door_unsafe.mp4|static/vla_evals/vla_eval6.mp4|static/vla_evals/vla_eval1.mp4" data-index="0">
+            <div class="video-box">
+              <video autoplay muted loop playsinline><source src="static/vla_evals/open_single_door_unsafe.mp4" type="video/mp4"></video>
+                <button type="button" class="vla-mini-btn prev" data-mini-shift="-1" aria-label="Previous eval">&#8249;</button>
+                <button type="button" class="vla-mini-btn next" data-mini-shift="1" aria-label="Next eval">&#8250;</button>
+                <div class="vla-mini-indicator" aria-hidden="true">1 / 3</div>
+            </div>
+            <p>Open Single Door</p>
+          </div>
+
+          <div class="carousel-cell vla-mini-carousel" data-sources="static/vla_evals/toggle_on_microwave.mp4" data-index="0">
+            <div class="video-box">
+              <video autoplay muted loop playsinline><source src="static/vla_evals/toggle_on_microwave.mp4" type="video/mp4"></video>
+              <!-- <button type="button" class="vla-mini-btn prev" data-mini-shift="-1" aria-label="Previous eval">&#8249;</button>
+              <button type="button" class="vla-mini-btn next" data-mini-shift="1" aria-label="Next eval">&#8250;</button>
+              <div class="vla-mini-indicator" aria-hidden="true">1 / 3</div> -->
+            </div>
+            <p>Turn on Microwave</p>
+          </div>
+
+          <div class="carousel-cell vla-mini-carousel" data-sources="static/vla_evals/counter_to_microwave.mp4|static/vla_evals/vla_eval3.mp4|static/vla_evals/vla_eval5.mp4" data-index="0">
+            <div class="video-box">
+              <video autoplay muted loop playsinline><source src="static/vla_evals/counter_to_microwave.mp4" type="video/mp4"></video>
+              <!-- <button type="button" class="vla-mini-btn prev" data-mini-shift="-1" aria-label="Previous eval">&#8249;</button>
+              <button type="button" class="vla-mini-btn next" data-mini-shift="1" aria-label="Next eval">&#8250;</button>
+              <div class="vla-mini-indicator" aria-hidden="true">1 / 3</div> -->
+            </div>
+            <p>Counter to Microwave</p>
+          </div>
+
+          <div class="carousel-cell vla-mini-carousel" data-sources="static/vla_evals/turn_on_stove.mp4|static/vla_evals/vla_eval4.mp4|static/vla_evals/vla_eval6.mp4" data-index="0">
+            <div class="video-box">
+              <video autoplay muted loop playsinline><source src="static/vla_evals/turn_on_stove.mp4" type="video/mp4"></video>
+              <!-- <button type="button" class="vla-mini-btn prev" data-mini-shift="-1" aria-label="Previous eval">&#8249;</button>
+              <button type="button" class="vla-mini-btn next" data-mini-shift="1" aria-label="Next eval">&#8250;</button>
+              <div class="vla-mini-indicator" aria-hidden="true">1 / 3</div> -->
+            </div>
+            <p>Turn on Stove</p>
+          </div>
+        </div>
+        <div class="columns is-centered" style="margin-top: 1rem;">
+          <div class="column is-four-fifths">
+            <img src="static/images/vla_results.png" alt="VLA Evaluation Results" style="width: 100%; height: auto; border-radius: 10px;" />
+          </div>
+        </div>
+      </div>
+
+      <div id="usecase-panel-sim2real" class="usecase-panel" data-usecase-panel="sim2real">
+        <!-- <h3 class="title is-4 usecase-subtitle">Sim2Real</h3> -->
+        <div class="content has-text-justified" style="margin-top: 0.75rem;">
+          Our ultimate goal is safe real-world robot behavior, so we test whether policies trained with OopsieVerse transfer safely to real world.
+          Compared to a baseline IL policy trained on all data, a damage-aware IL policy trained on health-filtered episodes behaves 
+          more cautiously in the <i>Pour Water</i> and <i>Shelve Cereal Box</i> tasks. It goes futher away from the laptop when pouring water 
+          and learns to make space for the cereal box by pushing non-fragile objects like the crackers box instead of fragile objects 
+          like glass bottles. Our experiments suggest that explicit damage signals obtained via OopsieVerse can translate into improved safety on hardware.
+        </div>
+        <div class="sim2real-video-grid" aria-label="Sim2Real real-world evaluations">
+          <div>
+            <div class="video-box">
+              <video autoplay muted playsinline>
+                <source src="static/sim2real_videos/pour_water_real_world_unsafe.mp4" type="video/mp4">
+              </video>
+            </div>
+            <p class="sim2real-caption">Pour Water (Safe + Unsafe Data)</p>
+          </div>
+          <div>
+            <div class="video-box">
+              <video autoplay muted playsinline>
+                <source src="static/sim2real_videos/pour_water_real_world_safe.mp4" type="video/mp4">
+              </video>
+            </div>
+            <p class="sim2real-caption">Pour Water (Safety-filtered Data)</p>
+          </div>
+          <div>
+            <div class="video-box">
+              <video autoplay muted playsinline>
+                <source src="static/sim2real_videos/shelve_item_real_unsafe.mp4" type="video/mp4">
+              </video>
+            </div>
+            <p class="sim2real-caption">Shelve Cereal Box (Safe + Unsafe Data)</p>
+          </div>
+          <div>
+            <div class="video-box">
+              <video autoplay muted playsinline>
+                <source src="static/sim2real_videos/shelve_item_real_safe.mp4" type="video/mp4">
+              </video>
+            </div>
+            <p class="sim2real-caption">Shelve Cereal Box (Safety-filtered Data)</p>
+          </div>
+        </div>
+      </div>
+        </div>
+      </div>
+      <div class="usecase-nav">
+        <button type="button" id="usecaseArrowPrev" class="carousel-btn" aria-label="Previous section"><span class="arrow">&#8249;</span> Previous</button>
+        <button type="button" id="usecaseArrowNext" class="carousel-btn" aria-label="Next section">Next <span class="arrow">&#8250;</span></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- <footer class="footer">
+    <div class="container">
+      <div class="columns is-centered">
+        <div class="column is-8">
+          <div class="content">
+            <p>
+              This page was built using the <a href="https://github.com/eliahuhorwitz/Academic-project-page-template" target="_blank">Academic Project Page Template</a>, adopted from the <a href="https://nerfies.github.io" target="_blank">Nerfies</a> project page and styled after <a href="https://robin-lab.cs.utexas.edu/SafeMimic/" target="_blank">SafeMimic</a>.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer> -->
+
+  <script>
+    // Carousel logic – start in middle so user can scroll left or right equally
+    var totalCols = 5;
+    var visibleCols = 3;
+    var maxPos = totalCols - visibleCols;
+    var carouselPos = 0; // start from beginning
+
+    function recomputeCarouselBounds() {
+      var track = document.getElementById('carouselTrack');
+      if (!track) return;
+      var cols = track.querySelectorAll(':scope > .carousel-col').length;
+      if (cols) totalCols = cols;
+      maxPos = Math.max(0, totalCols - visibleCols);
+      carouselPos = Math.max(0, Math.min(maxPos, carouselPos));
+    }
+
+    function updateCarouselButtons() {
+      var prevBtn = document.getElementById('carouselBtnPrev');
+      var nextBtn = document.getElementById('carouselBtnNext');
+      if (prevBtn) prevBtn.style.display = carouselPos <= 0 ? 'none' : 'inline-flex';
+      if (nextBtn) nextBtn.style.display = carouselPos >= maxPos ? 'none' : 'inline-flex';
+    }
+
+    function carouselShift(dir) {
+      var track = document.getElementById('carouselTrack');
+      if (!track) return;
+      carouselPos = Math.max(0, Math.min(maxPos, carouselPos + dir));
+      var shiftPct = carouselPos * (100 / visibleCols);
+      track.style.transform = 'translateX(-' + shiftPct + '%)';
+      updateCarouselButtons();
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      recomputeCarouselBounds();
+      // Navbar burger (mobile)
+      (function() {
+        var burgers = Array.prototype.slice.call(document.querySelectorAll('.navbar-burger'), 0);
+        burgers.forEach(function(el) {
+          el.addEventListener('click', function() {
+            var targetId = el.dataset.target;
+            var target = document.getElementById(targetId);
+            el.classList.toggle('is-active');
+            if (target) target.classList.toggle('is-active');
+          });
+        });
+      })();
+
+      // OopsieBench: click tile -> fullscreen modal; X or backdrop to close
+      (function() {
+        var modal = document.getElementById('oopsiebenchModal');
+        var modalVideo = document.getElementById('oopsiebenchModalVideo');
+        var modalCaption = document.getElementById('oopsiebenchModalCaption');
+        var modalClose = document.getElementById('oopsiebenchModalClose');
+        var grid = document.querySelector('.oopsiebench-grid');
+        if (!modal || !modalVideo || !modalCaption || !modalClose || !grid) return;
+
+        function closeModal() {
+          modal.classList.remove('is-active');
+          modal.setAttribute('aria-hidden', 'true');
+          modalVideo.pause();
+        }
+
+        grid.addEventListener('click', function(e) {
+          var tile = e.target.closest('.oopsiebench-tile');
+          if (!tile) return;
+          var srcEl = tile.querySelector('video source');
+          var label = tile.querySelector('.oopsiebench-label');
+          if (!srcEl || !srcEl.getAttribute('src')) return;
+          modalVideo.src = srcEl.getAttribute('src');
+          modalCaption.textContent = label ? label.textContent : '';
+          modal.classList.add('is-active');
+          modal.setAttribute('aria-hidden', 'false');
+          modalVideo.load();
+          var p = modalVideo.play();
+          if (p && typeof p.catch === 'function') p.catch(function() {});
+        });
+
+        modalClose.addEventListener('click', closeModal);
+        modal.addEventListener('click', function(e) {
+          if (e.target === modal) closeModal();
+        });
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && modal.classList.contains('is-active')) closeModal();
+        });
+      })();
+
+      var track = document.getElementById('carouselTrack');
+      if (track) {
+        var shiftPct = carouselPos * (100 / visibleCols);
+        track.style.transform = 'translateX(-' + shiftPct + '%)';
+      }
+      updateCarouselButtons();
+
+      // Use-case tabs + arrow nav
+      (function() {
+        var usecaseOrder = ['safety', 'il', 'rl', 'vla', 'sim2real'];
+        var prevBtn = document.getElementById('usecaseArrowPrev');
+        var nextBtn = document.getElementById('usecaseArrowNext');
+
+        function setActiveUsecase(key) {
+          var tabs = Array.prototype.slice.call(document.querySelectorAll('[data-usecase]'), 0);
+          var panels = Array.prototype.slice.call(document.querySelectorAll('[data-usecase-panel]'), 0);
+
+          tabs.forEach(function(a) {
+            var li = a.closest('li');
+            if (!li) return;
+            var isActive = a.dataset.usecase === key;
+            li.classList.toggle('is-active', isActive);
+          });
+
+          panels.forEach(function(p) {
+            p.classList.toggle('is-active', p.dataset.usecasePanel === key);
+          });
+
+          updateUsecaseArrows();
+
+          window.requestAnimationFrame(function() {
+            var track = document.getElementById('carouselTrack');
+            if (track) {
+              var shiftPct = carouselPos * (100 / visibleCols);
+              track.style.transform = 'translateX(-' + shiftPct + '%)';
+              updateCarouselButtons();
+            }
+          });
+        }
+
+        function updateUsecaseArrows() {
+          var activePanel = document.querySelector('.usecase-panel.is-active');
+          var key = activePanel ? activePanel.dataset.usecasePanel : 'safety';
+          var idx = usecaseOrder.indexOf(key);
+          if (idx < 0) idx = 0;
+          if (prevBtn) prevBtn.style.display = idx <= 0 ? 'none' : 'inline-flex';
+          if (nextBtn) nextBtn.style.display = idx >= usecaseOrder.length - 1 ? 'none' : 'inline-flex';
+        }
+
+        var tabLinks = Array.prototype.slice.call(document.querySelectorAll('[data-usecase]'), 0);
+        tabLinks.forEach(function(a) {
+          a.addEventListener('click', function() {
+            setActiveUsecase(a.dataset.usecase);
+          });
+        });
+
+        if (prevBtn) prevBtn.addEventListener('click', function() {
+          var activePanel = document.querySelector('.usecase-panel.is-active');
+          var key = activePanel ? activePanel.dataset.usecasePanel : 'safety';
+          var idx = usecaseOrder.indexOf(key);
+          if (idx > 0) setActiveUsecase(usecaseOrder[idx - 1]);
+        });
+        if (nextBtn) nextBtn.addEventListener('click', function() {
+          var activePanel = document.querySelector('.usecase-panel.is-active');
+          var key = activePanel ? activePanel.dataset.usecasePanel : 'safety';
+          var idx = usecaseOrder.indexOf(key);
+          if (idx >= 0 && idx < usecaseOrder.length - 1) setActiveUsecase(usecaseOrder[idx + 1]);
+        });
+
+        updateUsecaseArrows();
+      })();
+
+      // VLA mini-carousels (each tile cycles through 3 eval clips)
+      (function() {
+        function parseSources(el) {
+          var raw = (el.dataset.sources || '').trim();
+          if (!raw) return [];
+          return raw.split('|').map(function(s) { return s.trim(); }).filter(Boolean);
+        }
+
+        function setTileIndex(el, idx) {
+          var sources = parseSources(el);
+          if (!sources.length) return;
+
+          var n = sources.length;
+          var nextIdx = ((idx % n) + n) % n;
+          el.dataset.index = String(nextIdx);
+
+          var video = el.querySelector('video');
+          var sourceEl = video ? video.querySelector('source') : null;
+          if (!video || !sourceEl) return;
+
+          sourceEl.src = sources[nextIdx];
+          video.load();
+          var p = video.play();
+          if (p && typeof p.catch === 'function') p.catch(function() {});
+
+          var indicator = el.querySelector('.vla-mini-indicator');
+          if (indicator) indicator.textContent = String(nextIdx + 1) + ' / ' + String(n);
+        }
+
+        function shiftTile(el, dir) {
+          var cur = parseInt(el.dataset.index || '0', 10);
+          if (Number.isNaN(cur)) cur = 0;
+          setTileIndex(el, cur + dir);
+        }
+
+        var tiles = Array.prototype.slice.call(document.querySelectorAll('.vla-mini-carousel'), 0);
+        tiles.forEach(function(el) {
+          setTileIndex(el, parseInt(el.dataset.index || '0', 10) || 0);
+          var btns = Array.prototype.slice.call(el.querySelectorAll('[data-mini-shift]'), 0);
+          btns.forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+              e.preventDefault();
+              var dir = parseInt(btn.dataset.miniShift || '0', 10);
+              if (Number.isNaN(dir) || dir === 0) return;
+              shiftTile(el, dir);
+            });
+          });
+        });
+      })();
+
+      // Both videos at 1x speed
+      [ 'teaser', 'safety_aware_data_collection' ].forEach(function(id) {
+        var v = document.getElementById(id);
+        if (v) v.playbackRate = 1;
+      });
+
+      // safety_aware_data_collection: skip last 8s then loop normally
+      (function() {
+        var v = document.getElementById('safety_aware_data_collection');
+        if (!v) return;
+        v.loop = false;
+        v.addEventListener('loadedmetadata', function() {
+          var maxTime = Math.max(0, v.duration - 8);
+          v.addEventListener('timeupdate', function() {
+            if (v.currentTime >= maxTime) {
+              v.currentTime = 0;
+              var p = v.play();
+              if (p && typeof p.catch === 'function') p.catch(function() {});
+            }
+          });
+        });
+      })();
+
+      // IL videos: wait for all 10 to finish, pause 2s, then restart together
+      (function() {
+        var grid = document.querySelector('.il-video-grid');
+        if (!grid) return;
+        var ilVideos = Array.prototype.slice.call(grid.querySelectorAll('video'), 0);
+        if (!ilVideos.length) return;
+
+        var doneFlags = [];
+        var restarting = false;
+
+        ilVideos.forEach(function(v, idx) {
+          doneFlags[idx] = false;
+          v.loop = false;
+
+          v.addEventListener('ended', function() {
+            if (restarting) return;
+            doneFlags[idx] = true;
+
+            var allDone = doneFlags.every(function(d) { return d; });
+            if (allDone && !restarting) {
+              restarting = true;
+              setTimeout(function() {
+                ilVideos.forEach(function(vid, i) {
+                  doneFlags[i] = false;
+                  vid.currentTime = 0;
+                  var p = vid.play();
+                  if (p && typeof p.catch === 'function') p.catch(function() {});
+                });
+                restarting = false;
+              }, 2000);
+            }
+          });
+        });
+      })();
+
+      // Sim2Real videos: wait for all 4 to finish, pause 2s, then restart together
+      (function() {
+        var grid = document.querySelector('.sim2real-video-grid');
+        if (!grid) return;
+        var vids = Array.prototype.slice.call(grid.querySelectorAll('video'), 0);
+        if (!vids.length) return;
+
+        var doneFlags = [];
+        var restarting = false;
+
+        vids.forEach(function(v, idx) {
+          doneFlags[idx] = false;
+          v.loop = false;
+
+          v.addEventListener('ended', function() {
+            if (restarting) return;
+            doneFlags[idx] = true;
+
+            var allDone = doneFlags.every(function(d) { return d; });
+            if (allDone && !restarting) {
+              restarting = true;
+              setTimeout(function() {
+                vids.forEach(function(vid, i) {
+                  doneFlags[i] = false;
+                  vid.currentTime = 0;
+                  var p = vid.play();
+                  if (p && typeof p.catch === 'function') p.catch(function() {});
+                });
+                restarting = false;
+              }, 2000);
+            }
+          });
+        });
+      })();
+    });
+  </script>
+
+</body>
+</html>
