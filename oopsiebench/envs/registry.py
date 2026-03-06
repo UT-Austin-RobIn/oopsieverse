@@ -53,11 +53,20 @@ class EnvironmentRegistry:
 # ---------------------------------------------------------------------------
 
 from envs.robocasa.pick_egg import PickEgg, DamageablePickEgg  # noqa: E402
+from envs.robocasa.pastry_display import PastryDisplay, DamageablePastryDisplay
 
 EnvironmentRegistry.register(
     "pick_egg",
     EnvConfig(
         env_class=PickEgg,
         damageable_class=DamageablePickEgg,
+    ),
+)
+
+EnvironmentRegistry.register(
+    "pastry_display",
+    EnvConfig(
+        env_class=PastryDisplay,
+        damageable_class=DamageablePastryDisplay,
     ),
 )
