@@ -22,7 +22,6 @@ import argparse
 import time
 import random
 import json
-from copy import deepcopy
 
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _project_root)
@@ -130,7 +129,6 @@ class DamageColorManager:
         self._original_colors = {}
         self._previous_healths = {}
         self._destroyed_objects = set()
-        self._colors_initialized = False
 
     def _get_object_geoms(self, obj_name):
         """Get all visual geom IDs for an object."""
@@ -163,7 +161,7 @@ class DamageColorManager:
 
     def initialize_colors(self):
         """Store original colors for all tracked damageable objects."""
-        if self._colors_initialized:
+        if self._original_colors:
             return
 
         for obj in self.env.get_damageable_objects():
@@ -180,11 +178,9 @@ class DamageColorManager:
                 self._original_colors[obj_name][geom_id] = colors
             self._previous_healths[obj_name] = 100.0
 
-        self._colors_initialized = True
-
     def reset(self):
         self._destroyed_objects.clear()
-        self._colors_initialized = False
+        self._original_colors.clear()
         self._previous_healths.clear()
 
     def _apply_damage_color(self, obj_name, alpha):
@@ -207,7 +203,7 @@ class DamageColorManager:
         Args:
             health_states: {obj_name: health_pct (0.0–100.0)} from env.get_env_health()
         """
-        if not self._colors_initialized:
+        if not self._original_colors:
             self.initialize_colors()
 
         events = {'damage_taken': {}, 'destroyed': []}
@@ -257,37 +253,6 @@ class ConsoleHealthDisplay:
         print(f"{'='*50}\n")
 
 
-class HealthBarHUD:
-    """
-    Health bar HUD overlay rendered on a video frame.
-    Delegates to damagesim.utils.visualization.render_health_bar_overlay for rendering.
-    """
-
-    def __init__(self, position="bottom_left", n_columns=1):
-        self.position = position
-        self.n_columns = n_columns
-
-    def render_overlay(self, frame, health_states: dict):
-        """
-        Render health bar HUD overlay on the frame.
-
-        Args:
-            frame: RGB image as numpy array
-            health_states: {obj_name: health_pct (0.0–100.0)} from env.get_env_health()
-        """
-        if not health_states:
-            return frame
-
-        target_objects = sorted(health_states.keys())
-        return render_health_bar_overlay(
-            frame,
-            target_objects,
-            health_states,
-            position=self.position,
-            n_columns=self.n_columns,
-            obj_display_names=OBJ_NAME_DISPLAY_NAME_MAPPING,
-        )
-
 
 class LiveHUDRenderer:
     """
@@ -312,7 +277,6 @@ class LiveHUDRenderer:
         width=1280,
         height=720,
         window_name="RoboCasa Teleop HUD",
-        health_bar_hud=None,
         video_path=None,
         video_fps=30,
     ):
@@ -321,7 +285,6 @@ class LiveHUDRenderer:
         self.width = width
         self.height = height
         self.window_name = window_name
-        self.health_bar_hud = health_bar_hud
 
         self._renderer = None
         self._scene_option = None
@@ -329,14 +292,13 @@ class LiveHUDRenderer:
         self._quit_requested = False
         self._available_cameras = []
         self._camera_index = 0
-        self._cameras_initialized = False
 
         self.video_fps = video_fps
         self._video_writer = None
         self._episode_frame_count = 0
 
     def _initialize_cameras(self):
-        if self._cameras_initialized:
+        if self._available_cameras:
             return
         self._available_cameras = []
         model = self.env.sim.model
@@ -351,7 +313,6 @@ class LiveHUDRenderer:
         else:
             self._available_cameras.insert(0, self.camera_name)
             self._camera_index = 0
-        self._cameras_initialized = True
 
     def switch_camera(self, direction):
         if not self._available_cameras:
@@ -400,7 +361,7 @@ class LiveHUDRenderer:
         """
         if self._quit_requested:
             return False
-        if not self._cameras_initialized:
+        if not self._available_cameras:
             self._initialize_cameras()
         if self._renderer is None:
             if not self.initialize():
@@ -413,8 +374,13 @@ class LiveHUDRenderer:
         scene_rgb = self._renderer.render()
         scene_bgr = cv2.cvtColor(scene_rgb, cv2.COLOR_RGB2BGR)
 
-        if self.health_bar_hud is not None and health_states:
-            scene_with_hud = self.health_bar_hud.render_overlay(cv2.cvtColor(scene_bgr, cv2.COLOR_BGR2RGB), health_states)
+        if health_states:
+            scene_with_hud = render_health_bar_overlay(
+                cv2.cvtColor(scene_bgr, cv2.COLOR_BGR2RGB),
+                sorted(health_states.keys()),
+                health_states,
+                obj_display_names=OBJ_NAME_DISPLAY_NAME_MAPPING,
+            )
             final_frame = cv2.cvtColor(scene_with_hud, cv2.COLOR_RGB2BGR)
         else:
             final_frame = scene_bgr
@@ -424,8 +390,9 @@ class LiveHUDRenderer:
             self._episode_frame_count += 1
 
         cv2.imshow(self.window_name, final_frame)
-        cv2.setWindowProperty(self.window_name, cv2.WND_PROP_TOPMOST, 1)
-        self._window_created = True
+        if not self._window_created:
+            cv2.setWindowProperty(self.window_name, cv2.WND_PROP_TOPMOST, 1)
+            self._window_created = True
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
@@ -444,7 +411,7 @@ class LiveHUDRenderer:
     def reset(self):
         self._renderer = None
         self._quit_requested = False
-        self._cameras_initialized = False
+        self._available_cameras = []
 
     def close(self):
         self.stop_video()
@@ -661,11 +628,10 @@ def collect_human_trajectory(
 
     # ── Initialize environment with a zero action ──
     zero_action = np.zeros(env.action_dim)
-    for _ in range(1):
-        if isinstance(env, (DataCollectionWrapper, DamageDataCollectionWrapper)):
-            env.env.step(zero_action)
-        else:
-            env.step(zero_action)
+    if isinstance(env, (DataCollectionWrapper, DamageDataCollectionWrapper)):
+        env.env.step(zero_action)
+    else:
+        env.step(zero_action)
 
     discard_traj = False
     task_success = False
@@ -700,7 +666,8 @@ def collect_human_trajectory(
             time.sleep(0.05)
             continue
 
-        active_robot = env.robots[device_wrapper.active_robot]
+        active_robot_idx = device_wrapper.active_robot
+        active_robot = env.robots[active_robot_idx]
         input_ac_dict = device_wrapper.input2action(mirror_actions=mirror_actions)
 
         if input_ac_dict is None:
@@ -715,7 +682,7 @@ def collect_human_trajectory(
             if env_name is not None:
                 save_camera_pose(env, env_name)
 
-        action_dict = deepcopy(input_ac_dict)
+        action_dict = dict(input_ac_dict)
         for arm_name in active_robot.arms:
             controller_input_type = active_robot.part_controllers[arm_name].input_type
             if controller_input_type == "delta":
@@ -733,14 +700,15 @@ def collect_human_trajectory(
             robot.create_action_vector(all_prev_gripper_actions[i])
             for i, robot in enumerate(env.robots)
         ]
-        env_action[device_wrapper.active_robot] = active_robot.create_action_vector(action_dict)
+        env_action[active_robot_idx] = active_robot.create_action_vector(action_dict)
         env_action = np.concatenate(env_action)
 
         obs, _, _, _ = env.step(env_action)
         step_count += 1
 
         # ── Update damage state ──
-        health_states = env.get_env_health()
+        if color_manager or console_display or live_hud_renderer:
+            health_states = env.get_env_health()
 
         if color_manager:
             events = color_manager.update(health_states)
@@ -878,33 +846,21 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
         print(f"Video       : {video_dir}/")
     print(f"{'='*60}\n")
 
-    if args.health_hud:
-        env = env_config.damageable_class(
-            robots=env_config.robot,
-            controller_configs=load_composite_controller_config(robot=env_config.robot),
-            translucent_robot=False,
-            has_renderer=False,
-            has_offscreen_renderer=not on_macos,
-            render_camera=env_config.camera_name,
-            ignore_done=True,
-            use_camera_obs=False,
-            render_segmentation=False,
-            control_freq=env_config.control_freq,
-        )
-    else:
-        env = env_config.damageable_class(
-            robots=env_config.robot,
-            controller_configs=load_composite_controller_config(robot=env_config.robot),
-            translucent_robot=False,
-            has_renderer=True,
-            has_offscreen_renderer=not on_macos,
-            render_camera=env_config.camera_name,
-            ignore_done=True,
-            use_camera_obs=False,
-            render_segmentation=False,
-            control_freq=env_config.control_freq,
-            renderer="mjviewer",
-        )
+    env_kwargs = dict(
+        robots=env_config.robot,
+        controller_configs=load_composite_controller_config(robot=env_config.robot),
+        translucent_robot=False,
+        has_renderer=not args.health_hud,
+        has_offscreen_renderer=not on_macos,
+        render_camera=env_config.camera_name,
+        ignore_done=True,
+        use_camera_obs=False,
+        render_segmentation=False,
+        control_freq=env_config.control_freq,
+    )
+    if not args.health_hud:
+        env_kwargs["renderer"] = "mjviewer"
+    env = env_config.damageable_class(**env_kwargs)
     env.initialize_damageable_objects()
 
     color_manager = DamageColorManager(env) if (args.health_color or args.health_hud) else None
@@ -923,7 +879,6 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
             width=1280,
             height=720,
             window_name="oopsieverse Teleop HUD",
-            health_bar_hud=HealthBarHUD(),
             video_fps=args.video_fps,
         )
 
