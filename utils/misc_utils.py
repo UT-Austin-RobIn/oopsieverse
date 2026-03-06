@@ -1,7 +1,8 @@
 """
 Shared utility functions for oopsieverse scripts.
 
-Provides HDF5 trajectory processing, video saving, and live health visualization.
+Provides HDF5 trajectory processing, video saving, and live health
+visualization helpers.
 """
 
 import os
@@ -13,17 +14,17 @@ import numpy as np
 import matplotlib
 import torch as th
 
-matplotlib.use("TkAgg")  # Interactive backend for live window
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from matplotlib.patches import Rectangle
+matplotlib.use("TkAgg")  # non-blocking backend for live windows
+import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.animation as animation  # noqa: E402
+from matplotlib.patches import Rectangle  # noqa: E402
 from collections import defaultdict
 from typing import Dict, Optional
 
 
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════════════
 # JSON / Tensor helpers
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════════════
 
 def to_tensor(data):
     """Convert data to torch tensor if it's a numpy array or scalar."""
@@ -61,9 +62,9 @@ def json_default(o):
     raise TypeError(f"Object of type {type(o)} not JSON serializable")
 
 
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════════════
 # HDF5 trajectory processing
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════════════
 
 def process_traj_to_hdf5(
     env,
@@ -96,7 +97,7 @@ def process_traj_to_hdf5(
     traj_grp = data_grp.create_group(traj_grp_name)
     traj_grp.attrs["num_samples"] = len(traj_data)
 
-    # Collect all data, converting arrays to tensors for uniform stacking
+    # ── Collect all data, converting arrays to tensors for uniform stacking ──
     data = defaultdict(list)
     for key in nested_keys:
         data[key] = defaultdict(list)
@@ -109,7 +110,7 @@ def process_traj_to_hdf5(
             else:
                 data[k].append(to_tensor(v))
 
-    # Serialize dicts and objects to JSON strings for HDF5 storage
+    # ── Serialize dicts and objects to JSON strings for HDF5 storage ──
     for k, v in data.items():
         if k == "info":
             for mod, traj_mod_data in v.items():
@@ -119,7 +120,7 @@ def process_traj_to_hdf5(
                 if traj_mod_data and isinstance(traj_mod_data[0], dict):
                     data[k][mod] = [json.dumps(item, default=json_default) for item in traj_mod_data]
 
-    # Write to HDF5
+    # ── Write to HDF5 ──
     for k, dat in data.items():
         if not dat:
             continue
@@ -153,9 +154,9 @@ def flush_current_file(output_hdf5_file):
     os.fsync(fd)
 
 
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════════════
 # Video saving
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════════════
 
 def save_rgb_camera_video(output_video_path, imgs, fps=30):
     """
@@ -317,154 +318,3 @@ def save_rgb_health_video(
     )
     ani.save(output_video_path, writer=writer)
     plt.close(fig)
-
-
-# =============================================================================
-# Live health bar HUD (matplotlib)
-# =============================================================================
-
-def setup_live_health_bars(target_objects_health):
-    """
-    Set up a live matplotlib window with health bars for real-time monitoring.
-
-    Returns:
-        tuple: (fig, ax, health_bars_dict)
-    """
-    plt.ion()
-
-    n_objects = len(target_objects_health)
-    bar_height = 40.0
-    bar_spacing = 18.0
-    header_height = 60.0
-    padding = 25.0
-    window_width = 600.0
-    window_height = header_height + n_objects * (bar_height + bar_spacing) + padding * 2
-
-    fig, ax = plt.subplots(figsize=(window_width / 100, window_height / 100))
-    fig.canvas.manager.set_window_title("Health Monitor")
-    fig.patch.set_facecolor("#1A1A1A")
-    ax.set_facecolor("#1A1A1A")
-    ax.axis("off")
-    ax.set_xlim(0, window_width)
-    ax.set_ylim(0, window_height)
-
-    ax.text(
-        window_width / 2, window_height - 35,
-        "Health Monitor",
-        fontsize=18, color="#FFFFFF", weight="bold",
-        va="center", ha="center", family="sans-serif",
-    )
-    ax.add_patch(Rectangle(
-        (window_width / 2 - 80, window_height - 50), 160, 2,
-        facecolor="#4CAF50", edgecolor="none", alpha=0.6, zorder=1,
-    ))
-
-    label_width = 160.0
-    bar_width = 280.0
-    gap_after_label = 20.0
-    gap_after_bar = 20.0
-    bar_x_start = label_width + gap_after_label
-    label_x = padding
-    value_x = bar_x_start + bar_width + gap_after_bar
-
-    health_bars_dict = {}
-    for idx, obj_name in enumerate(target_objects_health):
-        y_pos = window_height - header_height - (idx + 1) * (bar_height + bar_spacing) - padding / 2
-
-        bg_bar = Rectangle(
-            (bar_x_start, y_pos), bar_width, bar_height,
-            facecolor="#0D0D0D", edgecolor="#2A2A2A", linewidth=2.5, zorder=1,
-        )
-        ax.add_patch(bg_bar)
-        ax.add_patch(Rectangle(
-            (bar_x_start, y_pos + bar_height - 3), bar_width, 3,
-            facecolor="#333333", edgecolor="none", alpha=0.4, zorder=2,
-        ))
-        ax.add_patch(Rectangle(
-            (bar_x_start + 2, y_pos + 2), bar_width - 4, bar_height - 4,
-            facecolor="none", edgecolor="#000000", linewidth=1, alpha=0.5, zorder=2,
-        ))
-        fg_bar = Rectangle(
-            (bar_x_start + 3, y_pos + 3), 0, bar_height - 6,
-            facecolor="#4CAF50", edgecolor="none", zorder=3, alpha=0.95,
-        )
-        ax.add_patch(fg_bar)
-
-        display_name = obj_name if len(obj_name) <= 20 else obj_name[:17] + "..."
-        label_text = ax.text(
-            label_x, y_pos + bar_height / 2, display_name,
-            fontsize=12, color="#E8E8E8", va="center", ha="left", family="monospace",
-        )
-        value_text = ax.text(
-            value_x, y_pos + bar_height / 2, "100.0",
-            fontsize=12, color="#FFFFFF", weight="bold", va="center", ha="left",
-        )
-
-        fg_bar.set_width(bar_width - 6)
-        fg_bar.set_facecolor("#4CAF50")
-
-        health_bars_dict[obj_name] = {
-            "foreground_bar": fg_bar,
-            "label_text": label_text,
-            "value_text": value_text,
-            "bar_x_start": bar_x_start + 3,
-            "bar_width": bar_width - 6,
-        }
-
-    plt.tight_layout()
-    plt.show(block=False)
-    return fig, ax, health_bars_dict
-
-
-def update_live_health_bars(fig, ax, health_bars_dict, current_health_values, target_objects_health):
-    """
-    Update health bars with current values.
-
-    Returns:
-        bool: True if the window is still open, False if it was closed.
-    """
-    if not plt.fignum_exists(fig.number):
-        return False
-
-    for obj_name in target_objects_health:
-        if obj_name not in health_bars_dict:
-            continue
-
-        health = max(0.0, min(100.0, current_health_values.get(obj_name, 100.0)))
-        bar_info = health_bars_dict[obj_name]
-        fg_bar = bar_info["foreground_bar"]
-        bar_width = bar_info["bar_width"]
-        health_width = (health / 100.0) * bar_width
-
-        if health == 0:
-            fg_bar.set_width(0)
-            value_color = "#666666"
-        elif health >= 80:
-            fg_bar.set_facecolor("#4CAF50")
-            fg_bar.set_width(health_width)
-            value_color = "#E8F5E9"
-        elif health >= 60:
-            fg_bar.set_facecolor("#FFC107")
-            fg_bar.set_width(health_width)
-            value_color = "#FFF9C4"
-        elif health >= 40:
-            fg_bar.set_facecolor("#FF9800")
-            fg_bar.set_width(health_width)
-            value_color = "#FFE0B2"
-        elif health >= 20:
-            fg_bar.set_facecolor("#F44336")
-            fg_bar.set_width(health_width)
-            value_color = "#FFCDD2"
-        else:
-            fg_bar.set_facecolor("#D32F2F")
-            fg_bar.set_width(health_width)
-            value_color = "#EF9A9A"
-
-        bar_info["value_text"].set_text(f"{health:.1f}")
-        bar_info["value_text"].set_color(value_color)
-        label_color = "#888888" if health == 0 else "#E8E8E8"
-        bar_info["label_text"].set_color(label_color)
-
-    fig.canvas.draw_idle()
-    fig.canvas.flush_events()
-    return True

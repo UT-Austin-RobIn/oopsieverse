@@ -1,3 +1,9 @@
+"""
+Pastry Display environment for oopsieverse.
+
+Task: place the pastry onto the plate, then move the plate to the table mat.
+"""
+
 import os
 
 import numpy as np
@@ -13,8 +19,17 @@ from damagesim.robosuite.damageable_env import RSDamageableEnvironment
 from damagesim.robosuite.params.damage_params import get_params_for_object
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# Constants
+# ═══════════════════════════════════════════════════════════════════════
+
 TABLE_MAT_SIZE = [0.20, 0.15, 0.002]
 TABLE_MAT_COLOR = [0.06, 0.10, 0.30, 1.0]
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# PastryDisplay environment
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class PastryDisplay(Kitchen):
@@ -172,6 +187,8 @@ class PastryDisplay(Kitchen):
 
         return cfgs
 
+    # ── Task checks ────────────────────────────────────────────────────
+
     def _check_pastry_on_plate(self):
         """Check if the pastry is positioned on the plate."""
         try:
@@ -292,6 +309,12 @@ class PastryDisplay(Kitchen):
             return pastry_on_plate and plate_on_mat and gripper_away
         except Exception:
             return False
+
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Damageable variant
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class DamageablePastryDisplay(RSDamageableEnvironment, PastryDisplay):

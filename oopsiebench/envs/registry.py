@@ -48,13 +48,14 @@ class EnvironmentRegistry:
         return list(cls._registry.keys())
 
 
-# ---------------------------------------------------------------------------
+# ═══════════════════════════════════════════════════════════════════════
 # Environment registrations
-# ---------------------------------------------------------------------------
+# ═══════════════════════════════════════════════════════════════════════
 
 from envs.robocasa.pick_egg import PickEgg, DamageablePickEgg  # noqa: E402
 from envs.robocasa.pastry_display import PastryDisplay, DamageablePastryDisplay
 
+# ── pick_egg ──
 EnvironmentRegistry.register(
     "pick_egg",
     EnvConfig(
@@ -63,6 +64,7 @@ EnvironmentRegistry.register(
     ),
 )
 
+# ── pastry_display ──
 EnvironmentRegistry.register(
     "pastry_display",
     EnvConfig(

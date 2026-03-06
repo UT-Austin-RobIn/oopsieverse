@@ -4,10 +4,12 @@ Teleoperation script for oopsieverse environments.
 Supports all registered environments with keyboard or SpaceMouse control
 and damage data collection.
 
-Usage:
+Usage::
+
     python scripts/teleop_robocasa.py --env ENV_NAME [--device DEVICE] [--output PATH]
 
-Examples:
+Examples::
+
     python scripts/teleop_robocasa.py --env pick_egg --device keyboard
     python scripts/teleop_robocasa.py --env pick_egg --device spacemouse
     python scripts/teleop_robocasa.py --env pick_egg --device keyboard --output my_data.hdf5
@@ -39,9 +41,9 @@ from utils.misc_utils import process_traj_to_hdf5, flush_current_file
 from damagesim.utils.visualization import render_health_bar_overlay, OBJ_NAME_DISPLAY_NAME_MAPPING
 
 
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════════════
 # Data Collection Wrapper
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════════════
 
 class DamageDataCollectionWrapper:
     """Wrapper that collects damage data during teleoperation.
@@ -113,9 +115,9 @@ class DamageDataCollectionWrapper:
         return getattr(self.env, name)
 
 
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════════════
 # Damage Visualization Components
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════════════
 
 class DamageColorManager:
     """
@@ -452,9 +454,9 @@ class LiveHUDRenderer:
         self._renderer = None
 
 
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════════════
 # Manual Recording Wrapper
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════════════
 
 class ManualRecordingWrapper:
     """Wraps a device to add K-key episode-end and =-key pause via pynput."""
@@ -507,9 +509,9 @@ class ManualRecordingWrapper:
         return getattr(self.device, name)
 
 
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════════════
 # Camera helpers
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════════════
 
 def save_camera_pose(env, env_name, output_dir="resources/camera_states"):
     """Save the current free camera pose to a JSON file."""
@@ -583,9 +585,9 @@ def load_camera_pose(env, env_name, camera_states_dir="resources/camera_states")
     return True
 
 
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════════════
 # Device creation
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════════════
 
 def create_device(device_type, env):
     """Create and wrap the appropriate device with ManualRecordingWrapper."""
@@ -598,9 +600,9 @@ def create_device(device_type, env):
     return ManualRecordingWrapper(device)
 
 
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════════════
 # Main teleoperation loop
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════════════
 
 def collect_human_trajectory(
     env,
@@ -628,7 +630,7 @@ def collect_human_trajectory(
     """
     device_wrapper.end_recording_requested = False
 
-    # Reset gripper state to fully open for new episode
+    # ── Reset gripper state to fully open for new episode ──
     underlying_device = device_wrapper.device if hasattr(device_wrapper, 'device') else device_wrapper
     if hasattr(underlying_device, '_reset_gripper_positions'):
         underlying_device._reset_gripper_positions()
@@ -657,7 +659,7 @@ def collect_human_trajectory(
         for robot in env.robots
     ]
 
-    # Initialize environment with a zero action (not recorded)
+    # ── Initialize environment with a zero action ──
     zero_action = np.zeros(env.action_dim)
     for _ in range(1):
         if isinstance(env, (DataCollectionWrapper, DamageDataCollectionWrapper)):
@@ -676,7 +678,7 @@ def collect_human_trajectory(
     if live_hud_renderer:
         live_hud_renderer.reset()
 
-    # Hide teleop visualization markers (green line through EEF)
+    # ── Hide teleop visualization markers ──
     for robot in env.robots:
         for arm_name in robot.arms:
             if robot.eef_site_id[arm_name] is not None:
@@ -688,7 +690,7 @@ def collect_human_trajectory(
     while True:
         start = time.time()
 
-        # Handle pause state — keep rendering, skip action processing
+        # ── Handle pause state — keep rendering, skip action processing ──
         if device_wrapper.paused:
             if render:
                 env.render()
@@ -737,7 +739,7 @@ def collect_human_trajectory(
         obs, _, _, _ = env.step(env_action)
         step_count += 1
 
-        # Get current health via the canonical data path
+        # ── Update damage state ──
         health_states = env.get_env_health()
 
         if color_manager:
@@ -751,7 +753,7 @@ def collect_human_trajectory(
         if console_display and step_count % console_freq == 0:
             console_display.print_status(health_states, step_count)
 
-        # Check for task success
+        # ── Check for task success ──
         try:
             base_env = env
             while hasattr(base_env, 'env'):
@@ -816,9 +818,9 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
     if args.video:
         args.health_hud = True
 
-    # Check that cv2.imshow is available when --health-hud is requested.
-    # opencv-python-headless (pulled by lerobot) can shadow opencv-python and
-    # silently remove GUI support.
+    # ── Check cv2.imshow availability ──
+    # opencv-python-headless can overtake opencv-python
+    # if running locally, remove GUI support.
     if args.health_hud:
         try:
             test_img = np.zeros((1, 1, 3), dtype=np.uint8)
@@ -833,11 +835,9 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
             print("    pip install opencv-python")
             sys.exit(1)
 
-    # On macOS, gui requirements differ by display mode:
-    #   --health-hud / --video: cv2.imshow needs the main thread; mjpython puts
-    #     Python in a worker thread and will crash. Use regular python instead.
-    #   All other modes: the MuJoCo interactive viewer requires mjpython on macOS
-    #     so that OpenGL/GLFW context creation happens on the main thread.
+    # ── macOS GUI requirements ──
+    # --health-hud / --video: cv2.imshow needs the main thread (no mjpython).
+    # All other modes: MuJoCo viewer requires mjpython for OpenGL/GLFW.
     on_macos = platform.system() == "Darwin"
     if on_macos:
         using_mjpython = "MJPYTHON_BIN" in os.environ
