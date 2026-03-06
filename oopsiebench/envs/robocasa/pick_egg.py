@@ -1,3 +1,9 @@
+"""
+Pick Egg environment for oopsieverse.
+
+Task: pick up the egg gently without crushing it.
+"""
+
 import os
 
 import numpy as np
@@ -7,6 +13,11 @@ from robocasa.models.objects.kitchen_object_utils import OBJ_CATEGORIES
 from robocasa.models.scenes.scene_registry import LayoutType, StyleType
 
 from damagesim.robosuite.damageable_env import RSDamageableEnvironment
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# PickEgg environment
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class PickEgg(Kitchen):
@@ -59,6 +70,8 @@ class PickEgg(Kitchen):
             )
         ]
 
+    # ── Task checks ────────────────────────────────────────────────────
+
     def reward(self, action=None):
         return 0.0
 
@@ -71,6 +84,12 @@ class PickEgg(Kitchen):
         height_above_table = egg_z - counter_surface_z
 
         return height_above_table >= 0.1
+
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Damageable variant
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class DamageablePickEgg(RSDamageableEnvironment, PickEgg):
