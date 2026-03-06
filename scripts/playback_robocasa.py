@@ -5,10 +5,12 @@ Replays recorded states and actions to compute damage observations, then
 saves the enriched dataset (with rendered camera images and health data)
 to a new HDF5 file.
 
-Usage:
+Usage::
+
     mjpython scripts/playback_robocasa.py --input <collected.hdf5> --output <playback.hdf5> --env ENV_NAME
 
-Examples:
+Examples::
+
     mjpython scripts/playback_robocasa.py --input resources/teleop_data/pick_egg.hdf5 --output resources/playback_data/pick_egg.hdf5 --env pick_egg
     mjpython scripts/playback_robocasa.py --input resources/teleop_data/pick_egg.hdf5 --output resources/playback_data/pick_egg.hdf5 --env pick_egg --visualize
     mjpython scripts/playback_robocasa.py --input resources/teleop_data/pick_egg.hdf5 --output resources/playback_data/pick_egg.hdf5 --env pick_egg --metrics
@@ -40,6 +42,11 @@ from utils.misc_utils import (
 )
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# Visualization config
+# ═══════════════════════════════════════════════════════════════════════
+
+
 def get_visualization_config(task_name, robot_name):
     if task_name == "pick_egg":
         return {
@@ -66,6 +73,12 @@ def get_visualization_config(task_name, robot_name):
         }
     raise ValueError(f"No visualization config for task: {task_name}. "
                      f"Add an entry to get_visualization_config() in playback_robocasa.py.")
+
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Helpers
+# ═══════════════════════════════════════════════════════════════════════
 
 
 def json_default(o):
@@ -109,6 +122,12 @@ def flush_playback_traj(env, traj_grp_name, traj_data, playback_hdf5_file):
     flush_current_file(playback_hdf5_file)
 
 
+
+# ═══════════════════════════════════════════════════════════════════════
+# Episode playback
+# ═══════════════════════════════════════════════════════════════════════
+
+
 def playback_episode(src_f, demo_name, env, playback_hdf5_file):
     """
     Replay a recorded demo using a hybrid restore-then-step approach:
@@ -131,7 +150,7 @@ def playback_episode(src_f, demo_name, env, playback_hdf5_file):
 
     env.reset()
 
-    # Hide teleop visualization markers
+    # ── Hide teleop visualization markers ──
     for robot in env.robots:
         for arm_name in robot.arms:
             if robot.eef_site_id[arm_name] is not None:
@@ -139,7 +158,7 @@ def playback_episode(src_f, demo_name, env, playback_hdf5_file):
             if robot.eef_cylinder_id[arm_name] is not None:
                 env.sim.model.site_rgba[robot.eef_cylinder_id[arm_name]] = np.array([0., 0., 0., 0.])
 
-    # Restore initial state and collect initial observation
+    # ── Restore initial state and collect initial observation ──
     env.sim.set_state_from_flattened(states[0])
     env.sim.forward()
     sync_damage_evaluator_velocities(env)
@@ -160,6 +179,12 @@ def playback_episode(src_f, demo_name, env, playback_hdf5_file):
 
     flush_playback_traj(env, demo_name, traj_data, playback_hdf5_file)
     return traj_data
+
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# CLI
+# ═══════════════════════════════════════════════════════════════════════
 
 
 def create_parser():

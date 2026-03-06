@@ -130,6 +130,7 @@ OBJ_NAME_DISPLAY_NAME_MAPPING: Dict[str, str] = {
     "laptop": "Laptop",
     "pastry": "Pastry",
     "plate": "Plate",
+    "egg": "Egg",
 }
 
 
