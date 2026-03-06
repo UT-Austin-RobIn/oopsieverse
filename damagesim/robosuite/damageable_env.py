@@ -270,6 +270,7 @@ class RSDamageableEnvironment(DamageableEnvironment):
 
     def _process_obs(self, obs):
         self._append_health_to_obs(obs)
+        self._append_health_states_to_obs(obs)
 
         if self.render_segmentation:
             seg = self.obtain_segmentation_observations()
@@ -314,6 +315,55 @@ class RSDamageableEnvironment(DamageableEnvironment):
 
         convert_obs_to_float32(obs)
         return obs, obs_info
+
+    def _append_health_states_to_obs(self, obs: dict) -> None:
+        """
+        Populate ``object_health_states`` and ``robot_health_states`` dicts
+        in the observation so the live HUD and console display can read them.
+        """
+        object_health_states: Dict[str, dict] = {}
+        robot_health_states: Dict[str, dict] = {}
+
+        for obj in self._get_all_objects():
+            if not isinstance(obj, DamageableMixin) or not obj.track_damage:
+                continue
+
+            health = obj.health
+            # Determine damage status from health thresholds
+            thresholds = obj.damage_params.get("health_thresholds", [90.0, 60.0, 30.0])
+            if health <= 0:
+                status = "destroyed"
+            elif len(thresholds) >= 3 and health <= thresholds[2]:
+                status = "critical"
+            elif len(thresholds) >= 2 and health <= thresholds[1]:
+                status = "heavy"
+            elif len(thresholds) >= 1 and health <= thresholds[0]:
+                status = "light"
+            else:
+                status = "none"
+
+            # Extract raw force from damage info
+            raw_force = 0.0
+            for part_info in obj.damage_info.values():
+                for ev_info in part_info.values():
+                    if isinstance(ev_info, dict):
+                        f = ev_info.get("unfiltered_raw_sim_forces", 0.0)
+                        if isinstance(f, (int, float)) and f > raw_force:
+                            raw_force = f
+
+            state = {
+                "health": health,
+                "damage_status": status,
+                "raw_force": raw_force,
+            }
+
+            if self._is_robot(obj):
+                robot_health_states[obj.name] = state
+            else:
+                object_health_states[obj.name] = state
+
+        obs["object_health_states"] = object_health_states
+        obs["robot_health_states"] = robot_health_states
 
     # ── Segmentation ────────────────────────────────────────────────────
 
@@ -418,4 +468,3 @@ class RSDamageableEnvironment(DamageableEnvironment):
                 obj_damage_info[obj.name] = obj.damage_info
         obs, obs_info = self._process_obs(obs)
         return obs, {"damage_info": obj_damage_info, "obs_info": obs_info}
-

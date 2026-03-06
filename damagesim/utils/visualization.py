@@ -126,7 +126,10 @@ OBJ_NAME_DISPLAY_NAME_MAPPING: Dict[str, str] = {
     "wineglass": "Wine Glass",
     "bottle_of_beer": "Beer Bottle",
     "franka0": "Robot",
+    "PandaOmron": "Robot",
     "laptop": "Laptop",
+    "pastry": "Pastry",
+    "plate": "Plate",
 }
 
 
@@ -207,6 +210,227 @@ _COLORS = {
 }
 
 
+def extract_health_from_obs(obs: dict) -> Tuple[List[str], Dict[str, float]]:
+    """
+    Extract target object names and health values from an observation dict.
+
+    Reads ``obs["object_health_states"]`` and ``obs["robot_health_states"]``
+    (as produced by :class:`RSDamageableEnvironment`).
+
+    Returns:
+        (target_objects, current_health) where *target_objects* is a list of
+        names and *current_health* maps each name to its health (0–100).
+    """
+    target_objects: List[str] = []
+    current_health: Dict[str, float] = {}
+    if "object_health_states" in obs:
+        for name, state in obs["object_health_states"].items():
+            target_objects.append(name)
+            current_health[name] = state.get("health", 100.0)
+    if "robot_health_states" in obs:
+        for name, state in obs["robot_health_states"].items():
+            target_objects.append(name)
+            current_health[name] = state.get("health", 100.0)
+    return target_objects, current_health
+
+
+def render_health_bar_overlay(
+    frame_rgb: np.ndarray,
+    target_objects: List[str],
+    current_health: Dict[str, float],
+    position: str = "bottom_left",
+    n_columns: int = 1,
+    obj_display_names: Optional[Dict[str, str]] = None,
+) -> np.ndarray:
+    """
+    Render health bar overlay on a single RGB frame.
+
+    Dimensions and font sizes scale automatically with the frame resolution,
+    so the same call works for both real-time HUD (e.g. 1280x720) and
+    high-resolution screenshots (e.g. 3840x2160).
+
+    Args:
+        frame_rgb: ``(H, W, 3)`` uint8 array in **RGB** order.
+        target_objects: Object names to show health bars for.
+        current_health: Mapping ``obj_name -> health`` (0–100).
+        position: ``"bottom_left"``, ``"bottom_right"``, or
+            ``"bottom_center"`` / ``"center"``.
+        n_columns: Number of columns for laying out health bars (1–3).
+        obj_display_names: Optional override for display names.
+
+    Returns:
+        ``(H, W, 3)`` uint8 array in **RGB** order with health bars overlaid.
+    """
+    if not target_objects:
+        return frame_rgb
+
+    display_map = dict(OBJ_NAME_DISPLAY_NAME_MAPPING)
+    if obj_display_names:
+        display_map.update(obj_display_names)
+
+    n_columns = max(1, min(3, int(n_columns)))
+    n_objects = len(target_objects)
+
+    img_height, img_width = frame_rgb.shape[:2]
+
+    # ── Bar dimensions (scale with image size) ────────────────────────
+    bar_height = max(25, int(img_height * 0.05))
+    bar_spacing = max(8, int(img_height * 0.01))
+    padding_h = max(20, int(img_width * 0.025))
+    padding_v = max(8, int(img_height * 0.012))
+    column_spacing = max(15, int(img_width * 0.02))
+
+    label_width = max(80, int(img_width * 0.13))
+    bar_width = max(150, int(img_width * 0.18))
+    gap_after_label = max(4, int(img_width * 0.012))
+    gap_after_bar = max(8, int(img_width * 0.012))
+    font_size = max(0.4, min(1.5, img_width / 1600.0))
+
+    objects_per_column = int(np.ceil(n_objects / n_columns))
+    value_width = max(50, int(img_width * 0.06))
+    column_width = (
+        label_width
+        + gap_after_label
+        + bar_width
+        + gap_after_bar
+        + value_width
+    )
+    panel_width = n_columns * column_width + (n_columns - 1) * column_spacing + padding_h * 2
+    panel_height = objects_per_column * (bar_height + bar_spacing) + padding_v * 2
+
+    # ── Panel position ────────────────────────────────────────────────
+    if position == "bottom_right":
+        panel_x = img_width - panel_width - padding_h
+    elif position in ("center", "bottom_center"):
+        panel_x = (img_width - panel_width) // 2
+    else:
+        panel_x = padding_h
+    panel_y = img_height - panel_height - padding_v
+
+    # ── Render ────────────────────────────────────────────────────────
+    img = frame_rgb.copy()
+    if img.dtype != np.uint8:
+        img = (img * 255).astype(np.uint8) if img.max() <= 1.0 else img.astype(np.uint8)
+
+    img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+
+    # Semi-transparent background panel
+    overlay = img_bgr.copy()
+    cv2.rectangle(
+        overlay,
+        (panel_x, panel_y),
+        (panel_x + panel_width, panel_y + panel_height),
+        _COLORS["bg"],
+        -1,
+    )
+    cv2.addWeighted(overlay, 0.85, img_bgr, 0.15, 0, img_bgr)
+
+    for obj_idx, obj_name in enumerate(target_objects):
+        h = current_health.get(obj_name, 100.0)
+        h = max(0.0, min(100.0, h))
+
+        col_idx = obj_idx // objects_per_column
+        row_idx = obj_idx % objects_per_column
+
+        column_x = panel_x + col_idx * (column_width + column_spacing)
+        bar_y = panel_y + padding_v + row_idx * (bar_height + bar_spacing)
+        label_x = column_x + padding_h
+        bar_x_start = label_x + label_width + gap_after_label
+        value_x = bar_x_start + bar_width + gap_after_bar
+
+        # Background bar container
+        cv2.rectangle(
+            img_bgr,
+            (bar_x_start, bar_y),
+            (bar_x_start + bar_width, bar_y + bar_height),
+            _COLORS["bg_bar"],
+            -1,
+        )
+        cv2.rectangle(
+            img_bgr,
+            (bar_x_start, bar_y),
+            (bar_x_start + bar_width, bar_y + bar_height),
+            _COLORS["border"],
+            2,
+        )
+
+        # Glow at bottom edge
+        glow_height = 3
+        cv2.rectangle(
+            img_bgr,
+            (bar_x_start, bar_y + bar_height - glow_height),
+            (bar_x_start + bar_width, bar_y + bar_height),
+            _COLORS["glow"],
+            -1,
+        )
+
+        # Health bar colour
+        health_width = int((h / 100.0) * (bar_width - 6))
+        bar_inset = 3
+
+        if h == 0:
+            bar_color = None
+            value_color = _COLORS["text_dark_gray"]
+        elif h >= 80:
+            bar_color = _COLORS["green"]
+            value_color = _COLORS["text_white"]
+        elif h >= 60:
+            bar_color = _COLORS["amber"]
+            value_color = _COLORS["text_white"]
+        elif h >= 40:
+            bar_color = _COLORS["orange"]
+            value_color = _COLORS["text_white"]
+        elif h >= 20:
+            bar_color = _COLORS["red"]
+            value_color = _COLORS["text_white"]
+        else:
+            bar_color = _COLORS["dark_red"]
+            value_color = _COLORS["text_white"]
+
+        # Foreground bar
+        if bar_color is not None and health_width > 0:
+            cv2.rectangle(
+                img_bgr,
+                (bar_x_start + bar_inset, bar_y + bar_inset),
+                (bar_x_start + bar_inset + health_width, bar_y + bar_height - bar_inset),
+                bar_color,
+                -1,
+            )
+
+        # Label
+        display_name = display_map.get(obj_name, obj_name)
+        if len(display_name) > 20:
+            display_name = display_name[:17] + "..."
+        label_color = (
+            _COLORS["text_gray"] if h == 0 else _COLORS["text_light"]
+        )
+        cv2.putText(
+            img_bgr,
+            display_name,
+            (label_x, bar_y + bar_height // 2 + 5),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            font_size,
+            label_color,
+            1,
+            cv2.LINE_AA,
+        )
+
+        # Health value text
+        health_text = f"{h:.1f}"
+        cv2.putText(
+            img_bgr,
+            health_text,
+            (value_x, bar_y + bar_height // 2 + 5),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            font_size,
+            value_color,
+            1,
+            cv2.LINE_AA,
+        )
+
+    return cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+
+
 def save_rgb_health_video_with_overlay(
     output_video_path: str,
     imgs: np.ndarray,
@@ -241,183 +465,31 @@ def save_rgb_health_video_with_overlay(
     if T == 0 or len(imgs) == 0:
         return
 
-    display_map = dict(OBJ_NAME_DISPLAY_NAME_MAPPING)
-    if obj_display_names:
-        display_map.update(obj_display_names)
-
-    n_columns = max(1, min(3, int(n_columns)))
-    n_objects = len(target_objects)
-
-    img_height, img_width = imgs[0].shape[:2]
-
-    # ── Bar dimensions (scale with image size) ────────────────────────
-    bar_height = max(25, int(img_height * 0.05))
-    bar_spacing = max(8, int(img_height * 0.01))
-    padding = max(15, int(img_width * 0.02))
-    column_spacing = max(15, int(img_width * 0.02))
-
-    label_width = max(80, int(img_width * 0.13))
-    bar_width = max(100, int(img_width * 0.1))
-    gap_after_label = max(4, int(img_width * 0.012))
-    gap_after_bar = max(8, int(img_width * 0.012))
-    font_size = max(0.4, min(1.5, img_width / 1600.0))
-
-    objects_per_column = int(np.ceil(n_objects / n_columns))
-    column_width = (
-        label_width
-        + gap_after_label
-        + bar_width
-        + gap_after_bar
-        + max(50, int(img_width * 0.06))
-    )
-    panel_width = n_columns * column_width + (n_columns - 1) * column_spacing + 30
-    panel_height = objects_per_column * (bar_height + bar_spacing) + padding * 2
-
-    # ── Panel position ────────────────────────────────────────────────
-    if position == "bottom_right":
-        panel_x = img_width - panel_width - padding
-    elif position in ("center", "bottom_center"):
-        panel_x = (img_width - panel_width) // 2
-    else:  # bottom_left (default)
-        panel_x = padding
-    panel_y = img_height - panel_height - padding
-
-    # ── Frame-by-frame rendering ──────────────────────────────────────
     processed_imgs = []
     for frame_idx in range(T):
         if frame_idx >= len(imgs):
             break
 
-        img = imgs[frame_idx].copy()
-        if img.dtype != np.uint8:
-            img = (
-                (img * 255).astype(np.uint8) if img.max() <= 1.0 else img.astype(np.uint8)
-            )
-
-        img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-
-        # Semi-transparent background panel
-        overlay = img_bgr.copy()
-        cv2.rectangle(
-            overlay,
-            (panel_x, panel_y),
-            (panel_x + panel_width, panel_y + panel_height),
-            _COLORS["bg"],
-            -1,
-        )
-        cv2.addWeighted(overlay, 0.85, img_bgr, 0.15, 0, img_bgr)
-
-        for obj_idx, obj_name in enumerate(target_objects):
+        # Build per-frame health dict
+        frame_health: Dict[str, float] = {}
+        for obj_name in target_objects:
             h_arr = health.get(obj_name)
             if h_arr is None:
-                current_health = 100.0
+                frame_health[obj_name] = 100.0
             elif frame_idx < len(h_arr):
-                current_health = float(h_arr[frame_idx])
+                frame_health[obj_name] = float(h_arr[frame_idx])
             else:
-                current_health = 100.0
-            current_health = max(0.0, min(100.0, current_health))
+                frame_health[obj_name] = 100.0
 
-            col_idx = obj_idx // objects_per_column
-            row_idx = obj_idx % objects_per_column
-
-            column_x = panel_x + col_idx * (column_width + column_spacing)
-            bar_y = panel_y + padding + row_idx * (bar_height + bar_spacing)
-            label_x = column_x + padding
-            bar_x_start = label_x + label_width + gap_after_label
-            value_x = bar_x_start + bar_width + gap_after_bar
-
-            # Background bar container
-            cv2.rectangle(
-                img_bgr,
-                (bar_x_start, bar_y),
-                (bar_x_start + bar_width, bar_y + bar_height),
-                _COLORS["bg_bar"],
-                -1,
-            )
-            cv2.rectangle(
-                img_bgr,
-                (bar_x_start, bar_y),
-                (bar_x_start + bar_width, bar_y + bar_height),
-                _COLORS["border"],
-                2,
-            )
-
-            # Glow at bottom edge
-            glow_height = 3
-            cv2.rectangle(
-                img_bgr,
-                (bar_x_start, bar_y + bar_height - glow_height),
-                (bar_x_start + bar_width, bar_y + bar_height),
-                _COLORS["glow"],
-                -1,
-            )
-
-            # Health bar colour
-            health_width = int((current_health / 100.0) * (bar_width - 6))
-            bar_inset = 3
-
-            if current_health == 0:
-                bar_color = None
-                value_color = _COLORS["text_dark_gray"]
-            elif current_health >= 80:
-                bar_color = _COLORS["green"]
-                value_color = _COLORS["text_white"]
-            elif current_health >= 60:
-                bar_color = _COLORS["amber"]
-                value_color = _COLORS["text_white"]
-            elif current_health >= 40:
-                bar_color = _COLORS["orange"]
-                value_color = _COLORS["text_white"]
-            elif current_health >= 20:
-                bar_color = _COLORS["red"]
-                value_color = _COLORS["text_white"]
-            else:
-                bar_color = _COLORS["dark_red"]
-                value_color = _COLORS["text_white"]
-
-            # Foreground bar
-            if bar_color is not None and health_width > 0:
-                cv2.rectangle(
-                    img_bgr,
-                    (bar_x_start + bar_inset, bar_y + bar_inset),
-                    (bar_x_start + bar_inset + health_width, bar_y + bar_height - bar_inset),
-                    bar_color,
-                    -1,
-                )
-
-            # Label
-            display_name = display_map.get(obj_name, obj_name)
-            if len(display_name) > 20:
-                display_name = display_name[:17] + "..."
-            label_color = (
-                _COLORS["text_gray"] if current_health == 0 else _COLORS["text_light"]
-            )
-            cv2.putText(
-                img_bgr,
-                display_name,
-                (label_x, bar_y + bar_height // 2 + 5),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                font_size,
-                label_color,
-                1,
-                cv2.LINE_AA,
-            )
-
-            # Health value text
-            health_text = f"{current_health:.1f}"
-            cv2.putText(
-                img_bgr,
-                health_text,
-                (value_x, bar_y + bar_height // 2 + 5),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                font_size,
-                value_color,
-                1,
-                cv2.LINE_AA,
-            )
-
-        img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-        processed_imgs.append(img_rgb)
+        result = render_health_bar_overlay(
+            imgs[frame_idx],
+            target_objects,
+            frame_health,
+            position=position,
+            n_columns=n_columns,
+            obj_display_names=obj_display_names,
+        )
+        processed_imgs.append(result)
 
     # Delegate to camera video saver (AVI → MP4)
     save_rgb_camera_video(output_video_path, np.array(processed_imgs), fps=fps)
@@ -526,4 +598,3 @@ def save_rgb_force_video(
 
     ani.save(output_video_path, writer=writer)
     plt.close(fig)
-

@@ -36,6 +36,7 @@ from robosuite.devices import Keyboard, SpaceMouse
 
 from envs.registry import EnvironmentRegistry
 from utils.misc_utils import process_traj_to_hdf5, flush_current_file
+from damagesim.utils.visualization import render_health_bar_overlay, OBJ_NAME_DISPLAY_NAME_MAPPING
 
 
 # =============================================================================
@@ -254,64 +255,15 @@ class ConsoleHealthDisplay:
         print(f"{'='*50}\n")
 
 
-def format_display_name(obj_name):
-    """Format object names for display (removes common prefixes, title-cases)."""
-    if obj_name.startswith("dinner_"):
-        obj_name = obj_name[7:]
-    return obj_name.replace("_", " ").title()
-
-
 class HealthBarHUD:
     """
     Health bar HUD overlay rendered on a video frame.
-    Draws health bars in the bottom-left corner, color-coded by health level.
+    Delegates to damagesim.utils.visualization.render_health_bar_overlay for rendering.
     """
 
-    def __init__(
-        self,
-        bar_width=200,
-        bar_height=20,
-        padding=10,
-        margin_left=20,
-        margin_bottom=20,
-        font_scale=0.5,
-        font_thickness=1,
-    ):
-        self.bar_width = bar_width
-        self.bar_height = bar_height
-        self.padding = padding
-        self.margin_left = margin_left
-        self.margin_bottom = margin_bottom
-        self.font_scale = font_scale
-        self.font_thickness = font_thickness
-        self.text_height = 15
-        self.value_spacing = 10
-        self.name_spacing = 5
-        self.entry_spacing = 15
-        self.value_text_width = 60
-
-        self.color_green = (0, 255, 0)
-        self.color_yellow = (0, 255, 255)
-        self.color_red = (0, 0, 255)
-        self.color_white = (255, 255, 255)
-        self.color_black = (0, 0, 0)
-        self.color_gray = (50, 50, 50)
-        self.color_dark_gray = (30, 30, 30)
-
-    def _get_health_color(self, health):
-        if health >= 80:
-            return self.color_green
-        elif health >= 50:
-            return self.color_yellow
-        return self.color_red
-
-    def _calculate_hud_dimensions(self, num_objects):
-        entry_height = self.bar_height + self.name_spacing + self.text_height
-        content_height = num_objects * entry_height + (num_objects - 1) * self.entry_spacing
-        total_height = content_height + 2 * self.padding
-        content_width = self.bar_width + self.value_spacing + self.value_text_width
-        total_width = content_width + 2 * self.padding
-        return int(total_width), int(total_height)
+    def __init__(self, position="bottom_left", n_columns=1):
+        self.position = position
+        self.n_columns = n_columns
 
     def render_overlay(self, frame, health_states: dict):
         """
@@ -324,55 +276,15 @@ class HealthBarHUD:
         if not health_states:
             return frame
 
-        frame = frame.copy()
-        frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-
-        num_objects = len(health_states)
-        hud_width, hud_height = self._calculate_hud_dimensions(num_objects)
-        frame_height, frame_width = frame_bgr.shape[:2]
-        hud_x = self.margin_left
-        hud_y = frame_height - self.margin_bottom - hud_height
-
-        overlay = frame_bgr.copy()
-        cv2.rectangle(overlay, (hud_x, hud_y), (hud_x + hud_width, hud_y + hud_height), self.color_dark_gray, -1)
-        cv2.rectangle(overlay, (hud_x, hud_y), (hud_x + hud_width, hud_y + hud_height), self.color_white, 2)
-        frame_bgr = cv2.addWeighted(overlay, 0.85, frame_bgr, 0.15, 0)
-
-        entry_height = self.bar_height + self.name_spacing + self.text_height
-
-        for idx, (obj_name, health_pct) in enumerate(sorted(health_states.items())):
-            health = max(0.0, min(100.0, health_pct))
-            entry_y = hud_y + hud_height - self.padding - (idx + 1) * entry_height - idx * self.entry_spacing
-            bar_x = hud_x + self.padding
-
-            # Background bar
-            cv2.rectangle(frame_bgr, (bar_x, entry_y), (bar_x + self.bar_width, entry_y + self.bar_height), self.color_gray, -1)
-            cv2.rectangle(frame_bgr, (bar_x, entry_y), (bar_x + self.bar_width, entry_y + self.bar_height), self.color_white, 1)
-
-            # Filled health portion
-            fill_width = int((health / 100.0) * self.bar_width)
-            if fill_width > 0:
-                cv2.rectangle(
-                    frame_bgr,
-                    (bar_x + 1, entry_y + 1),
-                    (bar_x + fill_width - 1, entry_y + self.bar_height - 1),
-                    self._get_health_color(health), -1
-                )
-
-            # Health value text
-            value_text = f"{health:.1f}"
-            value_x = bar_x + self.bar_width + self.value_spacing
-            value_y = entry_y + self.bar_height - 5
-            cv2.putText(frame_bgr, value_text, (value_x + 1, value_y + 1), cv2.FONT_HERSHEY_SIMPLEX, self.font_scale, self.color_black, self.font_thickness + 1)
-            cv2.putText(frame_bgr, value_text, (value_x, value_y), cv2.FONT_HERSHEY_SIMPLEX, self.font_scale, self.color_white, self.font_thickness)
-
-            # Object name text
-            name_text = format_display_name(obj_name)
-            name_y = entry_y + self.bar_height + self.name_spacing + self.text_height - 3
-            cv2.putText(frame_bgr, name_text, (bar_x + 1, name_y + 1), cv2.FONT_HERSHEY_SIMPLEX, self.font_scale * 0.9, self.color_black, self.font_thickness + 1)
-            cv2.putText(frame_bgr, name_text, (bar_x, name_y), cv2.FONT_HERSHEY_SIMPLEX, self.font_scale * 0.9, self.color_white, self.font_thickness)
-
-        return cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+        target_objects = sorted(health_states.keys())
+        return render_health_bar_overlay(
+            frame,
+            target_objects,
+            health_states,
+            position=self.position,
+            n_columns=self.n_columns,
+            obj_display_names=OBJ_NAME_DISPLAY_NAME_MAPPING,
+        )
 
 
 class LiveHUDRenderer:
@@ -903,6 +815,23 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
 
     if args.video:
         args.health_hud = True
+
+    # Check that cv2.imshow is available when --health-hud is requested.
+    # opencv-python-headless (pulled by lerobot) can shadow opencv-python and
+    # silently remove GUI support.
+    if args.health_hud:
+        try:
+            test_img = np.zeros((1, 1, 3), dtype=np.uint8)
+            cv2.imshow("_probe", test_img)
+            cv2.destroyWindow("_probe")
+            cv2.waitKey(1)
+        except cv2.error:
+            print("Error: cv2.imshow is not available — your OpenCV build has no GUI support.")
+            print("  This usually happens when opencv-python-headless shadows opencv-python.")
+            print("  Fix with:")
+            print("    pip uninstall -y opencv-python-headless opencv-python")
+            print("    pip install opencv-python")
+            sys.exit(1)
 
     # On macOS, gui requirements differ by display mode:
     #   --health-hud / --video: cv2.imshow needs the main thread; mjpython puts
