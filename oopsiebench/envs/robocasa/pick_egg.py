@@ -1,14 +1,12 @@
 import os
 
 import numpy as np
-import robocasa
 import robocasa.utils.env_utils as EnvUtils
 from robocasa.environments.kitchen.kitchen import FixtureType, Kitchen
+from robocasa.models.objects.kitchen_object_utils import OBJ_CATEGORIES
 from robocasa.models.scenes.scene_registry import LayoutType, StyleType
 
 from damagesim.robosuite.damageable_env import RSDamageableEnvironment
-from damagesim.robosuite.damageable_mixin import DamageableMJCFObject
-from damagesim.robosuite.params import get_params_for_object
 
 
 class PickEgg(Kitchen):
@@ -44,16 +42,13 @@ class PickEgg(Kitchen):
         self.init_robot_base_ori_anchor = ori
 
     def _get_obj_cfgs(self):
+        egg_paths = OBJ_CATEGORIES["egg"]["objaverse"].mjcf_paths
+        egg_0_path = next(p for p in egg_paths if p.endswith("egg_0" + os.sep + "model.xml"))
+
         return [
             dict(
                 name="egg",
-                obj_groups="egg",
-                info=dict(
-                    mjcf_path=os.path.join(
-                        robocasa.models.assets_root,
-                        "objects/objaverse/egg/egg_0/model.xml",
-                    )
-                ),
+                obj_groups=egg_0_path,
                 placement=dict(
                     fixture=self.counter,
                     sample_region_kwargs=dict(ref=self.sink, loc="right"),
@@ -63,22 +58,6 @@ class PickEgg(Kitchen):
                 ),
             )
         ]
-
-    def _create_obj(self, cfg):
-        if cfg.get("name") == "egg" and isinstance(self, RSDamageableEnvironment):
-            mjcf_path = cfg["info"]["mjcf_path"]
-            egg = DamageableMJCFObject(
-                name="egg",
-                mjcf_path=mjcf_path,
-                params=get_params_for_object("egg"),
-            )
-            info = {
-                "groups_containing_sampled_obj": ["egg", "food"],
-                "obj_path": mjcf_path,
-            }
-            return egg, info
-        else:
-            return super()._create_obj(cfg)
 
     def reward(self, action=None):
         return 0.0
