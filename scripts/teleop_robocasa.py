@@ -150,6 +150,10 @@ class DamageColorManager:
                 for prefix in prefixes_to_check:
                     if geom_name.startswith(prefix):
                         if self.env.sim.model.geom_group[i] == 1:
+                            mat_id = self.env.sim.model.geom_matid[i]
+                            orig_alpha = self.env.sim.model.geom_rgba[i][3]
+                            if mat_id < 0 and orig_alpha < 0.01:
+                                break
                             geom_ids.append(i)
                         break
         return geom_ids
