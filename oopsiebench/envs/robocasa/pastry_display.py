@@ -58,8 +58,6 @@ class PastryDisplay(Kitchen):
         """Setup kitchen fixture references."""
         super()._setup_kitchen_references()
 
-        self.sink = self.register_fixture_ref("sink", dict(id=FixtureType.SINK))
-
         self.dining_table = self.register_fixture_ref(
             "dining_table",
             dict(id=FixtureType.DINING_COUNTER, ref=FixtureType.STOOL, size=(0.75, 0.2)),
@@ -94,14 +92,12 @@ class PastryDisplay(Kitchen):
         )
 
         dining_pos = self.dining_table.pos
+        dining_x, dining_y = dining_pos[0], dining_pos[1]
         dining_surface_z = dining_pos[2]
         if hasattr(self.dining_table, 'height'):
             dining_surface_z += self.dining_table.height / 2
         else:
             dining_surface_z += 0.45
-
-        dining_x = self.dining_table.pos[0]
-        dining_y = self.dining_table.pos[1]
 
         mat_x = dining_x - 0.1
         mat_y = dining_y + 0.23
@@ -189,64 +185,49 @@ class PastryDisplay(Kitchen):
 
     # ── Task checks ────────────────────────────────────────────────────
 
+    def _get_mat_pos(self):
+        """Return the live table mat body position, falling back to the stored init position."""
+        if self._table_mat_pos is None:
+            return None
+        try:
+            mat_body_id = self.sim.model.body_name2id("table_mat")
+            return np.array(self.sim.data.body_xpos[mat_body_id])
+        except Exception:
+            return self._table_mat_pos
+
     def _check_pastry_on_plate(self):
         """Check if the pastry is positioned on the plate."""
         try:
             pastry_pos = np.array(self.sim.data.body_xpos[self.obj_body_id["pastry"]])
             plate_pos = np.array(self.sim.data.body_xpos[self.obj_body_id["plate"]])
 
-            dx = abs(pastry_pos[0] - plate_pos[0])
-            dy = abs(pastry_pos[1] - plate_pos[1])
             dz = pastry_pos[2] - plate_pos[2]
-
-            plate_radius = 0.12 
-            within_xy = (dx <= plate_radius) and (dy <= plate_radius)
-            above_plate = 0.0 <= dz <= 0.15 
-            
-            return within_xy and above_plate
+            within_xy = np.linalg.norm(pastry_pos[:2] - plate_pos[:2]) <= 0.12
+            return within_xy and 0.0 <= dz <= 0.15
         except Exception:
             return False
 
     def _check_plate_on_table_mat(self):
         """Check if the plate is positioned on the table mat."""
-        if self._table_mat_pos is None:
+        mat_pos = self._get_mat_pos()
+        if mat_pos is None:
             return False
-
         try:
             plate_pos = np.array(self.sim.data.body_xpos[self.obj_body_id["plate"]])
-
-            try:
-                mat_body_id = self.sim.model.body_name2id("table_mat")
-                mat_pos = np.array(self.sim.data.body_xpos[mat_body_id])
-            except Exception:
-                mat_pos = self._table_mat_pos
-
             dx = abs(plate_pos[0] - mat_pos[0])
             dy = abs(plate_pos[1] - mat_pos[1])
             dz = plate_pos[2] - mat_pos[2]
-
-            within_x = dx <= TABLE_MAT_SIZE[0] * 1.5
-            within_y = dy <= TABLE_MAT_SIZE[1] * 1.5
-            above_mat = -0.02 <= dz <= 0.15
-
-            return within_x and within_y and above_mat
+            return dx <= TABLE_MAT_SIZE[0] * 1.5 and dy <= TABLE_MAT_SIZE[1] * 1.5 and -0.02 <= dz <= 0.15
         except Exception:
             return False
 
     def _get_plate_distance_to_mat(self):
-        """Get the distance from plate to table mat."""
-        if self._table_mat_pos is None:
+        """Get the XY distance from plate to table mat."""
+        mat_pos = self._get_mat_pos()
+        if mat_pos is None:
             return float('inf')
-
         try:
             plate_pos = np.array(self.sim.data.body_xpos[self.obj_body_id["plate"]])
-
-            try:
-                mat_body_id = self.sim.model.body_name2id("table_mat")
-                mat_pos = np.array(self.sim.data.body_xpos[mat_body_id])
-            except Exception:
-                mat_pos = self._table_mat_pos
-
             return np.linalg.norm(plate_pos[:2] - mat_pos[:2])
         except Exception:
             return float('inf')
@@ -261,7 +242,7 @@ class PastryDisplay(Kitchen):
         info["pastry_on_plate"] = pastry_on_plate
         info["plate_on_table_mat"] = plate_on_mat
         info["plate_distance_to_mat"] = self._get_plate_distance_to_mat()
-        info["task_success"] = self._check_success()
+        info["task_success"] = pastry_on_plate and plate_on_mat and OU.gripper_obj_far(self, "plate")
 
         return reward, done, info
 
