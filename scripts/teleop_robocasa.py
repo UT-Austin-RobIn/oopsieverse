@@ -398,10 +398,6 @@ class LiveHUDRenderer:
         if key == ord('q'):
             self._quit_requested = True
             return False
-        elif key == ord('['):
-            self.switch_camera(-1)
-        elif key == ord(']'):
-            self.switch_camera(1)
 
         return True
 
@@ -433,6 +429,7 @@ class ManualRecordingWrapper:
         self.end_recording_requested = False
         self.paused = False
         self.capture_camera_requested = False
+        self.camera_switch = 0
         self.listener = None
 
         try:
@@ -456,6 +453,10 @@ class ManualRecordingWrapper:
                     if not self.paused:
                         self.paused = True
                         print("\n[= pressed - simulation PAUSED (press Esc to resume)]")
+                elif key.char == "[":
+                    self.camera_switch = -1
+                elif key.char == "]":
+                    self.camera_switch = 1
             else:
                 from pynput.keyboard import Key
                 if key == Key.esc and self.paused:
@@ -644,6 +645,15 @@ def collect_human_trajectory(
     if live_hud_renderer:
         live_hud_renderer.reset()
 
+    viewer_cameras = []
+    viewer_cam_idx = 0
+    if not live_hud_renderer and render:
+        try:
+            model = env.sim.model
+            viewer_cameras = [model.camera_id2name(i) for i in range(model.ncam) if model.camera_id2name(i)]
+        except Exception:
+            pass
+
     # ── Hide teleop visualization markers ──
     for robot in env.robots:
         for arm_name in robot.arms:
@@ -681,6 +691,16 @@ def collect_human_trajectory(
             device_wrapper.capture_camera_requested = False
             if env_name is not None:
                 save_camera_pose(env, env_name)
+
+        cam_dir = device_wrapper.camera_switch
+        if cam_dir != 0:
+            device_wrapper.camera_switch = 0
+            if live_hud_renderer:
+                live_hud_renderer.switch_camera(cam_dir)
+            elif viewer_cameras:
+                viewer_cam_idx = (viewer_cam_idx + cam_dir) % len(viewer_cameras)
+                env.viewer.viewer.cam.type = 2
+                env.viewer.viewer.cam.fixedcamid = viewer_cam_idx
 
         action_dict = dict(input_ac_dict)
         for arm_name in active_robot.arms:
@@ -904,9 +924,9 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
     print("\nControls:")
     print("  K          — end episode and save/discard prompt")
     print(f"  P          — save free camera pose (resources/camera_states/{args.env}.json)")
+    print("  [ / ]      — switch camera")
     if args.health_hud:
         print("  Q          — quit (in HUD window)")
-        print("  [ / ]      — switch camera (in HUD window)")
     else:
         print("  Ctrl+Q     — quit teleoperation")
     print("  =          — pause simulation (free camera while paused)")
