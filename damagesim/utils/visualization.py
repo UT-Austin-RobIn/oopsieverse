@@ -34,60 +34,159 @@ except ImportError:
 
 def setup_live_health_bars(
     object_names: List[str],
-    figsize: Tuple[int, int] = (8, 4),
-) -> Tuple["Figure", "Axes", Dict[str, "matplotlib.patches.Rectangle"]]:
+    obj_display_names: Optional[Dict[str, str]] = None,
+) -> Tuple["Figure", "Axes", Dict]:
     """
-    Create a matplotlib figure with horizontal health bars for each object.
+    Create a draggable HUD-style matplotlib window with health bars.
+
+    The window has a dark background, a "Health Monitor" title, and one
+    colour-coded bar per object.  It is borderless and can be dragged
+    with the mouse.
 
     Returns:
-        (fig, ax, bars_dict)
+        ``(fig, ax, bars_dict)`` where *bars_dict* maps each object name
+        to a dict of patch / text handles used by :func:`update_live_health_bars`.
     """
     if not HAS_MPL:
         raise RuntimeError("matplotlib is required for health visualization")
 
-    n = len(object_names)
-    fig, ax = plt.subplots(figsize=figsize)
-    ax.set_xlim(0, 100)
-    ax.set_ylim(-0.5, n - 0.5)
-    ax.set_xlabel("Health (%)")
-    ax.set_title("Object Health")
-    ax.set_yticks(range(n))
-    ax.set_yticklabels(object_names)
-    ax.invert_yaxis()
+    from matplotlib.patches import Rectangle
 
-    bars_dict: Dict[str, matplotlib.patches.Rectangle] = {}
-    for i, name in enumerate(object_names):
-        bar = ax.barh(i, 100, color="green", edgecolor="black", height=0.6)[0]
-        bars_dict[name] = bar
+    plt.ion()
+
+    display_map = dict(OBJ_NAME_DISPLAY_NAME_MAPPING)
+    if obj_display_names:
+        display_map.update(obj_display_names)
+
+    n_objects = len(object_names)
+    bar_height = 30.0
+    bar_spacing = 10.0
+    header_height = 60.0
+    padding = 15.0
+    window_width = 600.0
+    window_height = header_height + n_objects * (bar_height + bar_spacing) + padding * 2
+
+    fig, ax = plt.subplots(figsize=(window_width / 100, window_height / 100))
+
+    # Make the window borderless and draggable (TkAgg specific)
+    try:
+        window = fig.canvas.manager.window
+        window.overrideredirect(True)
+
+        def _start_move(event):
+            window._drag_start_x = event.x
+            window._drag_start_y = event.y
+
+        def _do_move(event):
+            x = window.winfo_pointerx() - window._drag_start_x
+            y = window.winfo_pointery() - window._drag_start_y
+            window.geometry(f"+{x}+{y}")
+
+        window.bind("<Button-1>", _start_move)
+        window.bind("<B1-Motion>", _do_move)
+        window.bind("<Escape>", lambda e: window.destroy())
+    except Exception:
+        pass
+
+    fig.patch.set_facecolor("#1A1A1A")
+    ax.set_facecolor("#1A1A1A")
+    ax.axis("off")
+    ax.set_xlim(0, window_width)
+    ax.set_ylim(0, window_height)
+
+    # Title
+    ax.text(
+        window_width / 2, window_height - 35,
+        "Health Monitor",
+        fontsize=18, color="#FFFFFF", weight="bold",
+        verticalalignment="center", horizontalalignment="center",
+        family="sans-serif",
+    )
+    ax.add_patch(Rectangle(
+        (window_width / 2 - 80, window_height - 50), 160, 2,
+        facecolor="#4CAF50", edgecolor="none", linewidth=0,
+        zorder=1, alpha=0.6,
+    ))
+
+    label_width = 160.0
+    bar_width = 280.0
+    gap_after_label = 20.0
+    gap_after_bar = 20.0
+    bar_x_start = label_width + gap_after_label
+    label_x = padding
+    value_x = bar_x_start + bar_width + gap_after_bar
+
+    bars_dict: Dict[str, Dict] = {}
+
+    for idx, obj_name in enumerate(object_names):
+        y_pos = window_height - header_height - (idx + 1) * (bar_height + bar_spacing) - padding / 2
+
+        bg_bar = Rectangle(
+            (bar_x_start, y_pos), bar_width, bar_height,
+            facecolor="#0D0D0D", edgecolor="#2A2A2A", linewidth=2.5, zorder=1,
+        )
+        ax.add_patch(bg_bar)
+
+        glow_bar = Rectangle(
+            (bar_x_start, y_pos + bar_height - 3), bar_width, 3,
+            facecolor="#333333", edgecolor="none", linewidth=0, alpha=0.4, zorder=2,
+        )
+        ax.add_patch(glow_bar)
+
+        shadow_bar = Rectangle(
+            (bar_x_start + 2, y_pos + 2), bar_width - 4, bar_height - 4,
+            facecolor="none", edgecolor="#000000", linewidth=1, alpha=0.5, zorder=2,
+        )
+        ax.add_patch(shadow_bar)
+
+        fg_bar = Rectangle(
+            (bar_x_start + 3, y_pos + 3), bar_width - 6, bar_height - 6,
+            facecolor="#4CAF50", edgecolor="none", linewidth=0, zorder=3, alpha=0.95,
+        )
+        ax.add_patch(fg_bar)
+
+        display_name = display_map.get(obj_name, obj_name)
+        if len(display_name) > 20:
+            display_name = display_name[:17] + "..."
+
+        label_text = ax.text(
+            label_x, y_pos + bar_height / 2,
+            display_name,
+            fontsize=12, color="#E8E8E8", weight="normal",
+            verticalalignment="center", horizontalalignment="left",
+            family="monospace",
+        )
+
+        value_text = ax.text(
+            value_x, y_pos + bar_height / 2,
+            "100.0",
+            fontsize=12, color="#FFFFFF", weight="bold",
+            verticalalignment="center", horizontalalignment="left",
+            family="sans-serif",
+        )
+
+        bars_dict[obj_name] = {
+            "foreground_bar": fg_bar,
+            "label_text": label_text,
+            "value_text": value_text,
+            "bar_width": bar_width - 6,
+        }
 
     plt.tight_layout()
-    plt.ion()
     plt.show(block=False)
-    fig.canvas.draw()
-    fig.canvas.flush_events()
 
     return fig, ax, bars_dict
-
-
-def _health_color(health: float) -> str:
-    if health > 75:
-        return "green"
-    if health > 50:
-        return "gold"
-    if health > 25:
-        return "orange"
-    return "red"
 
 
 def update_live_health_bars(
     fig: "Figure",
     ax: "Axes",
-    bars_dict: Dict[str, "matplotlib.patches.Rectangle"],
+    bars_dict: Dict[str, Dict],
     current_health: Dict[str, float],
     object_names: List[str],
 ) -> bool:
     """
-    Update the live health bars with new values.
+    Update the live HUD health bars with new values.
 
     Returns:
         True if the figure is still open, False if it was closed.
@@ -98,12 +197,45 @@ def update_live_health_bars(
     if not plt.fignum_exists(fig.number):
         return False
 
-    for name in object_names:
-        h = current_health.get(name, 100.0)
-        bar = bars_dict.get(name)
-        if bar is not None:
-            bar.set_width(max(0, h))
-            bar.set_color(_health_color(h))
+    for obj_name in object_names:
+        if obj_name not in bars_dict:
+            continue
+        health = max(0.0, min(100.0, current_health.get(obj_name, 100.0)))
+        bar_info = bars_dict[obj_name]
+        fg_bar = bar_info["foreground_bar"]
+        value_text = bar_info["value_text"]
+        label_text = bar_info["label_text"]
+        full_width = bar_info["bar_width"]
+        health_width = (health / 100.0) * full_width
+
+        if health == 0:
+            fg_bar.set_facecolor("none")
+            fg_bar.set_width(0)
+            value_color = "#666666"
+        elif health >= 80:
+            fg_bar.set_facecolor("#4CAF50")
+            fg_bar.set_width(health_width)
+            value_color = "#E8F5E9"
+        elif health >= 60:
+            fg_bar.set_facecolor("#FFC107")
+            fg_bar.set_width(health_width)
+            value_color = "#FFF9C4"
+        elif health >= 40:
+            fg_bar.set_facecolor("#FF9800")
+            fg_bar.set_width(health_width)
+            value_color = "#FFE0B2"
+        elif health >= 20:
+            fg_bar.set_facecolor("#F44336")
+            fg_bar.set_width(health_width)
+            value_color = "#FFCDD2"
+        else:
+            fg_bar.set_facecolor("#D32F2F")
+            fg_bar.set_width(health_width)
+            value_color = "#EF9A9A"
+
+        value_text.set_text(f"{health:.1f}")
+        value_text.set_color(value_color)
+        label_text.set_color("#888888" if health == 0 else "#E8E8E8")
 
     try:
         fig.canvas.draw_idle()
@@ -216,6 +348,7 @@ def save_rgb_health_video_with_overlay(
     n_columns: int = 1,
     fps: int = 30,
     obj_display_names: Optional[Dict[str, str]] = None,
+    layout: str = "column",
 ) -> None:
     """
     Save video with health bars overlaid directly on the RGB frames.
@@ -225,11 +358,16 @@ def save_rgb_health_video_with_overlay(
         imgs: ``(T, H, W, 3)`` uint8 array in **RGB** order.
         target_objects: Object names whose health to display.
         health: Mapping ``obj_name → 1-D array of health values (0–100)``.
-        position: ``"bottom_left"``, ``"bottom_right"``, or
-            ``"bottom_center"`` / ``"center"``.
-        n_columns: Number of columns for laying out health bars (1–3).
+        position: Where to place the panel. Horizontal: ``"*_left"``, ``"*_right"``,
+            ``"*_center"`` or ``"center"``. Vertical: ``"bottom_*"``, ``"top_*"``, or
+            ``"center"`` (vertical+horizontal center). Examples: ``"bottom_left"``,
+            ``"bottom_right"``, ``"bottom_center"``, ``"top_left"``, ``"top_right"``,
+            ``"top_center"``, ``"center"``.
+        n_columns: Number of columns for laying out health bars (1–3); used only when layout="column".
         fps: Frames per second.
         obj_display_names: Optional override for display names.
+        layout: ``"column"`` = bars stacked in columns (default). ``"row"`` = all bars in one
+            horizontal row, centered on the frame.
     """
     # Pick the first non-None health array to get the number of frames
     T = 0
@@ -255,32 +393,68 @@ def save_rgb_health_video_with_overlay(
     bar_spacing = max(8, int(img_height * 0.01))
     padding = max(15, int(img_width * 0.02))
     column_spacing = max(15, int(img_width * 0.02))
+    row_spacing = max(15, int(img_width * 0.02))
 
     label_width = max(80, int(img_width * 0.13))
     bar_width = max(100, int(img_width * 0.1))
     gap_after_label = max(4, int(img_width * 0.012))
     gap_after_bar = max(8, int(img_width * 0.012))
+    value_width = max(50, int(img_width * 0.06))
     font_size = max(0.4, min(1.5, img_width / 1600.0))
 
-    objects_per_column = int(np.ceil(n_objects / n_columns))
-    column_width = (
-        label_width
-        + gap_after_label
-        + bar_width
-        + gap_after_bar
-        + max(50, int(img_width * 0.06))
-    )
-    panel_width = n_columns * column_width + (n_columns - 1) * column_spacing + 30
-    panel_height = objects_per_column * (bar_height + bar_spacing) + padding * 2
+    # Parse position: vertical_top | vertical_bottom | vertical_center, horizontal_left | right | center
+    position_lower = (position or "bottom_left").lower()
+    if position_lower == "center":
+        vertical, horizontal = "center", "center"
+    else:
+        parts = position_lower.split("_")
+        if len(parts) >= 2:
+            vertical = parts[0]   # top, bottom, center
+            horizontal = parts[1] if len(parts) > 1 else "left"
+        else:
+            vertical, horizontal = "bottom", "left"
 
-    # ── Panel position ────────────────────────────────────────────────
-    if position == "bottom_right":
-        panel_x = img_width - panel_width - padding
-    elif position in ("center", "bottom_center"):
+    use_row_layout = layout == "row"
+    if use_row_layout:
+        item_width = (
+            label_width
+            + gap_after_label
+            + bar_width
+            + gap_after_bar
+            + value_width
+        )
+        panel_width = (
+            n_objects * item_width
+            + (n_objects - 1) * row_spacing
+            + padding * 2
+        )
+        panel_height = bar_height + padding * 2
         panel_x = (img_width - panel_width) // 2
-    else:  # bottom_left (default)
-        panel_x = padding
-    panel_y = img_height - panel_height - padding
+    else:
+        objects_per_column = int(np.ceil(n_objects / n_columns))
+        column_width = (
+            label_width
+            + gap_after_label
+            + bar_width
+            + gap_after_bar
+            + value_width
+        )
+        panel_width = n_columns * column_width + (n_columns - 1) * column_spacing + 30
+        panel_height = objects_per_column * (bar_height + bar_spacing) + padding * 2
+        if horizontal == "right":
+            panel_x = img_width - panel_width - padding
+        elif horizontal == "center":
+            panel_x = (img_width - panel_width) // 2
+        else:
+            panel_x = padding
+
+    # Vertical placement
+    if vertical == "top":
+        panel_y = padding
+    elif vertical == "center":
+        panel_y = (img_height - panel_height) // 2
+    else:
+        panel_y = img_height - panel_height - padding
 
     # ── Frame-by-frame rendering ──────────────────────────────────────
     processed_imgs = []
@@ -317,14 +491,22 @@ def save_rgb_health_video_with_overlay(
                 current_health = 100.0
             current_health = max(0.0, min(100.0, current_health))
 
-            col_idx = obj_idx // objects_per_column
-            row_idx = obj_idx % objects_per_column
+            if use_row_layout:
+                item_x = panel_x + padding + obj_idx * (item_width + row_spacing)
+                bar_y = panel_y + padding
+                label_x = item_x
+                bar_x_start = label_x + label_width + gap_after_label
+                value_x = bar_x_start + bar_width + gap_after_bar
+            else:
+                col_idx = obj_idx // objects_per_column
+                row_idx = obj_idx % objects_per_column
+                column_x = panel_x + col_idx * (column_width + column_spacing)
+                bar_y = panel_y + padding + row_idx * (bar_height + bar_spacing)
+                label_x = column_x + padding
+                bar_x_start = label_x + label_width + gap_after_label
+                value_x = bar_x_start + bar_width + gap_after_bar
 
-            column_x = panel_x + col_idx * (column_width + column_spacing)
-            bar_y = panel_y + padding + row_idx * (bar_height + bar_spacing)
-            label_x = column_x + padding
-            bar_x_start = label_x + label_width + gap_after_label
-            value_x = bar_x_start + bar_width + gap_after_bar
+            # (label_x, bar_x_start, value_x, bar_y set above for both layouts)
 
             # Background bar container
             cv2.rectangle(
@@ -421,6 +603,85 @@ def save_rgb_health_video_with_overlay(
 
     # Delegate to camera video saver (AVI → MP4)
     save_rgb_camera_video(output_video_path, np.array(processed_imgs), fps=fps)
+
+def save_rgb_health_video(
+    output_video_path: str,
+    imgs: np.ndarray,
+    target_objects: List[str],
+    health: Dict[str, np.ndarray],
+    fps: int = 30,
+) -> None:
+    """
+    Save a side-by-side video: RGB on the left, health line plot on the right.
+
+    Args:
+        output_video_path: Destination path (with or without ``.mp4``).
+        imgs: ``(T, H, W, 3)`` uint8 array in **RGB** order.
+        target_objects: Object names whose health to plot.
+        health: Mapping ``obj_name -> 1-D array of health values (0-100)``.
+        fps: Frames per second.
+    """
+    T = len(health[target_objects[0]])
+
+    fig = plt.figure(figsize=(14, 6))
+    gs = fig.add_gridspec(1, 2, width_ratios=[1, 1.2])
+
+    ax_video = fig.add_subplot(gs[0, 0])
+    ax_video.axis("off")
+    video_im = ax_video.imshow(imgs[0][:, :, :3])
+
+    ax_health = fig.add_subplot(gs[0, 1])
+    ax_health.set_title("Health Over Time")
+    ax_health.set_xlabel("Time (s)")
+    ax_health.set_ylabel("Health")
+    ax_health.set_xlim(0, T / fps)
+    ax_health.set_ylim(-5.0, 105.0)
+    ax_health.grid(True)
+
+    health_lines = {}
+    for obj_name in target_objects:
+        health_lines[obj_name], = ax_health.plot(
+            [], [], lw=2, label=f"{obj_name} Health",
+        )
+
+    ax_health.legend(loc="upper right", fontsize=9)
+    fig.subplots_adjust(left=0.05, right=0.97, wspace=0.25)
+
+    time = [i / fps for i in range(T)]
+
+    def init():
+        video_im.set_data(imgs[0][:, :, :3])
+        for line in health_lines.values():
+            line.set_data([], [])
+        return [video_im] + list(health_lines.values())
+
+    def animate(i):
+        video_im.set_data(imgs[i][:, :, :3])
+        for obj_name in target_objects:
+            health_lines[obj_name].set_data(
+                time[: i + 1], health[obj_name][: i + 1],
+            )
+        return [video_im] + list(health_lines.values())
+
+    ani = animation.FuncAnimation(
+        fig, animate, init_func=init,
+        frames=T, interval=1000 / fps, blit=True,
+    )
+
+    writer = animation.FFMpegWriter(
+        fps=fps, codec="libx264",
+        extra_args=[
+            "-pix_fmt", "yuv420p",
+            "-movflags", "+faststart",
+            "-loglevel", "error",
+            "-hide_banner",
+            "-nostats",
+        ],
+    )
+
+    ani.save(output_video_path, writer=writer)
+    plt.close(fig)
+
 
 def save_rgb_force_video(
     output_video_path,
