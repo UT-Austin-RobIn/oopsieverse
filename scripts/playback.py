@@ -162,7 +162,7 @@ def extract_forces_from_hdf5(
     force_keys: List[str],
 ):
     """
-    Read per-link forces from the HDF5 and aggregate per-object (min across links).
+    Read per-link forces from the HDF5. Uses 0.0 when mechanical/force_key is missing.
     """
     forces: Dict[str, Dict[str, List[float]]] = dict()
     for obj_name in target_objects_forces:
@@ -172,8 +172,17 @@ def extract_forces_from_hdf5(
     for i in range(len(f[f"data/{demo_key}/info/damage_info"])):
         damage_info = json.loads(f[f"data/{demo_key}/info/damage_info"][i].decode("utf-8"))
         for obj_name in target_objects_forces:
+            parts = obj_name.split("@", 1)
+            if len(parts) != 2:
+                for force_key in force_keys:
+                    forces[obj_name][force_key].append(0.0)
+                continue
+            obj_key, link_key = parts
+            obj_info = damage_info.get(obj_key, {})
+            link_info = obj_info.get(link_key, {})
+            mechanical = link_info.get("mechanical", {})
             for force_key in force_keys:
-                forces[obj_name][force_key].append(damage_info[obj_name.split("@")[0]][obj_name.split("@")[1]]["mechanical"][force_key])
+                forces[obj_name][force_key].append(mechanical.get(force_key, 0.0))
     return forces
 
 
@@ -368,17 +377,19 @@ def run_visualize(args, task_cfg):
             position="bottom_center",
             n_columns=3,
             fps=30,
+            layout="row",
         )
 
         # Save videos for forces plot
-        forces_video_path = os.path.join(output_dir, f"demo_{demo_idx}_forces_video.mp4")
-        save_rgb_force_video(
-            output_video_path=forces_video_path,
-            imgs=imgs,
-            target_objects=task_cfg.target_objects_forces,
-            data=forces, 
-            forces_to_plot=task_cfg.force_keys
-        )
+        if task_cfg.target_objects_forces:
+            forces_video_path = os.path.join(output_dir, f"demo_{demo_idx}_forces_video.mp4")
+            save_rgb_force_video(
+                output_video_path=forces_video_path,
+                imgs=imgs,
+                target_objects=task_cfg.target_objects_forces,
+                data=forces, 
+                forces_to_plot=task_cfg.force_keys
+            )
 
 
     f.close()

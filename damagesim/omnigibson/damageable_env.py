@@ -317,10 +317,25 @@ class OGDamageableEnvironment(DamageableEnvironment, Environment):
             return False
 
     def disable_health_visualization(self):
+        # Clear object highlights
+        if self._health_tracked_object_names is not None:
+            for obj_name in self._health_tracked_object_names:
+                try:
+                    obj = self.scene.object_registry("name", obj_name)
+                    if obj is not None:
+                        obj.highlighted = False
+                except Exception:
+                    pass
         if self._health_fig is not None:
             try:
                 import matplotlib.pyplot as plt
-                plt.close(self._health_fig)
+                if plt.fignum_exists(self._health_fig.number):
+                    plt.close(self._health_fig)
+            except Exception:
+                pass
+            try:
+                import matplotlib.pyplot as plt
+                plt.ioff()
             except Exception:
                 pass
         self._health_visualization_enabled = False
@@ -341,13 +356,25 @@ class OGDamageableEnvironment(DamageableEnvironment, Environment):
         else:
             health_arr = np.asarray(health_arr)
         link_healths = {}
-        for idx, name in enumerate(self.health_list_part_names):
+        for idx, name in enumerate(self.health_list_link_names):
             if idx < len(health_arr):
                 link_healths[name] = health_arr[idx]
         current = {}
         for obj_name in self._health_tracked_object_names:
             vals = [v for k, v in link_healths.items() if k.startswith(f"{obj_name}@")]
             current[obj_name] = min(vals) if vals else 100.0
+
+        # Live object coloring: tint objects red proportionally to damage
+        for obj_name in self._health_tracked_object_names:
+            try:
+                obj = self.scene.object_registry("name", obj_name)
+                if obj is not None:
+                    intensity = 10000 * (100.0 - current[obj_name]) / 100.0
+                    obj.set_highlight_properties(color=[255.0, 0.0, 0.0], intensity=intensity)
+                    obj.highlighted = True
+            except Exception:
+                pass
+
         try:
             return update_live_health_bars(
                 self._health_fig, self._health_ax, self._health_bars_dict,
@@ -363,6 +390,12 @@ class OGDamageableEnvironment(DamageableEnvironment, Environment):
 
 class OGDamageableDataCollectionWrapper(DataCollectionWrapper):
     """Extends OG DataCollectionWrapper to store health metadata."""
+
+    def _optimize_sim_for_data_collection(self, viewport_camera_path):
+        """Skip the base-class optimizations (disabling sensor render products
+        and overriding the viewer camera path) so that teleop and other
+        interactive callers keep the correct viewport and working sensors."""
+        pass
 
     def enable_health_visualization(self):
         if hasattr(self.env, "enable_health_visualization"):
