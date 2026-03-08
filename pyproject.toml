@@ -16,6 +16,7 @@ license = { text = "MIT" }
 
 dependencies = [
     "open3d",
+    "matplotlib",
     "scipy",
     "tqdm",           # useful for progress bars in install.py
     "numba==0.62.1"
