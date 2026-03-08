@@ -295,12 +295,14 @@ class LiveHUDRenderer:
         window_name="RoboCasa Teleop HUD",
         video_path=None,
         video_fps=30,
+        show_window=True,
     ):
         self.env = env
         self.camera_name = camera_name
         self.width = width
         self.height = height
         self.window_name = window_name
+        self.show_window = show_window
 
         self._renderer = None
         self._scene_option = None
@@ -390,7 +392,7 @@ class LiveHUDRenderer:
         scene_rgb = self._renderer.render()
         scene_bgr = cv2.cvtColor(scene_rgb, cv2.COLOR_RGB2BGR)
 
-        if health_states:
+        if health_states and self.show_window:
             scene_with_hud = render_health_bar_overlay(
                 cv2.cvtColor(scene_bgr, cv2.COLOR_BGR2RGB),
                 sorted(health_states.keys()),
@@ -405,15 +407,16 @@ class LiveHUDRenderer:
             self._video_writer.write(final_frame)
             self._episode_frame_count += 1
 
-        cv2.imshow(self.window_name, final_frame)
-        if not self._window_created:
-            cv2.setWindowProperty(self.window_name, cv2.WND_PROP_TOPMOST, 1)
-            self._window_created = True
+        if self.show_window:
+            cv2.imshow(self.window_name, final_frame)
+            if not self._window_created:
+                cv2.setWindowProperty(self.window_name, cv2.WND_PROP_TOPMOST, 1)
+                self._window_created = True
 
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):
-            self._quit_requested = True
-            return False
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
+                self._quit_requested = True
+                return False
 
         return True
 
@@ -427,7 +430,7 @@ class LiveHUDRenderer:
 
     def close(self):
         self.stop_video()
-        if self._window_created:
+        if self.show_window and self._window_created:
             cv2.destroyWindow(self.window_name)
             self._window_created = False
         self._renderer = None
@@ -567,6 +570,23 @@ def load_camera_pose(env, env_name, camera_states_dir="resources/camera_states")
 
     print(f"Loaded camera pose from: {filepath}")
     return True
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Video path helpers
+# ═══════════════════════════════════════════════════════════════════════
+
+def get_next_video_path(video_dir, env_name):
+    """Return the next available video path, incrementing suffix to avoid overwriting."""
+    base = os.path.join(video_dir, f"{env_name}.mp4")
+    if not os.path.exists(base):
+        return base
+    i = 1
+    while True:
+        path = os.path.join(video_dir, f"{env_name}_{i}.mp4")
+        if not os.path.exists(path):
+            return path
+        i += 1
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -819,9 +839,6 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
 
     args = parser.parse_args()
 
-    if args.video:
-        args.health_hud = True
-
     # ── Check cv2.imshow availability ──
     # opencv-python-headless can overtake opencv-python
     # if running locally, remove GUI support.
@@ -876,10 +893,10 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
     print(f"Device      : {args.device}")
     print(f"Robot       : {env_config.robot}")
     print(f"Output      : {output_path}")
-    print(f"Display     : {'OpenCV HUD (with health bars)' if args.health_hud else 'MuJoCo Viewer'}")
     if args.video:
         video_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "resources", "videos")
-        print(f"Video       : {video_dir}/")
+        print(f"Video       : {video_dir}")
+    print(f"Display     : {'OpenCV HUD (with health bars)' if args.health_hud else 'MuJoCo Viewer'}")
     print(f"{'='*60}\n")
 
     env_kwargs = dict(
@@ -887,7 +904,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
         controller_configs=load_composite_controller_config(robot=env_config.robot),
         translucent_robot=False,
         has_renderer=not args.health_hud,
-        has_offscreen_renderer=not on_macos,
+        has_offscreen_renderer=args.health_hud or args.video or not on_macos,
         render_camera=env_config.camera_name,
         ignore_done=True,
         use_camera_obs=False,
@@ -899,7 +916,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
     env = env_config.damageable_class(**env_kwargs)
     env.initialize_damageable_objects()
 
-    color_manager = DamageColorManager(env) if (args.health_color or args.health_hud) else None
+    color_manager = DamageColorManager(env) if (args.health_color or args.health_hud or args.video) else None
     console_display = ConsoleHealthDisplay() if args.health_console else None
     live_hud_renderer = None
 
@@ -908,7 +925,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
         video_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "resources", "videos")
         os.makedirs(video_dir, exist_ok=True)
 
-    if args.health_hud:
+    if args.health_hud or args.video:
         live_hud_renderer = LiveHUDRenderer(
             env=env,
             camera_name=env_config.camera_name,
@@ -916,6 +933,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
             height=720,
             window_name="oopsieverse Teleop HUD",
             video_fps=args.video_fps,
+            show_window=args.health_hud,
         )
 
     env = DamageDataCollectionWrapper(env=env, output_path=output_path)
@@ -936,7 +954,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
     if args.video:
         print(f"  ✓ Video recording (FPS: {args.video_fps})")
     if not args.health_color and not args.health_console and not args.health_hud:
-        print("  (none — use --health-hud, --health-color, or --health-console)")
+        print("  (none use: --health-hud, --health-color, or --health-console)")
     print("\nControls:")
     print("  K          — end episode and save/discard prompt")
     print(f"  P          — save free camera pose (resources/camera_states/{args.env}.json)")
@@ -958,7 +976,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
 
             current_video_path = None
             if args.video and live_hud_renderer and video_dir is not None:
-                current_video_path = os.path.join(video_dir, f"{args.env}.mp4")
+                current_video_path = get_next_video_path(video_dir, args.env)
                 live_hud_renderer.start_video(current_video_path)
 
             try:
@@ -977,8 +995,6 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
 
                 if discard_traj:
                     print("\nQuitting teleoperation...")
-                    if current_video_path and os.path.exists(current_video_path):
-                        os.remove(current_video_path)
                     break
 
                 print(f"\n{'='*60}")
