@@ -18,8 +18,8 @@ DAMAGEABLE_OBJECTS = {
         "names": [],
     },
     "pour_water": {
-        "categories": ["laptop", "water_glass", "coffee_cup"],
-        "names": [],
+        "categories": ["laptop", "coffee_cup"],
+        "names": ["water_glass"],
     },
     "add_firewood": {
         "categories": ["agent"],
@@ -42,7 +42,7 @@ PARAMS = {
     # ── Robots (OG category = "agent") ──────────────────────────────────
     "agent": {
         # TODO: Add mechanical damage evaluator back, need to debug mech damage params
-        "damage_evaluators": ["thermal"],
+        "damage_evaluators": ["mechanical", "thermal"],
         # dict_keys(['panda_link0', 'panda_link1', 'panda_link2', 'panda_link3', 'panda_link4', 'panda_link5', 'panda_link6', 'panda_link7', 'panda_hand', 'panda_leftfinger', 'panda_rightfinger', 'eef_link'])
         "damageablefrankapanda_damageable_links": [
             "panda_link0", "panda_link1", "panda_link2", "panda_link3", "panda_link4", "panda_link5", "panda_link6", "panda_link7", "panda_hand", "panda_leftfinger", "panda_rightfinger", "eef_link"

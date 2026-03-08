@@ -34,7 +34,7 @@ TASK_OBJECTS = {
     },
     "coffee_cup_1": {
         "type": "DatasetObject",
-        "name": "coffee_cup_1",
+        "name": "coffee_cup",
         "category": "coffee_cup",
         "model": "ckkwmj",
         "position": [6.3, 0.0, 1.3],
