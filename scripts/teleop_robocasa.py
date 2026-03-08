@@ -254,6 +254,22 @@ class ConsoleHealthDisplay:
 
 
 
+def get_health_states_from_obs(obs, health_list_link_names):
+    """
+    Extract object health from the step obs using health_list_link_names
+    """
+    health = obs.get("health") if isinstance(obs, dict) else None
+
+    obj_link_healths = {}
+    for i, obj_link in enumerate(health_list_link_names):
+        if i >= len(health):
+            break
+        obj_name = obj_link.split("@", 1)[0]
+        obj_link_healths.setdefault(obj_name, []).append(float(health[i]))
+
+    return {obj_name: min(healths) for obj_name, healths in obj_link_healths.items()}
+
+
 class LiveHUDRenderer:
     """
     Real-time HUD renderer that displays health bars in an OpenCV window
@@ -728,7 +744,7 @@ def collect_human_trajectory(
 
         # ── Update damage state ──
         if color_manager or console_display or live_hud_renderer:
-            health_states = env.get_env_health()
+            health_states = get_health_states_from_obs(obs, env.health_list_link_names)
 
         if color_manager:
             events = color_manager.update(health_states)
