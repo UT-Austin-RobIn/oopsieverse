@@ -42,6 +42,7 @@ import omnigibson as og
 import omnigibson.lazy as lazy
 from omnigibson.macros import gm
 from omnigibson.utils.ui_utils import KeyboardRobotController
+from omnigibson.envs.data_wrapper import flatten_obs
 
 from damagesim.omnigibson.damageable_env import (
     OGDamageableEnvironment,
@@ -50,7 +51,31 @@ from damagesim.omnigibson.damageable_env import (
 from damagesim.utils.visualization import (
     save_rgb_camera_video,
     save_rgb_health_video_with_overlay,
+    save_rgb_force_video,
 )
+
+class _TeleopDataCollectionWrapper(OGDamageableDataCollectionWrapper):
+    """Subclass that optionally saves obs/info to HDF5 and conditionally
+    skips sim optimizations for video recording."""
+
+    def __init__(self, *args, save_video=False, save_extra_obs=False, **kwargs):
+        self._save_video = save_video
+        self._save_extra_obs = save_extra_obs
+        super().__init__(*args, **kwargs)
+
+    def _optimize_sim_for_data_collection(self, viewport_camera_path):
+        if self._save_video:
+            return
+        super()._optimize_sim_for_data_collection(viewport_camera_path)
+
+    def _parse_step_data(self, action, obs, reward, terminated, truncated, info):
+        step_data = super()._parse_step_data(action, obs, reward, terminated, truncated, info)
+        if self._save_extra_obs:
+            # process_traj_to_hdf5 expects flat obs: modality_key -> tensor per step
+            step_data["obs"] = flatten_obs(obs)
+            step_data["info"] = info
+        return step_data
+
 
 # --task_name picks which module to import from this package
 TASK_CONFIG_PACKAGE = "oopsiebench.envs.behavior1k.task_configs"
@@ -159,6 +184,37 @@ def build_env_config(task_cfg):
     }
 
 
+def build_external_sensors_config(task_cfg, robot_name: str, robot_type: str,
+                                  image_height: int = 1280, image_width: int = 1280):
+    """
+    Build the list-of-dicts external_sensors config so the env includes external
+    cameras (e.g. from task_cfg.external_camera_configs). Same structure as in
+    scripts/playback.py so HDF5 contains the same external camera obs.
+    """
+    sensors = []
+    for name, cam_cfg in task_cfg.external_camera_configs.items():
+        idx = name.split("_")[-1]
+        prim_path = (
+            f"/controllable__damageable{robot_type.lower()}"
+            f"__{robot_name}/base_link/external_sensor{idx}"
+        )
+        sensors.append({
+            "sensor_type": "VisionSensor",
+            "name": f"external_sensor{idx}",
+            "relative_prim_path": prim_path,
+            "modalities": ["rgb", "seg_instance"],
+            "sensor_kwargs": {
+                "image_height": image_height,
+                "image_width": image_width,
+                "horizontal_aperture": cam_cfg.get("horizontal_aperture", 15.0),
+            },
+            "position": th.tensor(cam_cfg["position"], dtype=th.float32),
+            "orientation": th.tensor(cam_cfg["orientation"], dtype=th.float32),
+            "pose_frame": "world",
+        })
+    return sensors
+
+
 def parse_args():
     p = argparse.ArgumentParser(description="Keyboard teleop for Behavior1k tasks.")
     p.add_argument("--task_name", type=str, required=True,
@@ -191,6 +247,10 @@ def parse_args():
     )
     p.add_argument("--collect_hdf5_path", type=str, default=None,
                    help="If specified, save teleop demos to this HDF5 for later playback.")
+    p.add_argument("--save_extra_obs", action="store_true",
+                   help="When collecting to HDF5, also record external camera obs (rgb, seg_instance) like playback.")
+    p.add_argument("--save_video", action="store_true",
+                   help="Save an MP4 of the viewer at exit (default: False). If not set, sim optimization is used and no video is saved.")
     p.add_argument("--n_episodes", type=int, default=1,
                    help="Number of teleop episodes to run (default: 1).")
     return p.parse_args()
@@ -209,6 +269,25 @@ def capture_viewer_rgb():
     if frame.dtype != np.uint8:
         frame = (frame * 255).astype(np.uint8) if frame.max() <= 1.0 else frame.astype(np.uint8)
     return frame
+
+
+def _record_forces_step(damage_info, target_objects_forces, force_keys, teleop_force_records):
+    """Extract per-step forces from damage_info and append to teleop_force_records (in-place)."""
+    if not target_objects_forces or not force_keys or not damage_info:
+        return
+    for obj_name in target_objects_forces:
+        parts = obj_name.split("@", 1)
+        if len(parts) != 2:
+            for fk in force_keys:
+                teleop_force_records.setdefault(obj_name, {}).setdefault(fk, []).append(0.0)
+            continue
+        obj_key, link_key = parts
+        obj_info = damage_info.get(obj_key, {})
+        link_info = obj_info.get(link_key, {})
+        mechanical = link_info.get("mechanical", {})
+        for fk in force_keys:
+            val = mechanical.get(fk, 0.0)
+            teleop_force_records.setdefault(obj_name, {}).setdefault(fk, []).append(val)
 
 
 def _record_health_step(health_arr, health_list_link_names, overlay_links,
@@ -266,8 +345,10 @@ def _ensure_health_reset(base_env):
 
 
 def _save_video(teleop_frames, teleop_health_records, target_objects_for_overlay,
-                task_cfg, teleop_fps=30, overlay_position="bottom_center", overlay_layout="column"):
-    """Save the collected frames as an MP4 (with health overlay if available)."""
+                task_cfg, teleop_fps=30, overlay_position="bottom_center", overlay_layout="column",
+                teleop_force_records=None):
+    """Save the collected frames as an MP4 (with health overlay if available).
+    Also saves force plot video when target_objects_forces is set and force data exists."""
     if not teleop_frames:
         return
     video_dir = os.path.join(
@@ -276,6 +357,8 @@ def _save_video(teleop_frames, teleop_health_records, target_objects_for_overlay
     os.makedirs(video_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_path = os.path.join(video_dir, f"teleop_{task_cfg.task_name}_{timestamp}")
+    imgs = np.array(teleop_frames)
+
     health_for_overlay = None
     if target_objects_for_overlay and teleop_health_records:
         health_for_overlay = {}
@@ -292,7 +375,7 @@ def _save_video(teleop_frames, teleop_health_records, target_objects_for_overlay
     if health_for_overlay and len(health_for_overlay) > 0:
         save_rgb_health_video_with_overlay(
             output_path,
-            np.array(teleop_frames),
+            imgs,
             target_objects=list(health_for_overlay.keys()),
             health=health_for_overlay,
             fps=teleop_fps,
@@ -301,8 +384,40 @@ def _save_video(teleop_frames, teleop_health_records, target_objects_for_overlay
         )
         print(f"[teleop] Saved {len(teleop_frames)} frames with health overlay to {output_path}.mp4")
     else:
-        save_rgb_camera_video(output_path, np.array(teleop_frames), fps=teleop_fps)
+        save_rgb_camera_video(output_path, imgs, fps=teleop_fps)
         print(f"[teleop] Saved {len(teleop_frames)} frames to {output_path}.mp4")
+
+    # Force plot video (when applicable)
+    target_objects_forces = getattr(task_cfg, "target_objects_forces", None) or []
+    force_keys = getattr(task_cfg, "force_keys", None) or ["filtered_qs_forces"]
+    if target_objects_forces and teleop_force_records:
+        forces = {}
+        for obj_name in target_objects_forces:
+            obj_data = teleop_force_records.get(obj_name, {})
+            forces[obj_name] = {fk: list(obj_data.get(fk, [])) for fk in force_keys}
+        # Trim/pad to match frame count
+        n_frames = len(teleop_frames)
+        has_data = False
+        for obj_name in target_objects_forces:
+            for fk in force_keys:
+                arr = forces.get(obj_name, {}).get(fk, [])
+                if len(arr) > n_frames:
+                    forces[obj_name][fk] = arr[:n_frames]
+                elif len(arr) < n_frames:
+                    forces[obj_name][fk] = arr + [0.0] * (n_frames - len(arr))
+                if len(forces[obj_name][fk]) == n_frames:
+                    has_data = True
+        if has_data and forces:
+            forces_path = output_path + "_forces.mp4"
+            save_rgb_force_video(
+                output_video_path=forces_path,
+                imgs=imgs,
+                target_objects=target_objects_forces,
+                data=forces,
+                forces_to_plot=force_keys,
+                fps=teleop_fps,
+            )
+            print(f"[teleop] Saved force plot video to {forces_path}")
 
 
 def main():
@@ -313,15 +428,22 @@ def main():
     gm.ENABLE_TRANSITION_RULES = task_cfg.enable_transition_rules
 
     env_config = build_env_config(task_cfg)
+    collecting = args.collect_hdf5_path is not None
+    if collecting and args.save_extra_obs and getattr(task_cfg, "external_camera_configs", None):
+        env_config["env"]["external_sensors"] = build_external_sensors_config(
+            task_cfg, task_cfg.robot_name, task_cfg.robot_type,
+            image_height=1280, image_width=1280,
+        )
     base_env = OGDamageableEnvironment(configs=env_config)
 
-    collecting = args.collect_hdf5_path is not None
     if collecting:
         os.makedirs(os.path.dirname(args.collect_hdf5_path) or ".", exist_ok=True)
-        env = OGDamageableDataCollectionWrapper(
+        env = _TeleopDataCollectionWrapper(
             env=base_env,
             output_path=args.collect_hdf5_path,
             only_successes=False,
+            save_video=args.save_video,
+            save_extra_obs=args.save_extra_obs,
         )
     else:
         env = base_env
@@ -461,10 +583,14 @@ def main():
 
     teleop_frames = []
     teleop_health_records = {}
+    teleop_force_records = {}
     teleop_fps = 30
+    target_objects_forces = getattr(task_cfg, "target_objects_forces", None) or []
+    force_keys = getattr(task_cfg, "force_keys", None) or ["filtered_qs_forces"]
 
     print(f"[teleop] Running {n_episodes} episode(s). Press TAB to end an episode, ESC to quit, BACKSPACE to discard and restart.")
-    teleop_frames.append(capture_viewer_rgb())
+    if args.save_video:
+        teleop_frames.append(capture_viewer_rgb())
 
     completed_episodes = 0
     while completed_episodes < n_episodes:
@@ -478,14 +604,19 @@ def main():
             if quit_requested[0] or episode_done[0] or discard_requested[0]:
                 break
             obs, reward, terminated, truncated, info = env.step(action)
-            health_list_link_names = getattr(env, "health_list_link_names", None) or []
-            health_arr = obs.get("health")
-            _record_health_step(
-                health_arr, health_list_link_names, overlay_links,
-                target_objects_for_overlay, teleop_health_records,
-            )
-            frame = capture_viewer_rgb()
-            teleop_frames.append(frame)
+            if args.save_video:
+                health_list_link_names = getattr(env, "health_list_link_names", None) or []
+                health_arr = obs.get("health")
+                _record_health_step(
+                    health_arr, health_list_link_names, overlay_links,
+                    target_objects_for_overlay, teleop_health_records,
+                )
+                damage_info = info.get("damage_info", {})
+                _record_forces_step(
+                    damage_info, target_objects_forces, force_keys, teleop_force_records,
+                )
+                frame = capture_viewer_rgb()
+                teleop_frames.append(frame)
 
         if quit_requested[0]:
             break
@@ -499,6 +630,13 @@ def main():
                     teleop_health_records[k] = arr[:-n_discard]
                 else:
                     teleop_health_records[k] = []
+            for obj_name in list(teleop_force_records.keys()):
+                for fk in list(teleop_force_records[obj_name].keys()):
+                    arr = teleop_force_records[obj_name][fk]
+                    if len(arr) > n_discard:
+                        teleop_force_records[obj_name][fk] = arr[:-n_discard]
+                    else:
+                        teleop_force_records[obj_name][fk] = []
             if collecting and hasattr(env, "current_traj_history"):
                 env.current_traj_history = []
             print(f"[teleop] Discarded {n_discard} steps. Resetting and starting over…")
@@ -528,15 +666,17 @@ def main():
             env.task._success = True
             env.flush_current_traj()
 
-    _save_video(
-        teleop_frames,
-        teleop_health_records,
-        target_objects_for_overlay,
-        task_cfg,
-        teleop_fps,
-        overlay_position=args.overlay_position,
-        overlay_layout=args.overlay_layout,
-    )
+    if args.save_video:
+        _save_video(
+            teleop_frames,
+            teleop_health_records,
+            target_objects_for_overlay,
+            task_cfg,
+            teleop_fps,
+            overlay_position=args.overlay_position,
+            overlay_layout=args.overlay_layout,
+            teleop_force_records=teleop_force_records,
+        )
 
     if collecting and hasattr(env, "save_data"):
         env.save_data()

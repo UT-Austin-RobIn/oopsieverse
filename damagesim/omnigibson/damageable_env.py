@@ -391,12 +391,6 @@ class OGDamageableEnvironment(DamageableEnvironment, Environment):
 class OGDamageableDataCollectionWrapper(DataCollectionWrapper):
     """Extends OG DataCollectionWrapper to store health metadata."""
 
-    def _optimize_sim_for_data_collection(self, viewport_camera_path):
-        """Skip the base-class optimizations (disabling sensor render products
-        and overriding the viewer camera path) so that teleop and other
-        interactive callers keep the correct viewport and working sensors."""
-        pass
-
     def enable_health_visualization(self):
         if hasattr(self.env, "enable_health_visualization"):
             return self.env.enable_health_visualization()

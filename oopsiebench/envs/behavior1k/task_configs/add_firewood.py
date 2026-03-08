@@ -160,6 +160,13 @@ def get_task_config() -> TaskConfig:
             "log_left@base_link",
             "target_object@base_link",
         ],
+        target_objects_forces=[
+            f"{ROBOT_NAME}@eef_link",
+            f"{ROBOT_NAME}@panda_hand",
+            f"{ROBOT_NAME}@panda_leftfinger",
+            f"{ROBOT_NAME}@panda_rightfinger",
+        ],
+        force_keys=["filtered_qs_forces", "impact_forces"],
 
         # Default paths
         default_collect_hdf5="resources/teleop_data/firewood.hdf5",

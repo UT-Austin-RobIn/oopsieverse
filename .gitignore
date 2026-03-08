@@ -16,4 +16,5 @@ build/
 # Other custom files/folders
 resources/
 tmp/
+oopsiebench/envs/behavior1k/teleop_videos/
 
