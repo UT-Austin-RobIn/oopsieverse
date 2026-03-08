@@ -418,4 +418,3 @@ class RSDamageableEnvironment(DamageableEnvironment):
                 obj_damage_info[obj.name] = obj.damage_info
         obs, obs_info = self._process_obs(obs)
         return obs, {"damage_info": obj_damage_info, "obs_info": obs_info}
-

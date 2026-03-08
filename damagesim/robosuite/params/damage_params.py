@@ -23,6 +23,10 @@ DAMAGEABLE_OBJECTS = {
         "categories": ["agent"],
         "names": ["egg"],
     },
+    "pastry_display": {
+        "categories": ["agent"],
+        "names": ["pastry", "plate"],
+    },
 }
 
 
