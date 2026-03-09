@@ -58,6 +58,8 @@ class DamageDataCollectionWrapper:
         self.output_path = output_path
         self.output_frequency = output_frequency
         self.episode_count = 0
+        self._model_xml = None
+        self._ep_meta = None
         self._reset_episode_buffer()
 
         output_dir = os.path.dirname(output_path)
@@ -71,10 +73,17 @@ class DamageDataCollectionWrapper:
 
     def reset(self):
         self._reset_episode_buffer()
-        result = self.env.reset()
-        if isinstance(result, tuple):
-            return result[0]
-        return result
+        self.env.reset()
+
+        self._model_xml = self.env.sim.model.get_xml()
+        self._ep_meta = self.env.get_ep_meta()
+        initial_state = self.env.sim.get_state().flatten()
+
+        self.env.set_ep_meta(self._ep_meta)
+        self.env.reset_from_xml_string(self._model_xml)
+        self.env.sim.reset()
+        self.env.sim.set_state_from_flattened(initial_state)
+        self.env.sim.forward()
 
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
@@ -102,6 +111,11 @@ class DamageDataCollectionWrapper:
             for link_name in obj.link_healths:
                 health_list.append(f"{obj.name}@{link_name}")
         traj_grp.attrs["health_list_link_names"] = health_list
+
+        if self._model_xml is not None:
+            traj_grp.attrs["model_file"] = self._model_xml
+        if self._ep_meta is not None:
+            traj_grp.attrs["ep_meta"] = json.dumps(self._ep_meta)
 
         flush_current_file(self.output_hdf5_file)
         print(f"Episode {self.episode_count} saved ({len(self.episode_data)} steps)")
@@ -1040,7 +1054,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
     print(f"Data saved to: {output_path}")
     print(f"{'='*60}")
     print(f"\nNext step — run playback to render observations:")
-    print(f"  mjpython scripts/playback_robocasa.py --input {output_path} --output <output_path> --env {args.env}")
+    print(f"  python scripts/playback_robocasa.py --input {output_path} --output <output_path> --env {args.env}")
     print()
 
 
