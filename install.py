@@ -130,11 +130,12 @@ def install_robocasa():
     if not rs.exists():
         print("[INFO] Cloning RoboSuite repository...")
         run(f"git clone https://github.com/ARISE-Initiative/robosuite {rs}")
+        run(f"cd {rs} && git checkout aaa8b9b")
 
     if not rc.exists():
         print("[INFO] Cloning RoboCasa repository...")
         run(f"git clone https://github.com/robocasa/robocasa {rc}")
-        run(f"cd {rc} && git checkout tags/v1.0")
+        run(f"cd {rc} && git checkout 97a4060")
 
     patch_robocasa_numba_pin(rc)
     patch_robocasa_for_windows(rc)
