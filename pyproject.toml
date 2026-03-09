@@ -16,6 +16,7 @@ license = { text = "MIT" }
 
 dependencies = [
     "open3d",
+    "opencv-python",
     "matplotlib",
     "scipy",
     "tqdm",           # useful for progress bars in install.py

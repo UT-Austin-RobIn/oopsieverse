@@ -853,22 +853,21 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
 
     args = parser.parse_args()
 
-    # ── Check cv2.imshow availability ──
-    # opencv-python-headless can overtake opencv-python
-    # if running locally, remove GUI support.
+    # ── Check OpenCV variant ──
+    # local vs using headless / remote environments.
     if args.health_hud:
         try:
-            test_img = np.zeros((1, 1, 3), dtype=np.uint8)
-            cv2.imshow("_probe", test_img)
-            cv2.destroyWindow("_probe")
-            cv2.waitKey(1)
-        except cv2.error:
-            print("Error: cv2.imshow is not available — your OpenCV build has no GUI support.")
-            print("  This usually happens when opencv-python-headless shadows opencv-python.")
-            print("  Fix with:")
-            print("    pip uninstall -y opencv-python-headless opencv-python")
-            print("    pip install opencv-python")
-            sys.exit(1)
+            import importlib.metadata as importlib_metadata
+            try:
+                importlib_metadata.version("opencv-python")
+                print("Note: opencv-python (GUI) is installed. If you are on a headless server,")
+                print("  consider switching to the headless variant:")
+                print("    pip uninstall -y opencv-python opencv-python-headless")
+                print("    pip install opencv-python-headless")
+            except importlib_metadata.PackageNotFoundError:
+                pass
+        except ImportError:
+            pass
 
     # ── macOS GUI requirements ──
     # --health-hud / --video: cv2.imshow needs the main thread (no mjpython).
