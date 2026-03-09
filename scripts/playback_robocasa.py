@@ -19,12 +19,13 @@ Examples::
 import os
 import cv2
 import sys
-import platform
 import h5py
 import json
 import time
 import numpy as np
 import argparse
+import matplotlib
+matplotlib.use("Agg")  # non-GUI backend
 from collections import defaultdict
 
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -225,11 +226,6 @@ Examples:
 
 
 def main():
-    if platform.system() == "Darwin" and "MJPYTHON_BIN" not in os.environ:
-        print("Error: On macOS this script must be run with mjpython, not python.")
-        print(f"  mjpython scripts/playback_robocasa.py {' '.join(sys.argv[1:])}")
-        sys.exit(1)
-
     parser = create_parser()
     args = parser.parse_args()
 
