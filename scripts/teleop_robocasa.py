@@ -34,6 +34,7 @@ import numpy as np
 from robosuite.controllers import load_composite_controller_config
 from robosuite.wrappers import DataCollectionWrapper
 from robosuite.devices import Keyboard, SpaceMouse
+from utils.io_utils import ContinuousGripperKeyboard, ContinuousGripperSpaceMouse
 
 from envs.registry import EnvironmentRegistry
 from utils.misc_utils import process_traj_to_hdf5, flush_current_file
@@ -455,7 +456,7 @@ class LiveHUDRenderer:
 # ═══════════════════════════════════════════════════════════════════════
 
 class ManualRecordingWrapper:
-    """Wraps a device to add K-key episode-end and =-key pause via pynput."""
+    """Wraps a device to add K-key episode-end and camera switching via pynput."""
 
     def __init__(self, device):
         self.device = device
@@ -482,19 +483,10 @@ class ManualRecordingWrapper:
                 if key.char.lower() == "k":
                     self.end_recording_requested = True
                     print("\n[K pressed - ending episode...]")
-                elif key.char == "=":
-                    if not self.paused:
-                        self.paused = True
-                        print("\n[= pressed - simulation PAUSED (press Esc to resume)]")
                 elif key.char == "[":
                     self.camera_switch = -1
                 elif key.char == "]":
                     self.camera_switch = 1
-            else:
-                from pynput.keyboard import Key
-                if key == Key.esc and self.paused:
-                    self.paused = False
-                    print("\n[Esc pressed - simulation RESUMED]")
         except Exception:
             pass
 
@@ -607,12 +599,26 @@ def get_next_video_path(video_dir, env_name):
 # Device creation
 # ═══════════════════════════════════════════════════════════════════════
 
-def create_device(device_type, env):
-    """Create and wrap the appropriate device with ManualRecordingWrapper."""
+def create_device(device_type, env, continuous_gripper=False):
+    """Create and wrap the appropriate device with ManualRecordingWrapper.
+
+    Args:
+        device_type: ``"keyboard"`` or ``"spacemouse"``.
+        env: The robot environment.
+        continuous_gripper: When True, use continuous gripper variants that
+            track gripper position as a float in [-1, 1] instead of binary.
+            Also patches PandaGripper to use position-based control.
+    """
+    if continuous_gripper:
+        from utils.io_utils import patch_gripper_for_position_control
+        patch_gripper_for_position_control()
+
     if device_type == "keyboard":
-        device = Keyboard(env=env, pos_sensitivity=4.0, rot_sensitivity=4.0)
+        cls = ContinuousGripperKeyboard if continuous_gripper else Keyboard
+        device = cls(env=env, pos_sensitivity=4.0, rot_sensitivity=4.0)
     elif device_type == "spacemouse":
-        device = SpaceMouse(env=env, pos_sensitivity=2.0, rot_sensitivity=2.0)
+        cls = ContinuousGripperSpaceMouse if continuous_gripper else SpaceMouse
+        device = cls(env=env, pos_sensitivity=2.0, rot_sensitivity=2.0)
     else:
         raise ValueError(f"Unknown device type: {device_type}")
     return ManualRecordingWrapper(device)
@@ -850,6 +856,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
     parser.add_argument("--health-hud", action="store_true", help="Enable live health bar HUD (OpenCV window)")
     parser.add_argument("--video", action="store_true", help="Record video (automatically enables --health-hud)")
     parser.add_argument("--video-fps", type=int, default=30, help="Video recording FPS (default: 30)")
+    parser.add_argument("--continuous-gripper", action="store_true", help="Use continuous gripper control (float [-1,1]) instead of binary open/close toggle")
 
     args = parser.parse_args()
 
@@ -952,12 +959,13 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
 
     env = DamageDataCollectionWrapper(env=env, output_path=output_path)
     env.reset()  # Must call reset() before device.start_control() so robots are initialized
-    device = create_device(args.device, env)
+
+    device = create_device(args.device, env, continuous_gripper=args.continuous_gripper)
     device.start_control()
 
     console_freq = args.health_console_freq
 
-    print(f"Starting teleoperation with {args.device}")
+    print(f"Starting teleoperation with {args.device}" + (" (continuous gripper)" if args.continuous_gripper else ""))
     print("\nHealth Tracking:")
     if args.health_hud:
         print("  ✓ Live health bar HUD (OpenCV window)")
@@ -977,8 +985,10 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
         print("  Q          — quit (in HUD window)")
     else:
         print("  Ctrl+Q     — quit teleoperation")
-    print("  =          — pause simulation (free camera while paused)")
-    print("  Esc        — resume simulation")
+    if args.continuous_gripper and args.device == "keyboard":
+        print("  -          — open gripper incrementally")
+        print("  =          — close gripper incrementally")
+        print("  spacebar   — toggle gripper fully open/closed")
     print("  Ctrl+C     — force quit")
     print("\nEpisodes also end automatically on task success.\n")
 
