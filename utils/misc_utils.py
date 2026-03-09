@@ -14,7 +14,7 @@ import numpy as np
 import matplotlib
 import torch as th
 
-matplotlib.use("TkAgg")  # non-blocking backend for live windows
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import matplotlib.animation as animation  # noqa: E402
 from matplotlib.patches import Rectangle  # noqa: E402

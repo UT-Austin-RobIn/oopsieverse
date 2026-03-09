@@ -7,24 +7,25 @@ to a new HDF5 file.
 
 Usage::
 
-    mjpython scripts/playback_robocasa.py --input <collected.hdf5> --output <playback.hdf5> --env ENV_NAME
+    python scripts/playback_robocasa.py --input <collected.hdf5> --output <playback.hdf5> --env ENV_NAME
 
 Examples::
 
-    mjpython scripts/playback_robocasa.py --input resources/teleop_data/pick_egg.hdf5 --output resources/playback_data/pick_egg.hdf5 --env pick_egg
-    mjpython scripts/playback_robocasa.py --input resources/teleop_data/pick_egg.hdf5 --output resources/playback_data/pick_egg.hdf5 --env pick_egg --visualize
-    mjpython scripts/playback_robocasa.py --input resources/teleop_data/pick_egg.hdf5 --output resources/playback_data/pick_egg.hdf5 --env pick_egg --metrics
+    python scripts/playback_robocasa.py --input resources/teleop_data/pick_egg.hdf5 --output resources/playback_data/pick_egg.hdf5 --env pick_egg
+    python scripts/playback_robocasa.py --input resources/teleop_data/pick_egg.hdf5 --output resources/playback_data/pick_egg.hdf5 --env pick_egg --visualize
+    python scripts/playback_robocasa.py --input resources/teleop_data/pick_egg.hdf5 --output resources/playback_data/pick_egg.hdf5 --env pick_egg --metrics
 """
 
 import os
 import cv2
 import sys
-import platform
 import h5py
 import json
 import time
 import numpy as np
 import argparse
+import matplotlib
+matplotlib.use("Agg")  # non-GUI backend
 from collections import defaultdict
 
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -150,6 +151,15 @@ def playback_episode(src_f, demo_name, env, playback_hdf5_file):
 
     env.reset()
 
+    # ── Restore exact model if stored ──
+    demo_grp = src_f[f"data/{demo_name}"]
+    if "model_file" in demo_grp.attrs:
+        model_xml = demo_grp.attrs["model_file"]
+        ep_meta = json.loads(demo_grp.attrs.get("ep_meta", "{}"))
+        env.set_ep_meta(ep_meta)
+        env.reset_from_xml_string(model_xml)
+        env.sim.reset()
+
     # ── Hide teleop visualization markers ──
     for robot in env.robots:
         for arm_name in robot.arms:
@@ -194,13 +204,13 @@ def create_parser():
         epilog="""
 Examples:
   # Playback only (no rendering)
-  mjpython scripts/playback_robocasa.py --input pick_egg.hdf5 --output pick_egg_rendered.hdf5 --env pick_egg
+  python scripts/playback_robocasa.py --input pick_egg.hdf5 --output pick_egg_rendered.hdf5 --env pick_egg
 
   # Playback + render all cameras
-  mjpython scripts/playback_robocasa.py --input pick_egg.hdf5 --output pick_egg_rendered.hdf5 --env pick_egg --camera all_cameras
+  python scripts/playback_robocasa.py --input pick_egg.hdf5 --output pick_egg_rendered.hdf5 --env pick_egg --camera all_cameras
 
   # Playback + visualize and compute metrics
-  mjpython scripts/playback_robocasa.py --input pick_egg.hdf5 --output pick_egg_rendered.hdf5 --env pick_egg --visualize --metrics
+  python scripts/playback_robocasa.py --input pick_egg.hdf5 --output pick_egg_rendered.hdf5 --env pick_egg --visualize --metrics
         """
     )
     parser.add_argument("--input", required=True, help="Path to collected (teleop) HDF5 file")
@@ -216,17 +226,12 @@ Examples:
 
 
 def main():
-    if platform.system() == "Darwin" and "MJPYTHON_BIN" not in os.environ:
-        print("Error: On macOS this script must be run with mjpython, not python.")
-        print(f"  mjpython scripts/playback_robocasa.py {' '.join(sys.argv[1:])}")
-        sys.exit(1)
-
     parser = create_parser()
     args = parser.parse_args()
 
     if not os.path.exists(args.input):
         print(f"Error: Input HDF5 file not found: {args.input}")
-        print("\nUsage: mjpython scripts/playback_robocasa.py --input <file> --output <file> --env <env>")
+        print("\nUsage: python scripts/playback_robocasa.py --input <file> --output <file> --env <env>")
         envs = EnvironmentRegistry.list_envs()
         print(f"Available environments: {', '.join(envs)}")
         return
@@ -253,6 +258,10 @@ def main():
     print(f"Res    : {args.width}x{args.height}")
     print(f"{'='*60}\n")
 
+    output_dir = os.path.dirname(args.output)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+
     src_f = h5py.File(args.input, "r")
     playback_hdf5_file = h5py.File(args.output, "w")
 
@@ -275,7 +284,6 @@ def main():
         camera_widths=args.width,
         camera_heights=args.height,
         camera_depths=False,
-        hard_reset=False,
         low_dim=args.low_dim,
         control_freq=env_config.control_freq,
     )
@@ -349,7 +357,6 @@ def main():
                 final_env_healths.append(current_env_health / len(target_objects_health))
 
             if args.visualize:
-                output_video_path = f"{output_video_dir}/demo_{demo_idx}_camera_video"
                 imgs = f[f"data/demo_{demo_idx}/obs/{camera_name}_image"]
                 new_imgs = []
                 imgs_seg = f[f"data/demo_{demo_idx}/obs/{camera_name}_segmentation_class"]
@@ -374,6 +381,10 @@ def main():
                     new_imgs.append(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
 
                 imgs = np.array(new_imgs)
+
+                # Save camera video
+                camera_video_path = os.path.join(output_video_dir, f"demo_{demo_idx}_camera_video.mp4")
+                save_rgb_camera_video(output_video_path=camera_video_path, imgs=imgs)
 
                 # Save force video
                 data = {}
