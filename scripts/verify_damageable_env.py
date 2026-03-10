@@ -68,12 +68,6 @@ def __main__():
             "activity_name": "shelve_item",
         }
 
-        # TODO: Arnav: currently the rest of the objects are not damageable
-        # env.scene.objects = [ ..., <omnigibson.objects.dataset_object.DatasetObject object at 0x7f2f26fd4460>, 
-        # <omnigibson.objects.dataset_object.DatasetObject object at 0x7f2f26fd4280>, 
-        # <damagesim.omnigibson.damageable_mixin.DamageableTiago object at 0x7f207818bcd0>]
-        # Fix this
-
         env = OGDamageableEnvironment(cfg)
 
         # Verify scene loading

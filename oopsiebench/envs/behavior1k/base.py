@@ -22,6 +22,11 @@ class TaskConfig:
     use_gpu_dynamics: bool = False
     enable_transition_rules: bool = False
 
+    # ── Simulation frequencies ──────────────────────────────────────────
+    action_frequency: float = 30.0
+    physics_frequency: float = 30.0
+    rendering_frequency: float = 30.0
+
     # ── Scene ───────────────────────────────────────────────────────────
     scene_config: Dict[str, Any] = field(default_factory=dict)
 
