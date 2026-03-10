@@ -506,7 +506,7 @@ class ManualRecordingWrapper:
 # Camera helpers
 # ═══════════════════════════════════════════════════════════════════════
 
-def save_camera_pose(env, env_name, output_dir="resources/camera_states"):
+def save_camera_pose(env, env_name, output_dir="demos/robocasa/camera_states"):
     """Save the current free camera pose to a JSON file."""
     if not hasattr(env, 'viewer') or env.viewer is None:
         print("Warning: No viewer available. Cannot save camera pose.")
@@ -544,7 +544,7 @@ def save_camera_pose(env, env_name, output_dir="resources/camera_states"):
     return filepath
 
 
-def load_camera_pose(env, env_name, camera_states_dir="resources/camera_states"):
+def load_camera_pose(env, env_name, camera_states_dir="demos/robocasa/camera_states"):
     """Load a saved free camera pose and apply it to the viewer."""
     if not hasattr(env, 'viewer') or env.viewer is None:
         return False
@@ -848,7 +848,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
 
     parser.add_argument("--env", required=True, choices=EnvironmentRegistry.list_envs(), help="Environment to run")
     parser.add_argument("--device", default="keyboard", choices=["keyboard", "spacemouse"], help="Input device (default: keyboard)")
-    parser.add_argument("--output", help="Output HDF5 file path (default: resources/teleop_data/ENV_NAME.hdf5)")
+    parser.add_argument("--output", help="Output HDF5 file path (default: demos/robocasa/teleop_data/ENV_NAME.hdf5)")
     parser.add_argument("--n-episodes", type=int, default=15, help="Number of episodes to collect (default: 15)")
     parser.add_argument("--health-console", action="store_true", help="Enable console health status printing")
     parser.add_argument("--health-color", action="store_true", help="Enable damage color feedback (objects turn red when damaged)")
@@ -901,7 +901,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
     np.random.seed(seed)
 
     env_config = EnvironmentRegistry.get(args.env)
-    output_path = args.output or f"resources/teleop_data/{args.env}.hdf5"
+    output_path = args.output or f"demos/robocasa/teleop_data/{args.env}.hdf5"
 
     output_dir = os.path.dirname(output_path)
     if output_dir:
@@ -915,7 +915,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
     print(f"Robot       : {env_config.robot}")
     print(f"Output      : {output_path}")
     if args.video:
-        video_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "resources", "videos")
+        video_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "demos", "robocasa", "teleop_videos")
         print(f"Video       : {video_dir}")
     print(f"Display     : {'OpenCV HUD (with health bars)' if args.health_hud else 'MuJoCo Viewer'}")
     print(f"{'='*60}\n")
@@ -943,7 +943,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
 
     video_dir = None
     if args.video:
-        video_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "resources", "videos")
+        video_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "demos", "robocasa", "teleop_videos")
         os.makedirs(video_dir, exist_ok=True)
 
     if args.health_hud or args.video:
@@ -979,7 +979,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
         print("  (none use: --health-hud, --health-color, or --health-console)")
     print("\nControls:")
     print("  K          — end episode and save/discard prompt")
-    print(f"  P          — save free camera pose (resources/camera_states/{args.env}.json)")
+    print(f"  P          — save free camera pose (demos/robocasa/camera_states/{args.env}.json)")
     print("  [ / ]      — switch camera")
     if args.health_hud:
         print("  Q          — quit (in HUD window)")

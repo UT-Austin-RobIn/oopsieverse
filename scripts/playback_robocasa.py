@@ -314,7 +314,7 @@ def main():
         f = h5py.File(args.output, "r")
         robot_name = "PandaOmron"
         camera_name = "robot0_agentview_right"
-        output_video_dir = f"resources/videos/{os.path.splitext(os.path.basename(args.output))[0]}"
+        output_video_dir = f"demos/robocasa/playback_videos/{os.path.splitext(os.path.basename(args.output))[0]}"
         os.makedirs(output_video_dir, exist_ok=True)
 
         visualization_config = get_visualization_config(args.env, robot_name)

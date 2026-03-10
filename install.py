@@ -53,29 +53,6 @@ def create_conda_env():
     run(f"conda create -y -n {ENV_NAME} python={PYTHON_VERSION}")
     print(f"[INFO] Done! Activate it with: conda activate {ENV_NAME}")
 
-def install_behavior1k():
-    repo = ROOT / "behavior1k"
-    branch = "proj/safemanibench"
-    url = "https://github.com/UT-Austin-RobIn/BEHAVIOR-1K.git"
-
-    if not repo.exists():
-        print(f"[INFO] Cloning Behavior1k from branch '{branch}'...")
-        run(f"git clone --branch {branch} {url} {repo}")
-    else:
-        print(f"[INFO] Repository already exists at {repo}, skipping clone.")
-
-    print("[INFO] Installing behavior1k...")
-    if IS_WINDOWS:
-        bash = _find_bash()
-        if bash is None:
-            print("[ERROR] bash is required to install behavior1k but was not found.")
-            print("[ERROR] Install Git for Windows (https://git-scm.com) which includes bash,")
-            print("[ERROR] then re-run this script.")
-            exit(1)
-        print(f"[INFO] Using bash at: {bash}")
-        conda_run(f'"{bash}" setup.sh --omnigibson --bddl --dataset', cwd=repo)
-    else:
-        conda_run("bash setup.sh --omnigibson --bddl --dataset", cwd=repo)
 
 def patch_robocasa_numba_pin(rc):
     """Relax robocasa's strict numba pin, no conflict with the version required by oopsieverse."""
@@ -152,7 +129,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Install OopsieVerse submodules")
     parser.add_argument("--new_env", action="store_true",
                         help="Create a new conda env named 'oopsieverse' with Python 3.10")
-    parser.add_argument("--behavior1k", action="store_true", help="Install Behavior1k (OmniGibson)")
     parser.add_argument("--robocasa", action="store_true", help="Install RoboCasa and RoboSuite")
 
     args = parser.parse_args()
@@ -170,9 +146,6 @@ if __name__ == "__main__":
         print(f"[ERROR] Re-run with --new_env to create it:")
         print(f"[ERROR]   python install.py --new_env --robocasa")
         exit(1)
-
-    if args.behavior1k:
-        install_behavior1k()
 
     if args.robocasa:
         install_robocasa()
