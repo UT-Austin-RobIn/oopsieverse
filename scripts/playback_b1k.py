@@ -4,29 +4,29 @@ Unified playback & visualisation script for OmniGibson damage-tracking tasks.
 
 Usage examples
 --------------
-python scripts/playback.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
-     --playback_hdf5_path resources/playback_data/shelve_item_safe.hdf5 
+python scripts/playback_b1k.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
+     --playback_hdf5_path demos/behavior1k/playback_data/shelve_item_safe.hdf5 
 
 # Playback shelve_item demos and save observations + health to a new HDF5
-python scripts/playback.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
-     --playback_hdf5_path resources/playback_data/shelve_item_safe.hdf5 --playback
+python scripts/playback_b1k.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
+     --playback_hdf5_path demos/behavior1k/playback_data/shelve_item_safe.hdf5 --playback
 
 # Visualise health-overlay videos from an already-played-back HDF5
-python scripts/playback.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
-     --playback_hdf5_path resources/playback_data/shelve_item_safe.hdf5 --visualize
+python scripts/playback_b1k.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
+     --playback_hdf5_path demos/behavior1k/playback_data/shelve_item_safe.hdf5 --visualize
 
 # Compute per-object health metrics
-python scripts/playback.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
-     --playback_hdf5_path resources/playback_data/shelve_item_safe.hdf5 --compute_metrics
+python scripts/playback_b1k.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
+     --playback_hdf5_path demos/behavior1k/playback_data/shelve_item_safe.hdf5 --compute_metrics
 
 You can also use the 3 flags at the same time
 
 # Low-res playback
-python scripts/playback.py --task_name shelve_item --playback --low_resolution
+python scripts/playback_b1k.py --task_name shelve_item --playback --low_resolution
 
 Supported task names
 --------------------
-shelve_item, add_firewood, pour_water   (add more in ``scripts/task_configs/``)
+shelve_item, add_firewood, pour_water   (add more in ``oopsiebench.envs.behavior1k``)
 """
 
 from __future__ import annotations
@@ -56,12 +56,12 @@ from damagesim.omnigibson.damageable_env import (
 
 # ── Task-config registry ────────────────────────────────────────────────
 
-# Maps CLI task_name → module path under ``scripts.task_configs``
+# Maps CLI task_name → module path under ``oopsiebench.envs.behavior1k``
 TASK_REGISTRY: Dict[str, str] = {
-    "shelve_item": "scripts.task_configs.shelve_item",
-    "add_firewood": "scripts.task_configs.add_firewood",
-    "firewood": "scripts.task_configs.add_firewood",  # alias
-    "pour_water": "scripts.task_configs.pour_water",
+    "shelve_item": "oopsiebench.envs.behavior1k.shelve_item",
+    "add_firewood": "oopsiebench.envs.behavior1k.add_firewood",
+    "firewood": "oopsiebench.envs.behavior1k.add_firewood",  # alias
+    "pour_water": "oopsiebench.envs.behavior1k.pour_water",
 }
 
 
@@ -162,7 +162,7 @@ def extract_forces_from_hdf5(
     force_keys: List[str],
 ):
     """
-    Read per-link forces from the HDF5 and aggregate per-object (min across links).
+    Read per-link forces from the HDF5. Uses 0.0 when mechanical/force_key is missing.
     """
     forces: Dict[str, Dict[str, List[float]]] = dict()
     for obj_name in target_objects_forces:
@@ -172,8 +172,17 @@ def extract_forces_from_hdf5(
     for i in range(len(f[f"data/{demo_key}/info/damage_info"])):
         damage_info = json.loads(f[f"data/{demo_key}/info/damage_info"][i].decode("utf-8"))
         for obj_name in target_objects_forces:
+            parts = obj_name.split("@", 1)
+            if len(parts) != 2:
+                for force_key in force_keys:
+                    forces[obj_name][force_key].append(0.0)
+                continue
+            obj_key, link_key = parts
+            obj_info = damage_info.get(obj_key, {})
+            link_info = obj_info.get(link_key, {})
+            mechanical = link_info.get("mechanical", {})
             for force_key in force_keys:
-                forces[obj_name][force_key].append(damage_info[obj_name.split("@")[0]][obj_name.split("@")[1]]["mechanical"][force_key])
+                forces[obj_name][force_key].append(mechanical.get(force_key, 0.0))
     return forces
 
 
@@ -368,17 +377,19 @@ def run_visualize(args, task_cfg):
             position="bottom_center",
             n_columns=3,
             fps=30,
+            layout="row",
         )
 
         # Save videos for forces plot
-        forces_video_path = os.path.join(output_dir, f"demo_{demo_idx}_forces_video.mp4")
-        save_rgb_force_video(
-            output_video_path=forces_video_path,
-            imgs=imgs,
-            target_objects=task_cfg.target_objects_forces,
-            data=forces, 
-            forces_to_plot=task_cfg.force_keys
-        )
+        if task_cfg.target_objects_forces:
+            forces_video_path = os.path.join(output_dir, f"demo_{demo_idx}_forces_video.mp4")
+            save_rgb_force_video(
+                output_video_path=forces_video_path,
+                imgs=imgs,
+                target_objects=task_cfg.target_objects_forces,
+                data=forces, 
+                forces_to_plot=task_cfg.force_keys
+            )
 
 
     f.close()

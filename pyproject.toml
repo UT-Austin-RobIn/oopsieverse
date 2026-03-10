@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 name = "oopsieverse"
 version = "0.1.0"
 description = "OopsieVerse research project for simulation and benchmarking"
-authors = [{ name="Arpit Bahety" }]
+authors = []
 readme = "README.md"
 requires-python = ">=3.10"
 keywords = ["robotics", "simulation", "benchmarking"]

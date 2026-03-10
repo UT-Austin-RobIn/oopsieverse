@@ -16,6 +16,14 @@ DAMAGEABLE_OBJECTS = {
     "shelve_item": {
         "categories": ["bottle_of_beer", "bottle_of_wine", "wineglass", "bag_of_flour", "box_of_crackers"],
         "names": [],
+    },
+    "pour_water": {
+        "categories": ["laptop", "coffee_cup"],
+        "names": ["water_glass"],
+    },
+    "add_firewood": {
+        "categories": ["agent"],
+        "names": [],
     }
 }
 
@@ -33,6 +41,7 @@ PARAMS = {
 
     # ── Robots (OG category = "agent") ──────────────────────────────────
     "agent": {
+        # TODO: Add mechanical damage evaluator back, need to debug mech damage params
         "damage_evaluators": ["mechanical", "thermal"],
         # dict_keys(['panda_link0', 'panda_link1', 'panda_link2', 'panda_link3', 'panda_link4', 'panda_link5', 'panda_link6', 'panda_link7', 'panda_hand', 'panda_leftfinger', 'panda_rightfinger', 'eef_link'])
         "damageablefrankapanda_damageable_links": [
@@ -220,6 +229,24 @@ PARAMS = {
             "impact_damage_sensitivity": 1.0,
             "qs_damage_sensitivity": 0.5,
             "damage_threshold": 50.0,
+            "damage_scale": 1.0,
+        },
+    },
+    "log": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 0.5,
+            "qs_damage_sensitivity": 0.5,
+            "damage_threshold": 100.0,
+            "damage_scale": 1.0,
+        },
+    },
+    "wood_fireplace": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 0.1,
+            "qs_damage_sensitivity": 0.1,
+            "damage_threshold": 200.0,
             "damage_scale": 1.0,
         },
     },

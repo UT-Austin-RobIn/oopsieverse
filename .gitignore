@@ -14,6 +14,6 @@ build/
 *.swp
 
 # Other custom files/folders
-resources/
+demos/
 tmp/
 
