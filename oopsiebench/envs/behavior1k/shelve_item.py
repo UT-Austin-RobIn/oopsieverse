@@ -6,7 +6,7 @@ Robot : FrankaPanda (franka0)
 Damage: mechanical only (impact + quasistatic)
 """
 
-from scripts.task_configs.base import TaskConfig
+from oopsiebench.envs.behavior1k.base import TaskConfig
 
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaPanda"
@@ -175,8 +175,8 @@ def get_task_config() -> TaskConfig:
         target_contact_bodies=["stand"],
 
         # Default paths
-        default_collect_hdf5="resources/teleop_data/shelve_item.hdf5",
-        default_playback_hdf5="resources/playback_data/shelve_item_playback.hdf5",
-        default_video_dir="resources/videos/shelve_item",
+        default_collect_hdf5="demos/behavior1k/teleop_data/shelve_item.hdf5",
+        default_playback_hdf5="demos/behavior1k/playback_data/shelve_item_playback.hdf5",
+        default_video_dir="demos/behavior1k/playback_videos/shelve_item",
     )
 

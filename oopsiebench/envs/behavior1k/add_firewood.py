@@ -6,7 +6,7 @@ Robot : FrankaPanda (franka0)
 Damage: mechanical + thermal
 """
 
-from scripts.task_configs.base import TaskConfig
+from oopsiebench.envs.behavior1k.base import TaskConfig
 
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaPanda"
@@ -169,8 +169,8 @@ def get_task_config() -> TaskConfig:
         force_keys=["filtered_qs_forces", "impact_forces"],
 
         # Default paths
-        default_collect_hdf5="resources/teleop_data/firewood.hdf5",
-        default_playback_hdf5="resources/playback_data/firewood_playback.hdf5",
-        default_video_dir="resources/videos/firewood",
+        default_collect_hdf5="demos/behavior1k/teleop_data/add_firewood.hdf5",
+        default_playback_hdf5="demos/behavior1k/playback_data/add_firewood_playback.hdf5",
+        default_video_dir="demos/behavior1k/playback_videos/add_firewood",
     )
 

@@ -4,29 +4,29 @@ Unified playback & visualisation script for OmniGibson damage-tracking tasks.
 
 Usage examples
 --------------
-python scripts/playback.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
-     --playback_hdf5_path resources/playback_data/shelve_item_safe.hdf5 
+python scripts/playback_b1k.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
+     --playback_hdf5_path demos/behavior1k/playback_data/shelve_item_safe.hdf5 
 
 # Playback shelve_item demos and save observations + health to a new HDF5
-python scripts/playback.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
-     --playback_hdf5_path resources/playback_data/shelve_item_safe.hdf5 --playback
+python scripts/playback_b1k.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
+     --playback_hdf5_path demos/behavior1k/playback_data/shelve_item_safe.hdf5 --playback
 
 # Visualise health-overlay videos from an already-played-back HDF5
-python scripts/playback.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
-     --playback_hdf5_path resources/playback_data/shelve_item_safe.hdf5 --visualize
+python scripts/playback_b1k.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
+     --playback_hdf5_path demos/behavior1k/playback_data/shelve_item_safe.hdf5 --visualize
 
 # Compute per-object health metrics
-python scripts/playback.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
-     --playback_hdf5_path resources/playback_data/shelve_item_safe.hdf5 --compute_metrics
+python scripts/playback_b1k.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
+     --playback_hdf5_path demos/behavior1k/playback_data/shelve_item_safe.hdf5 --compute_metrics
 
 You can also use the 3 flags at the same time
 
 # Low-res playback
-python scripts/playback.py --task_name shelve_item --playback --low_resolution
+python scripts/playback_b1k.py --task_name shelve_item --playback --low_resolution
 
 Supported task names
 --------------------
-shelve_item, add_firewood, pour_water   (add more in ``scripts/task_configs/``)
+shelve_item, add_firewood, pour_water   (add more in ``oopsiebench.envs.behavior1k``)
 """
 
 from __future__ import annotations
@@ -56,12 +56,12 @@ from damagesim.omnigibson.damageable_env import (
 
 # ── Task-config registry ────────────────────────────────────────────────
 
-# Maps CLI task_name → module path under ``scripts.task_configs``
+# Maps CLI task_name → module path under ``oopsiebench.envs.behavior1k``
 TASK_REGISTRY: Dict[str, str] = {
-    "shelve_item": "scripts.task_configs.shelve_item",
-    "add_firewood": "scripts.task_configs.add_firewood",
-    "firewood": "scripts.task_configs.add_firewood",  # alias
-    "pour_water": "scripts.task_configs.pour_water",
+    "shelve_item": "oopsiebench.envs.behavior1k.shelve_item",
+    "add_firewood": "oopsiebench.envs.behavior1k.add_firewood",
+    "firewood": "oopsiebench.envs.behavior1k.add_firewood",  # alias
+    "pour_water": "oopsiebench.envs.behavior1k.pour_water",
 }
 
 
