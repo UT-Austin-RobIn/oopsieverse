@@ -7,11 +7,11 @@ then lets you teleoperate (focus the viewer).
 
 Usage:
     # Simple teleop (1 episode, saves video on quit)
-    python oopsiebench/envs/behavior1k/teleop.py --task_name shelve_item
+    python scripts/teleop_b1k.py --task_name shelve_item
 
     # Collect 5 episodes to HDF5 for later playback
-    python oopsiebench/envs/behavior1k/teleop.py --task_name shelve_item \\
-        --collect_hdf5_path resources/teleop_data/shelve_item.hdf5 --n_episodes 5
+    python scripts/teleop_b1k.py --task_name shelve_item \\
+        --collect_hdf5_path demos/behavior1k/teleop_data/shelve_item.hdf5 --n_episodes 5
 
 Keys:
     TAB       — end current episode (resets env, starts next episode)
@@ -32,7 +32,7 @@ from datetime import datetime
 
 os.environ.setdefault("CARB_LOG_CHANNELS", "omni.physx.plugin=off")
 
-_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
@@ -78,7 +78,7 @@ class _TeleopDataCollectionWrapper(OGDamageableDataCollectionWrapper):
 
 
 # --task_name picks which module to import from this package
-TASK_CONFIG_PACKAGE = "oopsiebench.envs.behavior1k.task_configs"
+TASK_CONFIG_PACKAGE = "oopsiebench.envs.behavior1k"
 
 TASK_REGISTRY = {
     "shelve_item": "shelve_item",
@@ -126,7 +126,7 @@ def ensure_gripper_persistent_closed(action_generator):
 def save_state_to_temp_pkl(task_name: str):
     state = og.sim.dump_state(serialized=True)
     init_dir = os.path.join(
-        _REPO_ROOT, "oopsiebench", "envs", "behavior1k", "init_states",
+        _REPO_ROOT, "resources", "init_states",
     )
     os.makedirs(init_dir, exist_ok=True)
     path = os.path.join(init_dir, f"{task_name}_temp.pkl")
@@ -138,7 +138,7 @@ def save_state_to_temp_pkl(task_name: str):
 
 def load_state_from_pkl(env, task_name: str, task_module=None):
     init_dir = os.path.join(
-        _REPO_ROOT, "oopsiebench", "envs", "behavior1k", "init_states",
+        _REPO_ROOT, "resources", "init_states",
     )
     path = os.path.join(init_dir, f"{task_name}.pkl")
     if not os.path.isfile(path):
@@ -219,23 +219,26 @@ def parse_args():
     p = argparse.ArgumentParser(description="Keyboard teleop for Behavior1k tasks.")
     p.add_argument("--task_name", type=str, required=True,
                    help="Task name (e.g. shelve_item, pour_water, add_firewood).")
+    p.add_argument("--collect_hdf5_path", type=str, default=None,
+                   help="If specified, save teleop demos to this HDF5 for later playback. Otherwise resorts to a default path")
     p.add_argument("--live_feedback", action="store_true",
                    help="Show live health bars and object coloring during teleop.")
+    p.add_argument("--save_video", action="store_true",
+                   help="Save an MP4 of the viewer at exit (default: False). If not set, sim optimization is used and no video is saved.")
+    p.add_argument("--save_extra_obs", action="store_true",
+                   help="When collecting to HDF5, also record external camera obs (rgb, seg_instance) like playback.")
+    p.add_argument("--n_episodes", type=int, default=1,
+                   help="Number of teleop episodes to run (default: 1).")
+    p.add_argument("--skip_hdf5_save", action="store_true",
+                   help="Skip saving the HDF5 file (default: False).")
+    
     p.add_argument("--overlay_links", action="store_true",
                    help="Show one health bar per link in saved video (default: one per object).")
     p.add_argument(
         "--overlay_position",
         type=str,
-        default="bottom_center",
-        choices=[
-            "bottom_left",
-            "bottom_center",
-            "bottom_right",
-            "top_left",
-            "top_center",
-            "top_right",
-            "center",
-        ],
+        default="bottom_left",
+        choices=[ "bottom_left", "bottom_center", "bottom_right", "top_left", "top_center", "top_right", "center"],
         help="Position of the health bar overlay in the saved video (default: bottom_center).",
     )
     p.add_argument(
@@ -245,14 +248,6 @@ def parse_args():
         choices=["column", "row"],
         help="Layout of health bars in saved video: column (default) or row.",
     )
-    p.add_argument("--collect_hdf5_path", type=str, default=None,
-                   help="If specified, save teleop demos to this HDF5 for later playback.")
-    p.add_argument("--save_extra_obs", action="store_true",
-                   help="When collecting to HDF5, also record external camera obs (rgb, seg_instance) like playback.")
-    p.add_argument("--save_video", action="store_true",
-                   help="Save an MP4 of the viewer at exit (default: False). If not set, sim optimization is used and no video is saved.")
-    p.add_argument("--n_episodes", type=int, default=1,
-                   help="Number of teleop episodes to run (default: 1).")
     return p.parse_args()
 
 
@@ -352,7 +347,7 @@ def _save_video(teleop_frames, teleop_health_records, target_objects_for_overlay
     if not teleop_frames:
         return
     video_dir = os.path.join(
-        _REPO_ROOT, "oopsiebench", "envs", "behavior1k", "teleop_videos",
+        _REPO_ROOT, "demos", "behavior1k", "teleop_videos",
     )
     os.makedirs(video_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -428,7 +423,7 @@ def main():
     gm.ENABLE_TRANSITION_RULES = task_cfg.enable_transition_rules
 
     env_config = build_env_config(task_cfg)
-    collecting = args.collect_hdf5_path is not None
+    collecting = not args.skip_hdf5_save
     if collecting and args.save_extra_obs and getattr(task_cfg, "external_camera_configs", None):
         env_config["env"]["external_sensors"] = build_external_sensors_config(
             task_cfg, task_cfg.robot_name, task_cfg.robot_type,
@@ -437,6 +432,10 @@ def main():
     base_env = OGDamageableEnvironment(configs=env_config)
 
     if collecting:
+        if args.collect_hdf5_path is None:
+            args.collect_hdf5_path = os.path.join(
+                _REPO_ROOT, "demos", "behavior1k", "teleop_data", f"{args.task_name}.hdf5"
+            )
         os.makedirs(os.path.dirname(args.collect_hdf5_path) or ".", exist_ok=True)
         env = _TeleopDataCollectionWrapper(
             env=base_env,
@@ -595,6 +594,8 @@ def main():
     completed_episodes = 0
     while completed_episodes < n_episodes:
         print(f"[teleop] Episode {completed_episodes + 1}/{n_episodes} — teleoperating…")
+        print("Press c to continue")
+        breakpoint()
         episode_done[0] = False
         discard_requested[0] = False
         start_frame_count = len(teleop_frames)

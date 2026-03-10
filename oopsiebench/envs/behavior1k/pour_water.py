@@ -15,7 +15,7 @@ import torch as th
 import omnigibson as og
 from omnigibson.object_states import Filled
 
-from scripts.task_configs.base import TaskConfig
+from oopsiebench.envs.behavior1k.base import TaskConfig
 
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaPanda"
@@ -334,8 +334,8 @@ def get_task_config() -> TaskConfig:
         target_objects_water_contacts=["laptop@link_0", "laptop@base_link"],
 
         # Default paths
-        default_collect_hdf5="resources/teleop_data/pour_water.hdf5",
-        default_playback_hdf5="resources/playback_data/pour_water_playback.hdf5",
-        default_video_dir="resources/videos/pour_water",
+        default_collect_hdf5="demos/behavior1k/teleop_data/pour_water.hdf5",
+        default_playback_hdf5="demos/behavior1k/playback_data/pour_water_playback.hdf5",
+        default_video_dir="demos/behavior1k/playback_videos/pour_water",
     )
 

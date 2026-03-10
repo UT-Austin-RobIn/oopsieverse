@@ -14,7 +14,6 @@ build/
 *.swp
 
 # Other custom files/folders
-resources/
+demos/
 tmp/
-oopsiebench/envs/behavior1k/teleop_videos/
 

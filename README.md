@@ -15,8 +15,13 @@ OopsieVerse provides a damage-aware, simulator-agnostic framework and benchmark 
 
 # Commands
 
-1. playback
+1. teleop (b1k)
+```bash
+python scripts/teleop_b1k.py --task_name shelve_item --live_feedback --save_video
+```
+
+2. playback (b1k)
 
 ```bash
-python scripts/playback.py --task_name shelve_item --playback --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 --playback_hdf5_path resources/playback_data/shelve_item_safe.hdf5 --demo_ids 0 1
+python scripts/playback_b1k.py --task_name shelve_item --collect_hdf5_path demos/behavior1k/teleop_data/shelve_item.hdf5      --playback_hdf5_path demos/behavior1k/playback_data/shelve_item.hdf5 --playback --visualize --compute_metrics
 ```
