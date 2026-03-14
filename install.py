@@ -123,6 +123,17 @@ def patch_robocasa_for_windows(rc):
     if changed:
         demo.write_text(text)
 
+def fix_opencv():
+    """Ensure opencv-python (with GUI support) is installed instead of opencv-python-headless.
+
+    Transitive dependencies such as open3d and lerobot pull in
+    opencv-python-headless, which silently replaces opencv-python and
+    breaks cv2.imshow and other GUI functions.
+    """
+    print("[INFO] Ensuring opencv-python (non-headless) is installed...")
+    conda_run("pip uninstall -y opencv-python-headless", )
+    conda_run("pip install opencv-python")
+
 def install_robocasa():
     rc = ROOT / "robocasa"
     rs = ROOT / "robosuite"
@@ -175,5 +186,7 @@ if __name__ == "__main__":
 
     if args.robocasa:
         install_robocasa()
+
+    fix_opencv()
 
     print("[SUCCESS] All requested submodules installed!")
