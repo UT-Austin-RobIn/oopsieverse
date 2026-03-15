@@ -11,9 +11,9 @@ Usage::
 
 Examples::
 
-    python scripts/playback_robocasa.py --input resources/teleop_data/pick_egg.hdf5 --output resources/playback_data/pick_egg.hdf5 --env pick_egg
-    python scripts/playback_robocasa.py --input resources/teleop_data/pick_egg.hdf5 --output resources/playback_data/pick_egg.hdf5 --env pick_egg --visualize
-    python scripts/playback_robocasa.py --input resources/teleop_data/pick_egg.hdf5 --output resources/playback_data/pick_egg.hdf5 --env pick_egg --metrics
+    python scripts/playback_robocasa.py --input resources/teleop_data/ENV_NAME.hdf5 --output resources/playback_data/ENV_NAME.hdf5 --env ENV_NAME
+    python scripts/playback_robocasa.py --input resources/teleop_data/ENV_NAME.hdf5 --output resources/playback_data/ENV_NAME.hdf5 --env ENV_NAME --visualize
+    python scripts/playback_robocasa.py --input resources/teleop_data/ENV_NAME.hdf5 --output resources/playback_data/ENV_NAME.hdf5 --env ENV_NAME --metrics
 """
 
 import os
@@ -44,36 +44,53 @@ from utils.misc_utils import (
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# Visualization config
+# Visualization helpers
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def get_visualization_config(task_name, robot_name):
-    if task_name == "pick_egg":
-        return {
-            "target_objects_health_with_links": [
-                'egg@egg_main',
-                f'{robot_name}@gripper0_right_right_gripper',
-                f'{robot_name}@gripper0_right_eef',
-                f'{robot_name}@gripper0_right_leftfinger',
-                f'{robot_name}@gripper0_right_finger_joint1_tip',
-                f'{robot_name}@gripper0_right_rightfinger',
-                f'{robot_name}@gripper0_right_finger_joint2_tip',
-            ],
-            "target_objects_health": [f'{robot_name}', 'egg'],
-            "target_objects_forces": [
-                f'{robot_name}@gripper0_right_right_gripper',
-                "egg@egg_main",
-                f'{robot_name}@gripper0_right_eef',
-                f'{robot_name}@gripper0_right_leftfinger',
-                f'{robot_name}@gripper0_right_finger_joint1_tip',
-                f'{robot_name}@gripper0_right_rightfinger',
-                f'{robot_name}@gripper0_right_finger_joint2_tip',
-            ],
-            "force_keys": ["filtered_qs_forces"],
-        }
-    raise ValueError(f"No visualization config for task: {task_name}. "
-                     f"Add an entry to get_visualization_config() in playback_robocasa.py.")
+DEFAULT_FORCE_KEYS = ["filtered_qs_forces"]
+
+
+def _to_str(value):
+    if isinstance(value, bytes):
+        return value.decode("utf-8")
+    return str(value)
+
+
+def derive_health_series(all_obj_healths, health_list_link_names):
+    link_names = [_to_str(name) for name in health_list_link_names]
+    health_by_link = {}
+    for idx, link_name in enumerate(link_names):
+        if idx < all_obj_healths.shape[1]:
+            health_by_link[link_name] = all_obj_healths[:, idx]
+
+    object_order = []
+    health_by_object = {}
+    for link_name, values in health_by_link.items():
+        obj_name = link_name.split("@", 1)[0]
+        if obj_name not in health_by_object:
+            health_by_object[obj_name] = values
+            object_order.append(obj_name)
+        else:
+            health_by_object[obj_name] = np.minimum(health_by_object[obj_name], values)
+
+    return health_by_link, health_by_object, object_order
+
+
+def resolve_force_keys(damage_info_entries, target_objects_forces):
+    for damage_info in damage_info_entries:
+        for obj_link_name in target_objects_forces:
+            obj_name, link_name = obj_link_name.split("@", 1)
+            mechanical = (
+                damage_info.get(obj_name, {})
+                .get(link_name, {})
+                .get("mechanical", {})
+            )
+            if isinstance(mechanical, dict) and mechanical:
+                if "filtered_qs_forces" in mechanical:
+                    return ["filtered_qs_forces"]
+                return [next(iter(mechanical.keys()))]
+    return DEFAULT_FORCE_KEYS.copy()
 
 
 
@@ -204,18 +221,18 @@ def create_parser():
         epilog="""
 Examples:
   # Playback only (no rendering)
-  python scripts/playback_robocasa.py --input pick_egg.hdf5 --output pick_egg_rendered.hdf5 --env pick_egg
+  python scripts/playback_robocasa.py --input ENV_NAME.hdf5 --output ENV_NAME_rendered.hdf5 --env ENV_NAME
 
   # Playback + render all cameras
-  python scripts/playback_robocasa.py --input pick_egg.hdf5 --output pick_egg_rendered.hdf5 --env pick_egg --camera all_cameras
+  python scripts/playback_robocasa.py --input ENV_NAME.hdf5 --output ENV_NAME_rendered.hdf5 --env ENV_NAME --camera all_cameras
 
   # Playback + visualize and compute metrics
-  python scripts/playback_robocasa.py --input pick_egg.hdf5 --output pick_egg_rendered.hdf5 --env pick_egg --visualize --metrics
+  python scripts/playback_robocasa.py --input ENV_NAME.hdf5 --output ENV_NAME_rendered.hdf5 --env ENV_NAME --visualize --metrics
         """
     )
     parser.add_argument("--input", required=True, help="Path to collected (teleop) HDF5 file")
     parser.add_argument("--output", required=True, help="Path for playback (rendered) HDF5 output file")
-    parser.add_argument("--env", required=True, help="Environment name (e.g. pick_egg)")
+    parser.add_argument("--env", required=True, help="Environment name (e.g. pastry_display)")
     parser.add_argument("--camera", default="all_cameras", help="Camera(s) to render (default: all_cameras)")
     parser.add_argument("--width", type=int, default=256, help="Frame width (default: 256)")
     parser.add_argument("--height", type=int, default=256, help="Frame height (default: 256)")
@@ -312,54 +329,63 @@ def main():
 
     if args.visualize or args.metrics:
         f = h5py.File(args.output, "r")
-        robot_name = "PandaOmron"
-        camera_name = "robot0_agentview_right"
         output_video_dir = f"resources/videos/{os.path.splitext(os.path.basename(args.output))[0]}"
         os.makedirs(output_video_dir, exist_ok=True)
-
-        visualization_config = get_visualization_config(args.env, robot_name)
-        target_objects_health_with_links = visualization_config["target_objects_health_with_links"]
-        target_objects_health = visualization_config["target_objects_health"]
-        target_objects_forces = visualization_config["target_objects_forces"]
-        force_keys = visualization_config["force_keys"]
 
         final_obj_healths = defaultdict(list)
         final_env_healths = []
 
-        for idx in range(len(f["data"])):
-            print(f"Episode: {idx}")
-            demo_idx = int(list(f["data"].keys())[idx].split("_")[-1])
+        for demo_name in sorted(f["data"].keys()):
+            print(f"Episode: {demo_name}")
+            demo_group = f[f"data/{demo_name}"]
 
             obs_info_list = []
-            for i in range(len(f[f"data/demo_{demo_idx}/info/obs_info"])):
-                obs_info = json.loads(f[f"data/demo_{demo_idx}/info/obs_info"][i].decode("utf-8"))
+            for i in range(len(demo_group["info/obs_info"])):
+                obs_info = json.loads(demo_group["info/obs_info"][i].decode("utf-8"))
                 obs_info_list.append(obs_info)
 
-            all_obj_healths = np.array(f[f"data/demo_{demo_idx}/obs/health"])
-            health_list_link_names = f[f"data/demo_{demo_idx}"].attrs["health_list_link_names"]
-            health = {}
-            for obj_name in target_objects_health_with_links:
-                indices = np.where(health_list_link_names == obj_name)[0]
-                if len(indices) > 0:
-                    health[obj_name] = all_obj_healths[:, indices[0]]
+            all_obj_healths = np.array(demo_group["obs/health"])
+            health_list_link_names = demo_group.attrs["health_list_link_names"]
+            health_by_link, health_by_object, target_objects_health = derive_health_series(
+                all_obj_healths, health_list_link_names
+            )
+            target_objects_forces = list(health_by_link.keys())
 
-            for obj_name in target_objects_health:
-                arrays = [v for k, v in health.items() if k.startswith(f"{obj_name}@")]
-                health[obj_name] = np.minimum.reduce(arrays) if arrays else None
+            damage_info_entries = [
+                json.loads(demo_group["info/damage_info"][i].decode("utf-8"))
+                for i in range(len(demo_group["info/damage_info"]))
+            ]
+            force_keys = resolve_force_keys(damage_info_entries, target_objects_forces)
 
             if args.metrics:
                 current_env_health = 0.0
+                counted_objects = 0
                 for obj_name in target_objects_health:
-                    if health.get(obj_name) is not None:
-                        final_obj_healths[obj_name].append(health[obj_name][-1])
-                        print(f"  {obj_name} final health: {health[obj_name][-1]:.1f}%")
-                        current_env_health += health[obj_name][-1]
-                final_env_healths.append(current_env_health / len(target_objects_health))
+                    if obj_name in health_by_object:
+                        final_obj_healths[obj_name].append(health_by_object[obj_name][-1])
+                        print(f"  {obj_name} final health: {health_by_object[obj_name][-1]:.1f}%")
+                        current_env_health += health_by_object[obj_name][-1]
+                        counted_objects += 1
+                if counted_objects:
+                    final_env_healths.append(current_env_health / counted_objects)
 
             if args.visualize:
-                imgs = f[f"data/demo_{demo_idx}/obs/{camera_name}_image"]
+                obs_keys = list(demo_group["obs"].keys())
+                image_keys = [k for k in obs_keys if k.endswith("_image")]
+                if not image_keys:
+                    print(f"Skipping visualization for {demo_name} — no image observations found")
+                    continue
+                preferred_image_key = f"{env_config.camera_name}_image"
+                image_key = preferred_image_key if preferred_image_key in image_keys else image_keys[0]
+                camera_name = image_key[:-6]
+                segmentation_key = f"{camera_name}_segmentation_class"
+                if segmentation_key not in obs_keys:
+                    print(f"Skipping visualization for {demo_name} — missing {segmentation_key}")
+                    continue
+
+                imgs = demo_group[f"obs/{image_key}"]
                 new_imgs = []
-                imgs_seg = f[f"data/demo_{demo_idx}/obs/{camera_name}_segmentation_class"]
+                imgs_seg = demo_group[f"obs/{segmentation_key}"]
 
                 for i, img in enumerate(imgs):
                     img = cv2.cvtColor(img[:, :, :3], cv2.COLOR_RGB2BGR)
@@ -367,14 +393,14 @@ def main():
                     obs_info = obs_info_list[i]
                     camera_type = "robot0"
                     for obj_name in target_objects_health:
-                        if health.get(obj_name) is None or health[obj_name][i] >= 100:
+                        if obj_name not in health_by_object or health_by_object[obj_name][i] >= 100:
                             continue
                         seg_instance_info = obs_info.get(camera_type, {}).get(camera_name, {}).get("seg_instance", {})
                         seg_key = next((k for k, v in seg_instance_info.items() if v == obj_name), None)
                         if seg_key is None:
                             continue
                         seg_instance_key = int(seg_key)
-                        alpha = 1 - health[obj_name][i] / 100.0
+                        alpha = 1 - health_by_object[obj_name][i] / 100.0
                         overlay_color = np.array([0, 0, 255], dtype=np.uint8)
                         mask = img_seg == seg_instance_key
                         img[mask] = ((1 - alpha) * img[mask] + alpha * overlay_color).astype(np.uint8)
@@ -383,28 +409,35 @@ def main():
                 imgs = np.array(new_imgs)
 
                 # Save camera video
-                camera_video_path = os.path.join(output_video_dir, f"demo_{demo_idx}_camera_video.mp4")
+                camera_video_path = os.path.join(output_video_dir, f"{demo_name}_camera_video.mp4")
                 save_rgb_camera_video(output_video_path=camera_video_path, imgs=imgs)
 
                 # Save force video
                 data = {}
                 for obj_name in target_objects_forces:
                     data[obj_name] = {fk: [] for fk in force_keys}
-                for i in range(len(f[f"data/demo_{demo_idx}/info/damage_info"])):
-                    damage_info = json.loads(f[f"data/demo_{demo_idx}/info/damage_info"][i].decode("utf-8"))
+                for damage_info in damage_info_entries:
                     for obj_name in target_objects_forces:
                         obj_part, link_part = obj_name.split("@")
                         for fk in force_keys:
-                            try:
-                                data[obj_name][fk].append(damage_info[obj_part][link_part]["mechanical"][fk])
-                            except (KeyError, TypeError):
-                                data[obj_name][fk].append(0.0)
+                            value = (
+                                damage_info.get(obj_part, {})
+                                .get(link_part, {})
+                                .get("mechanical", {})
+                                .get(fk, 0.0)
+                            )
+                            data[obj_name][fk].append(value)
 
-                forces_video_path = os.path.join(output_video_dir, f"demo_{demo_idx}_forces_video.mp4")
+                forces_video_path = os.path.join(output_video_dir, f"{demo_name}_forces_video.mp4")
                 save_rgb_force_video(output_video_path=forces_video_path, imgs=imgs, target_objects=target_objects_forces, data=data, forces_to_plot=force_keys)
 
-                health_video_path = os.path.join(output_video_dir, f"demo_{demo_idx}_health_video.mp4")
-                save_rgb_health_video(output_video_path=health_video_path, imgs=imgs, target_objects=target_objects_health, health=health)
+                health_video_path = os.path.join(output_video_dir, f"{demo_name}_health_video.mp4")
+                save_rgb_health_video(
+                    output_video_path=health_video_path,
+                    imgs=imgs,
+                    target_objects=target_objects_health,
+                    health=health_by_object,
+                )
 
         f.close()
 
@@ -412,7 +445,7 @@ def main():
         print(f"\n{'='*40}")
         print("Health Metrics Summary")
         print(f"{'='*40}")
-        for obj_name in target_objects_health:
+        for obj_name in sorted(final_obj_healths.keys()):
             if final_obj_healths[obj_name]:
                 print(f"  {obj_name}: avg final health = {np.mean(final_obj_healths[obj_name]):.1f}%")
         if final_env_healths:
