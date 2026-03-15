@@ -16,4 +16,4 @@ build/
 # Other custom files/folders
 demos/
 tmp/
-
+MUJOCO_LOG.TXT
