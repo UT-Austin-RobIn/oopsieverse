@@ -25,7 +25,67 @@ DAMAGEABLE_OBJECTS = {
     },
     "pastry_display": {
         "categories": ["agent"],
-        "names": ["pastry", "plate"],
+        "names": ["pastry", "plate", "table_mat"],
+    },
+    "open_single_door": {
+        "categories": ["agent", "microwave"],
+        "names": [],
+    },
+    "close_microwave": {
+        "categories": ["agent", "microwave"],
+        "names": [],
+    },
+    "turn_on_faucet": {
+        "categories": ["agent", "sink"],
+        "names": [],
+    },
+    "turn_on_microwave": {
+        "categories": ["agent", "microwave"],
+        "names": [],
+    },
+    "turn_on_stove": {
+        "categories": ["agent", "stove"],
+        "names": [],
+    },
+    "open_drawer": {
+        "categories": ["agent", "drawer"],
+        "names": [],
+    },
+    "close_drawer": {
+        "categories": ["agent", "drawer"],
+        "names": [],
+    },
+    "place_plate": {
+        "categories": ["agent"],
+        "names": ["plate"],
+    },
+    "counter_to_microwave": {
+        "categories": ["agent", "counter", "microwave"],
+        "names": ["coffee_cup"],
+    },
+    "prepare_coffee": {
+        "categories": ["agent", "cabinet"],
+        "names": ["mug", "distr_cab"],
+    },
+    "shelve_item": {
+        "categories": ["agent"],
+        "names": ["table_mat", "cereal", "wine_1", "wine_2", "wine_3", "mug"],
+    },
+    "prepare_breakfast": {
+        "categories": ["agent"],
+        "names": ["table_mat", "tray", "mug", "wine"],
+    },
+    "dirty_dishes": {
+        "categories": ["agent", "sink", "counter"],
+        "names": ["bowl", "cup", "plate"],
+    },
+    "nav_to_counter": {
+        "categories": ["agent"],
+        "names": ["stool_obstacle", "bowl"],
+    },
+    "wipe_counter": {
+        "categories": ["agent", "sink", "counter"],
+        "names": ["sponge"],
     },
 }
 
@@ -501,4 +561,3 @@ def get_contact_properties(obj_name_or_type: str) -> dict:
 def get_damage_params_for_object(obj_name: str, obj_type: str | None = None) -> dict:
     params = get_params_for_object(obj_name, obj_type)
     return {k: v for k, v in params.items() if k not in ("solimp", "solref", "friction")}
-

@@ -4,7 +4,8 @@ Environment registry for oopsieverse RoboCasa environments.
 Provides centralized environment discovery and configuration.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from importlib import import_module
 from typing import Dict, List, Optional, Type
 
 
@@ -49,26 +50,44 @@ class EnvironmentRegistry:
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# Environment registrations
+# Environment registrations (lazy module import)
 # ═══════════════════════════════════════════════════════════════════════
 
-from envs.robocasa.pick_egg import PickEgg, DamageablePickEgg  # noqa: E402
-from envs.robocasa.pastry_display import PastryDisplay, DamageablePastryDisplay
+_ROBOCASA_ENVS = [
+    ("pick_egg", "pick_egg", "PickEgg", "DamageablePickEgg"),
+    ("pastry_display", "pastry_display", "PastryDisplay", "DamageablePastryDisplay"),
+    ("open_single_door", "open_single_door", "OpenSingleDoor", "DamageableOpenSingleDoor"),
+    ("close_microwave", "close_microwave", "CloseMicrowave", "DamageableCloseMicrowave"),
+    ("turn_on_faucet", "turn_on_faucet", "TurnOnFaucet", "DamageableTurnOnFaucet"),
+    ("turn_on_microwave", "turn_on_microwave", "TurnOnMicrowave", "DamageableTurnOnMicrowave"),
+    ("turn_on_stove", "turn_on_stove", "TurnOnStove", "DamageableTurnOnStove"),
+    ("open_drawer", "open_drawer", "OpenDrawer", "DamageableOpenDrawer"),
+    ("close_drawer", "close_drawer", "CloseDrawer", "DamageableCloseDrawer"),
+    ("place_plate", "place_plate", "PlacePlate", "DamageablePlacePlate"),
+    ("counter_to_microwave", "counter_to_microwave", "CounterToMicrowave", "DamageableCounterToMicrowave"),
+    ("prepare_coffee", "prepare_coffee", "PrepareCoffee", "DamageablePrepareCoffee"),
+    ("shelve_item", "shelve_item", "ShelveItem", "DamageableShelveItem"),
+    ("prepare_breakfast", "prepare_breakfast", "PrepareBreakfast", "DamageablePrepareBreakfast"),
+    ("dirty_dishes", "dirty_dishes", "DirtyDishes", "DamageableDirtyDishes"),
+    ("nav_to_counter", "nav_to_counter", "NavToCounter", "DamageableNavToCounter"),
+    ("wipe_counter", "wipe_counter", "WipeCounter", "DamageableWipeCounter"),
+]
 
-# ── pick_egg ──
-EnvironmentRegistry.register(
-    "pick_egg",
-    EnvConfig(
-        env_class=PickEgg,
-        damageable_class=DamageablePickEgg,
-    ),
-)
 
-# ── pastry_display ──
-EnvironmentRegistry.register(
-    "pastry_display",
-    EnvConfig(
-        env_class=PastryDisplay,
-        damageable_class=DamageablePastryDisplay,
-    ),
-)
+def _register(env_name: str, module_name: str, env_cls_name: str, damageable_cls_name: str):
+    module_path = f"{__package__}.robocasa.{module_name}" if __package__ else f"robocasa.{module_name}"
+    module = import_module(module_path)
+    env_cls = getattr(module, env_cls_name)
+    damageable_cls = getattr(module, damageable_cls_name)
+
+    EnvironmentRegistry.register(
+        env_name,
+        EnvConfig(
+            env_class=env_cls,
+            damageable_class=damageable_cls,
+        ),
+    )
+
+
+for _env_name, _module_name, _env_cls_name, _damageable_cls_name in _ROBOCASA_ENVS:
+    _register(_env_name, _module_name, _env_cls_name, _damageable_cls_name)

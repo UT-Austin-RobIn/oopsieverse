@@ -4,8 +4,6 @@ Pastry Display environment for oopsieverse.
 Task: place the pastry onto the plate, then move the plate to the table mat.
 """
 
-import os
-
 import numpy as np
 import robocasa.utils.object_utils as OU
 from robocasa.environments.kitchen.kitchen import FixtureType, Kitchen
@@ -142,11 +140,14 @@ class PastryDisplay(Kitchen):
         cfgs = []
 
         # Exact model paths from OBJ_CATEGORIES registry
-        plate_paths = OBJ_CATEGORIES["plate"]["objaverse"].mjcf_paths
-        plate_4_path = next(p for p in plate_paths if p.endswith("plate_4" + os.sep + "model.xml"))
-
-        cupcake_paths = OBJ_CATEGORIES["cupcake"]["objaverse"].mjcf_paths
-        cupcake_2_path = next(p for p in cupcake_paths if p.endswith("cupcake_2" + os.sep + "model.xml"))
+        plate_4_path = next(
+            p for p in OBJ_CATEGORIES["plate"]["objaverse"].mjcf_paths
+            if p.split("/")[-2] == "plate_4"
+        )
+        cupcake_2_path = next(
+            p for p in OBJ_CATEGORIES["cupcake"]["objaverse"].mjcf_paths
+            if p.split("/")[-2] == "cupcake_2"
+        )
 
         # Plate on the dining table
         cfgs.append(

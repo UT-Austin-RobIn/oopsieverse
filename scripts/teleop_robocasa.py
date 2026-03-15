@@ -10,9 +10,9 @@ Usage::
 
 Examples::
 
-    python scripts/teleop_robocasa.py --env pick_egg --device keyboard
-    python scripts/teleop_robocasa.py --env pick_egg --device spacemouse
-    python scripts/teleop_robocasa.py --env pick_egg --device keyboard --output my_data.hdf5
+    python scripts/teleop_robocasa.py --env ENV_NAME --device keyboard
+    python scripts/teleop_robocasa.py --env ENV_NAME --device spacemouse
+    python scripts/teleop_robocasa.py --env ENV_NAME --device keyboard --output my_data.hdf5
 """
 
 import os
@@ -835,12 +835,12 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""
 Examples:
-  python scripts/teleop_robocasa.py --env pick_egg --device keyboard
-  python scripts/teleop_robocasa.py --env pick_egg --device spacemouse
-  python scripts/teleop_robocasa.py --env pick_egg --output my_data.hdf5
+  python scripts/teleop_robocasa.py --env ENV_NAME --device keyboard
+  python scripts/teleop_robocasa.py --env ENV_NAME --device spacemouse
+  python scripts/teleop_robocasa.py --env ENV_NAME --output my_data.hdf5
 
 After collecting data, run playback:
-  python scripts/playback_robocasa.py --input my_data.hdf5 --output my_data_rendered.hdf5 --env pick_egg
+  python scripts/playback_robocasa.py --input my_data.hdf5 --output my_data_rendered.hdf5 --env ENV_NAME
 
 Available environments: {', '.join(EnvironmentRegistry.list_envs())}
         """

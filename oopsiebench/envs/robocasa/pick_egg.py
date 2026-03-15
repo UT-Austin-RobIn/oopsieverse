@@ -4,8 +4,6 @@ Pick Egg environment for oopsieverse.
 Task: pick up the egg gently without crushing it.
 """
 
-import os
-
 import numpy as np
 import robocasa.utils.env_utils as EnvUtils
 from robocasa.environments.kitchen.kitchen import FixtureType, Kitchen
@@ -44,8 +42,8 @@ class PickEgg(Kitchen):
         self.counter = self.get_fixture(FixtureType.COUNTER, ref=self.sink)
         self.init_robot_base_ref = self.counter
 
-    def _load_model(self):
-        super()._load_model()
+    def _load_model(self, *args, **kwargs):
+        super()._load_model(*args, **kwargs)
         pos, ori = EnvUtils.compute_robot_base_placement_pose(
             self, ref_fixture=self.counter, offset=[1.0, 0.0]
         )
@@ -53,8 +51,10 @@ class PickEgg(Kitchen):
         self.init_robot_base_ori_anchor = ori
 
     def _get_obj_cfgs(self):
-        egg_paths = OBJ_CATEGORIES["egg"]["objaverse"].mjcf_paths
-        egg_0_path = next(p for p in egg_paths if p.endswith("egg_0" + os.sep + "model.xml"))
+        egg_0_path = next(
+            p for p in OBJ_CATEGORIES["egg"]["objaverse"].mjcf_paths
+            if p.split("/")[-2] == "egg_0"
+        )
 
         return [
             dict(
