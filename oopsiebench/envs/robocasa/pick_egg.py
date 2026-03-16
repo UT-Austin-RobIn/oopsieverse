@@ -44,8 +44,9 @@ class PickEgg(Kitchen):
 
     def _load_model(self, *args, **kwargs):
         super()._load_model(*args, **kwargs)
+        robot_offset = [1.0, 0.0]
         pos, ori = EnvUtils.compute_robot_base_placement_pose(
-            self, ref_fixture=self.counter, offset=[1.0, 0.0]
+            self, ref_fixture=self.counter, offset=robot_offset
         )
         self.init_robot_base_pos_anchor = pos
         self.init_robot_base_ori_anchor = ori
@@ -63,9 +64,12 @@ class PickEgg(Kitchen):
                 placement=dict(
                     fixture=self.counter,
                     sample_region_kwargs=dict(ref=self.sink, loc="right"),
-                    size=(0.1, 0.1),
+                    size=(
+                        0.1,
+                        0.1,
+                    ),
                     offset=(0, -0.50),
-                    rotation=0.0,
+                    rotation=(-0.1, 0.1),
                 ),
             )
         ]

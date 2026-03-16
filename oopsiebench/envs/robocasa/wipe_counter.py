@@ -63,8 +63,9 @@ class WipeCounter(Kitchen):
 
     def _load_model(self, *args, **kwargs):
         super()._load_model(*args, **kwargs)
+        robot_offset = [1.0, 0.0]
         pos, ori = EnvUtils.compute_robot_base_placement_pose(
-            self, ref_fixture=self.counter, offset=[1.0, 0.0]
+            self, ref_fixture=self.counter, offset=robot_offset
         )
         self.init_robot_base_pos_anchor = pos
         self.init_robot_base_ori_anchor = ori
@@ -83,9 +84,12 @@ class WipeCounter(Kitchen):
                 placement=dict(
                     fixture=self.counter,
                     sample_region_kwargs=dict(ref=self.sink, loc="right"),
-                    size=(0.1, 0.1),
+                    size=(
+                        0.1,
+                        0.1,
+                    ),
                     offset=(0, -0.50),
-                    rotation=0.0,
+                    rotation=(-0.1, 0.1),
                 ),
             )
         ]
@@ -142,26 +146,26 @@ class WipeCounter(Kitchen):
 
     def _sample_start_pos(self, ref_pos=None):
         """Sample a starting position for the dirt path."""
-        self._marker_direction = float(np.random.uniform(-np.pi, np.pi))
+        self._marker_direction = 0.0
 
         if ref_pos is not None:
             return np.array([
-                float(ref_pos[0] - 0.18) + float(np.random.uniform(-0.05, 0.05)),
-                float(ref_pos[1]) + float(np.random.uniform(-0.05, 0.05))
+                float(ref_pos[0] - 0.18),
+                float(ref_pos[1]),
             ])
 
         if self._dirt_bounds is None:
             return np.array([0.0, 0.0])
 
         return np.array([
-            np.random.uniform(self._dirt_bounds['x_min'], self._dirt_bounds['x_max']),
-            np.random.uniform(self._dirt_bounds['y_min'], self._dirt_bounds['y_max']),
+            (self._dirt_bounds['x_min'] + self._dirt_bounds['x_max']) / 2,
+            (self._dirt_bounds['y_min'] + self._dirt_bounds['y_max']) / 2,
         ])
 
     def _sample_path_pos(self, pos):
         """Sample next position along the dirt path."""
-        if np.random.uniform(0, 1) > 0.7:
-            self._marker_direction = float(self._marker_direction) + float(np.random.normal(0, 0.5))
+        if self._marker_direction is None:
+            self._marker_direction = 0.0
 
         step_size = 0.008
         posnew0 = pos[0] + step_size * np.sin(float(self._marker_direction))
@@ -173,7 +177,7 @@ class WipeCounter(Kitchen):
             if (self._dirt_bounds['x_min'] <= posnew0 <= self._dirt_bounds['x_max'] and
                 self._dirt_bounds['y_min'] <= posnew1 <= self._dirt_bounds['y_max']):
                 break
-            self._marker_direction = float(self._marker_direction) + float(np.random.normal(0, 0.5))
+            self._marker_direction = float(self._marker_direction) + 0.5
             posnew0 = pos[0] + step_size * np.sin(float(self._marker_direction))
             posnew1 = pos[1] + step_size * np.cos(float(self._marker_direction))
             attempts += 1

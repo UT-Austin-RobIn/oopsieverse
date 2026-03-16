@@ -56,8 +56,9 @@ class ShelveItem(Kitchen):
     def _load_model(self, **kwargs):
         super()._load_model(**kwargs)
         self._add_table_mat()
+        robot_offset = [1.5, 0.6]
         pos, ori = EnvUtils.compute_robot_base_placement_pose(
-            self, ref_fixture=self.dining_table, offset=[1.5, 0.6]
+            self, ref_fixture=self.dining_table, offset=robot_offset
         )
         ori = np.array(ori)
         ori[2] += np.pi / 2
@@ -157,7 +158,6 @@ class ShelveItem(Kitchen):
         )
 
         cfgs = []
-
         # Cereal box
         cfgs.append(
             dict(
@@ -171,7 +171,7 @@ class ShelveItem(Kitchen):
                     ),
                     size=(0.0, 0.0),
                     pos=(0.94, -0.68),
-                    rotation=(1.57, 1.57),
+                    rotation=(1.57 - 0.1, 1.57 + 0.1),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
                 ),
@@ -191,6 +191,7 @@ class ShelveItem(Kitchen):
                     ),
                     size=(0.0, 0.0),
                     pos=(0.78, -0.95),
+                    rotation=(-0.1, 0.1),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
                 ),
@@ -210,6 +211,7 @@ class ShelveItem(Kitchen):
                     ),
                     size=(0.0, 0.0),
                     pos=(0.78, -0.68),
+                    rotation=(-0.1, 0.1),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
                 ),
@@ -229,6 +231,7 @@ class ShelveItem(Kitchen):
                     ),
                     size=(0.0, 0.0),
                     pos=(0.78, -0.5),
+                    rotation=(-0.1, 0.1),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
                 ),
@@ -248,7 +251,7 @@ class ShelveItem(Kitchen):
                     ),
                     size=(0.0, 0.0),
                     pos=(0.78, -0.35),
-                    rotation=(1.57, 1.57),
+                    rotation=(1.57 - 0.1, 1.57 + 0.1),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
                 ),

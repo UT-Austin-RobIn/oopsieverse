@@ -33,23 +33,24 @@ class OpenDrawer(Kitchen):
     def _load_model(self, *args, **kwargs):
         super()._load_model(*args, **kwargs)
         x_ofs = (self.drawer.width / 2) + 0.3
+        y_ofs = -0.23
         inits = []
 
         robot_base_pos_left, robot_base_ori_left = EnvUtils.compute_robot_base_placement_pose(
-            self, ref_fixture=self.drawer, offset=(-x_ofs, -0.23)
+            self, ref_fixture=self.drawer, offset=(-x_ofs, y_ofs)
         )
         test_pos_left, _ = EnvUtils.compute_robot_base_placement_pose(
-            self, ref_fixture=self.drawer, offset=(-x_ofs - 0.3, -0.23)
+            self, ref_fixture=self.drawer, offset=(-x_ofs - 0.3, y_ofs)
         )
 
         if not self._check_fxtr_contact(test_pos_left) and not self._check_sidewall_contact(test_pos_left):
             inits.append((robot_base_pos_left, robot_base_ori_left, "right"))
 
         robot_base_pos_right, robot_base_ori_right = EnvUtils.compute_robot_base_placement_pose(
-            self, ref_fixture=self.drawer, offset=(x_ofs, -0.23)
+            self, ref_fixture=self.drawer, offset=(x_ofs, y_ofs)
         )
         test_pos_right, _ = EnvUtils.compute_robot_base_placement_pose(
-            self, ref_fixture=self.drawer, offset=(x_ofs + 0.3, -0.23)
+            self, ref_fixture=self.drawer, offset=(x_ofs + 0.3, y_ofs)
         )
 
         if not self._check_fxtr_contact(test_pos_right) and not self._check_sidewall_contact(test_pos_right):
@@ -57,12 +58,13 @@ class OpenDrawer(Kitchen):
 
         if len(inits) == 0:
             robot_base_pos, robot_base_ori = EnvUtils.compute_robot_base_placement_pose(
-                self, ref_fixture=self.drawer, offset=(0.0, -0.23)
+                self,
+                ref_fixture=self.drawer,
+                offset=(0.0, y_ofs),
             )
             side = "left"
         else:
-            random_index = self.rng.integers(len(inits))
-            robot_base_pos, robot_base_ori, side = inits[random_index]
+            robot_base_pos, robot_base_ori, side = inits[0]
         self.drawer_side = side
         self.init_robot_base_pos_anchor = robot_base_pos
         self.init_robot_base_ori_anchor = robot_base_ori

@@ -46,8 +46,9 @@ class PlacePlate(Kitchen):
 
     def _load_model(self, *args, **kwargs):
         super()._load_model(*args, **kwargs)
+        robot_offset = [0.0, 0.0]
         pos, ori = EnvUtils.compute_robot_base_placement_pose(
-            self, ref_fixture=self.sink, offset=[0.0, 0.0]
+            self, ref_fixture=self.sink, offset=robot_offset
         )
         self.init_robot_base_pos_anchor = pos
         self.init_robot_base_ori_anchor = ori
@@ -70,7 +71,7 @@ class PlacePlate(Kitchen):
                     ),
                     size=(0.0, 0.0),
                     pos=(3.2, -0.3),
-                    rotation=0.0,
+                    rotation=(-0.1, 0.1),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
                 ),

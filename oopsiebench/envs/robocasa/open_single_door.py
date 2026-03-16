@@ -5,6 +5,7 @@ Task: open the microwave door.
 """
 
 import numpy as np
+import robocasa.utils.env_utils as EnvUtils
 from robocasa.environments.kitchen.kitchen import FixtureType, Kitchen
 
 from damagesim.robosuite.damageable_env import RSDamageableEnvironment
@@ -30,6 +31,15 @@ class OpenSingleDoor(Kitchen):
     def _setup_scene(self):
         self.microwave.close_door(env=self)
         super()._setup_scene()
+
+    def _load_model(self, *args, **kwargs):
+        super()._load_model(*args, **kwargs)
+        robot_offset = (0.0, -0.1)
+        pos, ori = EnvUtils.compute_robot_base_placement_pose(
+            self, ref_fixture=self.microwave, offset=robot_offset
+        )
+        self.init_robot_base_pos_anchor = pos
+        self.init_robot_base_ori_anchor = ori
 
     def _get_obj_cfgs(self):
         return []

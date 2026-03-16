@@ -5,6 +5,7 @@ Task: pick the mug from the cabinet and place it under the coffee machine dispen
 """
 
 import numpy as np
+import robocasa.utils.env_utils as EnvUtils
 import robocasa.utils.object_utils as OU
 from robocasa.environments.kitchen.kitchen import FixtureType, Kitchen
 from robocasa.models.objects.kitchen_object_utils import OBJ_CATEGORIES
@@ -37,6 +38,15 @@ class PrepareCoffee(Kitchen):
         ] = f"Pick the {obj_name} from the cabinet and place it under the coffee machine dispenser."
         return ep_meta
 
+    def _load_model(self, *args, **kwargs):
+        super()._load_model(*args, **kwargs)
+        robot_offset = (0.0, -0.1)
+        pos, ori = EnvUtils.compute_robot_base_placement_pose(
+            self, ref_fixture=self.cab, offset=robot_offset
+        )
+        self.init_robot_base_pos_anchor = pos
+        self.init_robot_base_ori_anchor = ori
+
     def _get_obj_cfgs(self):
         mug_1_path = next(
             p for p in OBJ_CATEGORIES["mug"]["objaverse"].mjcf_paths
@@ -52,8 +62,12 @@ class PrepareCoffee(Kitchen):
                 graspable=True,
                 placement=dict(
                     fixture=self.cab,
-                    size=(0.30, 0.20),
+                    size=(
+                        0.30,
+                        0.20,
+                    ),
                     pos=(0, -1.0),
+                    rotation=(-0.1, 0.1),
                 ),
             )
         )
