@@ -51,9 +51,10 @@ class NavToCounter(Kitchen):
 
     def _load_model(self, *args, **kwargs):
         super()._load_model(*args, **kwargs)
+        robot_offset = (1.0, -1.0)
 
         pos, ori = EnvUtils.compute_robot_base_placement_pose(
-            self, ref_fixture=self.stove, offset=(1.0, -1.0)
+            self, ref_fixture=self.stove, offset=robot_offset
         )
         self.init_robot_base_pos_anchor = pos
         self.init_robot_base_ori_anchor = ori
@@ -105,6 +106,7 @@ class NavToCounter(Kitchen):
                     fixture=self.stove,
                     size=(0.0, 0.0),
                     pos=(30.0, 5.0),
+                    rotation=(-0.1, 0.1),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
                 ),

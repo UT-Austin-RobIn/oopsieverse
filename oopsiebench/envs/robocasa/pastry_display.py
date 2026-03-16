@@ -5,6 +5,7 @@ Task: place the pastry onto the plate, then move the plate to the table mat.
 """
 
 import numpy as np
+import robocasa.utils.env_utils as EnvUtils
 import robocasa.utils.object_utils as OU
 from robocasa.environments.kitchen.kitchen import FixtureType, Kitchen
 from robocasa.models.objects.kitchen_object_utils import OBJ_CATEGORIES
@@ -66,6 +67,12 @@ class PastryDisplay(Kitchen):
     def _load_model(self, **kwargs):
         """Load model and add table mat to the dining table."""
         super()._load_model(**kwargs)
+        robot_offset = (1.5, 0.6)
+        pos, ori = EnvUtils.compute_robot_base_placement_pose(
+            self, ref_fixture=self.dining_table, offset=robot_offset
+        )
+        self.init_robot_base_pos_anchor = pos
+        self.init_robot_base_ori_anchor = ori
         self._add_table_mat()
 
     def _add_table_mat(self):
@@ -138,6 +145,8 @@ class PastryDisplay(Kitchen):
 
     def _get_obj_cfgs(self):
         cfgs = []
+        plate_pos = (-0.2, -0.6)
+        pastry_pos = (-0.4, -0.4)
 
         # Exact model paths from OBJ_CATEGORIES registry
         plate_4_path = next(
@@ -157,8 +166,8 @@ class PastryDisplay(Kitchen):
                 placement=dict(
                     fixture=self.dining_table,
                     size=(0, 0),
-                    pos=(-0.2, -0.6),
-                    rotation=0.0,
+                    pos=plate_pos,
+                    rotation=(-0.1, 0.1),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
                 ),
@@ -173,9 +182,12 @@ class PastryDisplay(Kitchen):
                 graspable=True,
                 placement=dict(
                     fixture=self.dining_table,
-                    size=(0.20, 0.20),
-                    pos=(-0.4, -0.4),
-                    rotation=0.0,
+                    size=(
+                        0.20,
+                        0.20,
+                    ),
+                    pos=pastry_pos,
+                    rotation=(-0.1, 0.1),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
                 ),

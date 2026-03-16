@@ -31,10 +31,6 @@ DAMAGEABLE_OBJECTS = {
         "categories": ["agent", "microwave"],
         "names": [],
     },
-    "close_microwave": {
-        "categories": ["agent", "microwave"],
-        "names": [],
-    },
     "turn_on_faucet": {
         "categories": ["agent", "sink"],
         "names": [],
@@ -48,10 +44,6 @@ DAMAGEABLE_OBJECTS = {
         "names": [],
     },
     "open_drawer": {
-        "categories": ["agent", "drawer"],
-        "names": [],
-    },
-    "close_drawer": {
         "categories": ["agent", "drawer"],
         "names": [],
     },
@@ -73,7 +65,7 @@ DAMAGEABLE_OBJECTS = {
     },
     "prepare_breakfast": {
         "categories": ["agent"],
-        "names": ["table_mat", "tray", "mug", "wine"],
+        "names": ["tray", "mug", "egg"],
     },
     "dirty_dishes": {
         "categories": ["agent", "sink", "counter"],
