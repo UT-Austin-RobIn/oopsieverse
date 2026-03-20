@@ -52,12 +52,25 @@ class DamageDataCollectionWrapper:
         env: The environment to wrap
         output_path: Path to HDF5 output file
         output_frequency: Show periodic output every N steps (default: 50, 0 to disable)
+        save_cameras: Store camera RGB frames in HDF5 (default: False)
+        camera_names: List of camera names to capture (used when save_cameras=True)
+        camera_width: Width of captured frames (default: 128)
+        camera_height: Height of captured frames (default: 128)
+        save_health: Store health obs and damage info in HDF5 (default: False)
     """
 
-    def __init__(self, env, output_path, output_frequency=50):
+    def __init__(self, env, output_path, output_frequency=50,
+                 save_cameras=False, camera_names=None,
+                 camera_width=128, camera_height=128,
+                 save_health=False):
         self.env = env
         self.output_path = output_path
         self.output_frequency = output_frequency
+        self.save_cameras = save_cameras
+        self.camera_names = camera_names or []
+        self.camera_width = camera_width
+        self.camera_height = camera_height
+        self.save_health = save_health
         self.episode_count = 0
         self._model_xml = None
         self._ep_meta = None
@@ -68,6 +81,12 @@ class DamageDataCollectionWrapper:
             os.makedirs(output_dir, exist_ok=True)
 
         self.output_hdf5_file = h5py.File(output_path, "w")
+
+        self._mj_renderer = None
+        if save_cameras and self.camera_names:
+            self._mj_renderer = mujoco.Renderer(
+                self.env.sim.model._model, height=camera_height, width=camera_width
+            )
 
     def _reset_episode_buffer(self):
         self.episode_data = []
@@ -89,13 +108,26 @@ class DamageDataCollectionWrapper:
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
 
+        save_obs = dict(obs)
+        save_info = dict(info)
+
+        if self.save_cameras and self._mj_renderer is not None:
+            for cam in self.camera_names:
+                self._mj_renderer.update_scene(self.env.sim.data._data, camera=cam)
+                frame = self._mj_renderer.render()  # (H, W, 3) uint8
+                save_obs[f"{cam}_image"] = frame
+
+        if not self.save_health:
+            save_obs = {k: v for k, v in save_obs.items() if k != "health"}
+            save_info = {k: v for k, v in save_info.items() if k not in ("damage_info", "obs_info")}
+
         step_data = {
-            "obs": obs,
+            "obs": save_obs,
             "states": self.env.sim.get_state().flatten(),
             "actions": action,
             "rewards": reward,
             "dones": done,
-            "info": info,
+            "info": save_info,
         }
         self.episode_data.append(step_data)
         return obs, reward, done, info
@@ -107,11 +139,12 @@ class DamageDataCollectionWrapper:
             nested_keys=nested_keys, output_hdf5=self.output_hdf5_file
         )
 
-        health_list = []
-        for obj in self.env.get_damageable_objects():
-            for link_name in obj.link_healths:
-                health_list.append(f"{obj.name}@{link_name}")
-        traj_grp.attrs["health_list_link_names"] = health_list
+        if self.save_health:
+            health_list = []
+            for obj in self.env.get_damageable_objects():
+                for link_name in obj.link_healths:
+                    health_list.append(f"{obj.name}@{link_name}")
+            traj_grp.attrs["health_list_link_names"] = health_list
 
         if self._model_xml is not None:
             traj_grp.attrs["model_file"] = self._model_xml
@@ -123,6 +156,8 @@ class DamageDataCollectionWrapper:
         self.episode_count += 1
 
     def shutdown(self):
+        if self._mj_renderer is not None:
+            self._mj_renderer.close()
         self.env.close()
 
     def __getattr__(self, name):
@@ -857,6 +892,10 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
     parser.add_argument("--video", action="store_true", help="Record video (automatically enables --health-hud)")
     parser.add_argument("--video-fps", type=int, default=30, help="Video recording FPS (default: 30)")
     parser.add_argument("--continuous-gripper", action="store_true", help="Use continuous gripper control (float [-1,1]) instead of binary open/close toggle")
+    parser.add_argument("--save-cameras", action="store_true", help="Store camera RGB frames in HDF5 (default: disabled)")
+    parser.add_argument("--camera-width", type=int, default=128, help="Camera image width for saved frames (default: 128)")
+    parser.add_argument("--camera-height", type=int, default=128, help="Camera image height for saved frames (default: 128)")
+    parser.add_argument("--save-health", action="store_true", help="Store health observations and damage info in HDF5 (default: disabled)")
 
     args = parser.parse_args()
 
@@ -883,9 +922,9 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
     on_macos = platform.system() == "Darwin"
     if on_macos:
         using_mjpython = "MJPYTHON_BIN" in os.environ
-        if args.health_hud:
+        if args.health_hud or args.save_cameras:
             if using_mjpython:
-                print("Error: --health-hud (and --video) require regular python on macOS, not mjpython.")
+                print("Error: --health-hud and --save-cameras require regular python on macOS, not mjpython.")
                 print("  cv2.imshow needs the main thread, which mjpython gives to its run loop.")
                 print(f"  python scripts/teleop_robocasa.py {' '.join(sys.argv[1:])}")
                 sys.exit(1)
@@ -957,7 +996,15 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
             show_window=args.health_hud,
         )
 
-    env = DamageDataCollectionWrapper(env=env, output_path=output_path)
+    env = DamageDataCollectionWrapper(
+        env=env,
+        output_path=output_path,
+        save_cameras=args.save_cameras,
+        camera_names=[env_config.camera_name] if args.save_cameras else [],
+        camera_width=args.camera_width,
+        camera_height=args.camera_height,
+        save_health=args.save_health,
+    )
     env.reset()  # Must call reset() before device.start_control() so robots are initialized
 
     device = create_device(args.device, env, continuous_gripper=args.continuous_gripper)
