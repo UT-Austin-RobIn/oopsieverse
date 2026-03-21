@@ -56,12 +56,12 @@ DAMAGEABLE_OBJECTS = {
         "names": ["coffee_cup"],
     },
     "prepare_coffee": {
-        "categories": ["agent", "cabinet"],
-        "names": ["mug", "distr_cab"],
+        "categories": ["agent", "cabinet", "coffee_machine"],
+        "names": ["mug", "distr_object"],
     },
     "shelve_item": {
         "categories": ["agent"],
-        "names": ["table_mat", "cereal", "wine_1", "wine_2", "wine_3", "mug"],
+        "names": ["table_mat", "cereal", "wine_1", "wine_glass", "wine_2", "flour_bag"],
     },
     "prepare_breakfast": {
         "categories": ["agent"],
@@ -396,6 +396,32 @@ OBJECT_PARAMS = {
             "qs_damage_sensitivity": 0.9,
         },
     },
+    "wine_glass": {
+        "solimp": (0.998, 0.998, 0.001),
+        "solref": (0.001, 1),
+        "friction": (0.4, 0.2, 0.1),
+        "health_thresholds": [95.0, 65.0, 30.0],
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "damage_threshold": 35.0,
+            "damage_scale": 1.2,
+            "impact_damage_sensitivity": 1.0,
+            "qs_damage_sensitivity": 0.4,
+        },
+    },
+    "flour_bag": {
+        "solimp": (0.88, 0.94, 0.003),
+        "solref": (0.01, 1),
+        "friction": (0.7, 0.4, 0.2),
+        "health_thresholds": [75.0, 45.0, 20.0],
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "damage_threshold": 60.0,
+            "damage_scale": 0.3,
+            "impact_damage_sensitivity": 0.3,
+            "qs_damage_sensitivity": 0.8,
+        },
+    },
     "wine": {
         "solimp": (0.998, 0.998, 0.001),
         "solref": (0.001, 1),
@@ -462,6 +488,16 @@ OBJECT_PARAMS = {
             "damage_scale": 0.1,
             "impact_damage_sensitivity": 0.4,
             "qs_damage_sensitivity": 0.6,
+        },
+    },
+    "coffee_machine": {
+        "health_thresholds": [90.0, 60.0, 30.0],
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "damage_threshold": 70.0,
+            "damage_scale": 0.06,
+            "impact_damage_sensitivity": 0.5,
+            "qs_damage_sensitivity": 0.3,
         },
     },
     "counter": {
