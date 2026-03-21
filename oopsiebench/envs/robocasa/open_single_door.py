@@ -17,6 +17,7 @@ from damagesim.robosuite.damageable_env import RSDamageableEnvironment
 
 
 class OpenSingleDoor(Kitchen):
+    OPEN_SUCCESS_THRESHOLD = 0.90
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -53,18 +54,16 @@ class OpenSingleDoor(Kitchen):
 
     def reward(self, action=None):
         try:
-            door_state = self.microwave.get_door_state(env=self)
+            door_state = self.microwave.get_joint_state(
+                env=self, joint_names=self.microwave.door_joint_names
+            )
             avg_state = np.mean(list(door_state.values()))
             return avg_state * 10.0
         except Exception:
             return 0.0
 
     def _check_success(self):
-        door_state = self.microwave.get_door_state(env=self)
-        for joint_p in door_state.values():
-            if joint_p < 0.90:
-                return False
-        return True
+        return self.microwave.is_open(env=self, th=self.OPEN_SUCCESS_THRESHOLD)
 
 
 # ═══════════════════════════════════════════════════════════════════════
