@@ -8,8 +8,14 @@ import numpy as np
 import robocasa.utils.env_utils as EnvUtils
 import robocasa.utils.object_utils as OU
 from robocasa.environments.kitchen.kitchen import FixtureType, Kitchen
+from robocasa.models.scenes.scene_registry import StyleType
 
 from damagesim.robosuite.damageable_env import RSDamageableEnvironment
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# OpenDrawer environment
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class OpenDrawer(Kitchen):
@@ -18,7 +24,8 @@ class OpenDrawer(Kitchen):
         self.robot_side = ""
         self.drawer_id = drawer_id
         self.drawer_side = ""
-        super().__init__(*args, **kwargs)
+        kwargs.pop("style_ids", None)
+        super().__init__(style_ids=StyleType.STYLE004, *args, **kwargs)
 
     def get_ep_meta(self):
         ep_meta = super().get_ep_meta()
@@ -74,7 +81,6 @@ class OpenDrawer(Kitchen):
         super()._setup_scene()
 
     def _check_fxtr_contact(self, pos):
-        """Check if the point is in contact with any fixture (excluding walls)."""
         for fxtr in self.fixtures.values():
             if hasattr(fxtr, 'wall_side'):
                 continue
@@ -86,7 +92,6 @@ class OpenDrawer(Kitchen):
         return False
 
     def _check_sidewall_contact(self, pos):
-        """Check if the point is in contact with any wall."""
         for name, fxtr in self.fixtures.items():
             if not hasattr(fxtr, 'wall_side'):
                 continue
@@ -105,6 +110,8 @@ class OpenDrawer(Kitchen):
     def _get_obj_cfgs(self):
         return []
 
+    # ── Task checks ────────────────────────────────────────────────────
+
     def reward(self, action=None):
         try:
             door_state = self.drawer.get_door_state(env=self)
@@ -119,6 +126,12 @@ class OpenDrawer(Kitchen):
             if joint_p < 0.95:
                 return False
         return True
+
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Damageable variant
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class DamageableOpenDrawer(RSDamageableEnvironment, OpenDrawer):

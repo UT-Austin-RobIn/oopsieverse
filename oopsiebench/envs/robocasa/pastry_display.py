@@ -4,6 +4,7 @@ Pastry Display environment for oopsieverse.
 Task: place the pastry onto the plate, then move the plate to the table mat.
 """
 
+import os
 import numpy as np
 import robocasa.utils.env_utils as EnvUtils
 import robocasa.utils.object_utils as OU
@@ -48,13 +49,11 @@ class PastryDisplay(Kitchen):
         )
 
     def get_ep_meta(self):
-        """Get episode metadata with task description."""
         ep_meta = super().get_ep_meta()
         ep_meta["lang"] = "Place the pastry onto the plate, then move the plate to the table mat"
         return ep_meta
 
     def _setup_kitchen_references(self):
-        """Setup kitchen fixture references."""
         super()._setup_kitchen_references()
 
         self.dining_table = self.register_fixture_ref(
@@ -65,18 +64,15 @@ class PastryDisplay(Kitchen):
         self.init_robot_base_ref = self.dining_table
 
     def _load_model(self, **kwargs):
-        """Load model and add table mat to the dining table."""
         super()._load_model(**kwargs)
-        robot_offset = (1.5, 0.6)
         pos, ori = EnvUtils.compute_robot_base_placement_pose(
-            self, ref_fixture=self.dining_table, offset=robot_offset
+            self, ref_fixture=self.dining_table
         )
         self.init_robot_base_pos_anchor = pos
         self.init_robot_base_ori_anchor = ori
-        self._add_table_mat()
+        self._add_table_mat()   
 
     def _add_table_mat(self):
-        """Add a table mat to the dining table."""
         existing_bodies = [child.get("name") for child in self.model.worldbody]
         if "table_mat" in existing_bodies or "table_mat_main" in existing_bodies:
             return
@@ -145,20 +141,16 @@ class PastryDisplay(Kitchen):
 
     def _get_obj_cfgs(self):
         cfgs = []
-        plate_pos = (-0.2, -0.6)
-        pastry_pos = (-0.4, -0.4)
 
-        # Exact model paths from OBJ_CATEGORIES registry
         plate_4_path = next(
             p for p in OBJ_CATEGORIES["plate"]["objaverse"].mjcf_paths
-            if p.split("/")[-2] == "plate_4"
+            if os.path.basename(os.path.dirname(p)) == "plate_4"
         )
         cupcake_2_path = next(
             p for p in OBJ_CATEGORIES["cupcake"]["objaverse"].mjcf_paths
-            if p.split("/")[-2] == "cupcake_2"
+            if os.path.basename(os.path.dirname(p)) == "cupcake_2"
         )
 
-        # Plate on the dining table
         cfgs.append(
             dict(
                 name="plate",
@@ -166,7 +158,7 @@ class PastryDisplay(Kitchen):
                 placement=dict(
                     fixture=self.dining_table,
                     size=(0, 0),
-                    pos=plate_pos,
+                    pos=(-0.2, -0.6),
                     rotation=(-0.1, 0.1),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
@@ -174,7 +166,6 @@ class PastryDisplay(Kitchen):
             )
         )
 
-        # Pastry on the dining table
         cfgs.append(
             dict(
                 name="pastry",
@@ -186,7 +177,7 @@ class PastryDisplay(Kitchen):
                         0.20,
                         0.20,
                     ),
-                    pos=pastry_pos,
+                    pos=(-0.4, -0.4),
                     rotation=(-0.1, 0.1),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
@@ -199,7 +190,6 @@ class PastryDisplay(Kitchen):
     # ── Task checks ────────────────────────────────────────────────────
 
     def _get_mat_pos(self):
-        """Return the live table mat body position, falling back to the stored init position."""
         if self._table_mat_pos is None:
             return None
         try:
@@ -209,7 +199,6 @@ class PastryDisplay(Kitchen):
             return self._table_mat_pos
 
     def _check_pastry_on_plate(self):
-        """Check if the pastry is positioned on the plate."""
         try:
             pastry_pos = np.array(self.sim.data.body_xpos[self.obj_body_id["pastry"]])
             plate_pos = np.array(self.sim.data.body_xpos[self.obj_body_id["plate"]])
@@ -221,7 +210,6 @@ class PastryDisplay(Kitchen):
             return False
 
     def _check_plate_on_table_mat(self):
-        """Check if the plate is positioned on the table mat."""
         mat_pos = self._get_mat_pos()
         if mat_pos is None:
             return False
@@ -235,7 +223,6 @@ class PastryDisplay(Kitchen):
             return False
 
     def _get_plate_distance_to_mat(self):
-        """Get the XY distance from plate to table mat."""
         mat_pos = self._get_mat_pos()
         if mat_pos is None:
             return float('inf')
@@ -246,7 +233,6 @@ class PastryDisplay(Kitchen):
             return float('inf')
 
     def _post_action(self, action):
-        """Called after each action for task progress tracking."""
         reward, done, info = super()._post_action(action)
 
         pastry_on_plate = self._check_pastry_on_plate()
@@ -260,12 +246,6 @@ class PastryDisplay(Kitchen):
         return reward, done, info
 
     def reward(self, action=None):
-        """
-        Reward based on task progress.
-        - Reward for placing pastry on plate
-        - Progressive reward for moving plate toward table mat
-        - Large bonus for placing plate on table mat with pastry
-        """
         try:
             reward = 0.0
 
@@ -288,13 +268,6 @@ class PastryDisplay(Kitchen):
             return 0.0
 
     def _check_success(self):
-        """
-        Check if the task is successful.
-        Success requires:
-        1. Pastry on the plate
-        2. Plate on the table mat
-        3. Gripper not holding the plate
-        """
         try:
             pastry_on_plate = self._check_pastry_on_plate()
             plate_on_mat = self._check_plate_on_table_mat()
@@ -303,7 +276,6 @@ class PastryDisplay(Kitchen):
             return pastry_on_plate and plate_on_mat and gripper_away
         except Exception:
             return False
-
 
 
 # ═══════════════════════════════════════════════════════════════════════

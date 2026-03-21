@@ -4,6 +4,7 @@ Dirty Dishes environment for oopsieverse.
 Task: place the bowl, cup, and plate into the sink, then turn on the faucet.
 """
 
+import os
 import numpy as np
 import robocasa.utils.env_utils as EnvUtils
 import robocasa.utils.object_utils as OU
@@ -12,6 +13,11 @@ from robocasa.models.objects.kitchen_object_utils import OBJ_CATEGORIES
 from robocasa.models.scenes.scene_registry import LayoutType, StyleType
 
 from damagesim.robosuite.damageable_env import RSDamageableEnvironment
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# DirtyDishes environment
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class DirtyDishes(Kitchen):
@@ -40,13 +46,13 @@ class DirtyDishes(Kitchen):
         )
 
         self.counter = self.register_fixture_ref(
-            "counter", dict(id=FixtureType.COUNTER, ref=self.sink)
+            "counter", dict(id=FixtureType.COUNTER, ref=self.sink, size=(0.5, 0.4))
         )
 
         self.init_robot_base_ref = self.sink
 
-    def _load_model(self, *args, **kwargs):
-        super()._load_model(*args, **kwargs)
+    def _load_model(self, **kwargs):
+        super()._load_model(**kwargs)
         robot_offset = (0.0, 0.0)
         pos, ori = EnvUtils.compute_robot_base_placement_pose(
             self, ref_fixture=self.sink, offset=robot_offset
@@ -54,26 +60,26 @@ class DirtyDishes(Kitchen):
         self.init_robot_base_pos_anchor = pos
         self.init_robot_base_ori_anchor = ori
 
-    def _reset_internal(self):
-        super()._reset_internal()
+    def _setup_scene(self):
+        super()._setup_scene()
         self.sink.set_handle_state(mode="off", env=self, rng=self.rng)
 
     def _get_obj_cfgs(self):
         bowl_6_path = next(
             p for p in OBJ_CATEGORIES["bowl"]["objaverse"].mjcf_paths
-            if p.split("/")[-2] == "bowl_6"
+            if os.path.basename(os.path.dirname(p)) == "bowl_10"
         )
         mug_1_path = next(
             p for p in OBJ_CATEGORIES["mug"]["objaverse"].mjcf_paths
-            if p.split("/")[-2] == "mug_1"
+            if os.path.basename(os.path.dirname(p)) == "mug_1"
         )
         plate_4_path = next(
             p for p in OBJ_CATEGORIES["plate"]["objaverse"].mjcf_paths
-            if p.split("/")[-2] == "plate_4"
+            if os.path.basename(os.path.dirname(p)) == "plate_4"
         )
 
         cfgs = []
-        # Bowl - positioned to the left of the sink
+        
         cfgs.append(
             dict(
                 name="bowl",
@@ -86,17 +92,13 @@ class DirtyDishes(Kitchen):
                         ref=self.sink,
                         loc="left_right",
                     ),
-                    size=(
-                        0.40,
-                        0.40,
-                    ),
-                    pos=("ref", -0.7),
+                    size=(0.30, 0.30),
+                    pos=("ref", -1.0),
                     rotation=(-0.1, 0.1),
                 ),
             )
         )
 
-        # Cup - positioned between bowl and plate
         cfgs.append(
             dict(
                 name="cup",
@@ -109,17 +111,13 @@ class DirtyDishes(Kitchen):
                         ref=self.sink,
                         loc="left_right",
                     ),
-                    size=(
-                        0.40,
-                        0.40,
-                    ),
-                    pos=("ref", -0.3),
+                    size=(0.30, 0.30),
+                    pos=("ref", -0.5),
                     rotation=(-0.1, 0.1),
                 ),
             )
         )
 
-        # Plate - positioned to the right
         cfgs.append(
             dict(
                 name="plate",
@@ -132,11 +130,8 @@ class DirtyDishes(Kitchen):
                         ref=self.sink,
                         loc="left_right",
                     ),
-                    size=(
-                        0.40,
-                        0.40,
-                    ),
-                    pos=("ref", 0.1),
+                    size=(0.30, 0.30),
+                    pos=("ref", -0.7),
                     rotation=(-0.1, 0.1),
                 ),
             )
@@ -144,15 +139,15 @@ class DirtyDishes(Kitchen):
 
         return cfgs
 
+    # ── Task checks ────────────────────────────────────────────────────
+
     def _check_dish_in_sink(self, dish_name):
-        """Check if a specific dish is inside the sink."""
         try:
             return OU.obj_inside_of(self, dish_name, self.sink)
         except Exception:
             return False
 
     def _check_faucet_on(self):
-        """Check if the faucet is turned on."""
         try:
             handle_state = self.sink.get_handle_state(env=self)
             return handle_state.get("water_on", False)
@@ -177,6 +172,12 @@ class DirtyDishes(Kitchen):
         return reward, done, info
 
     def reward(self, action=None):
+        """
+        Reward based on task progress.
+        - 2.0 per dish placed in sink (bowl, cup, plate)
+        - 4.0 bonus when all three dishes are in sink
+        - 10.0 bonus when all dishes in sink and faucet is on
+        """
         try:
             reward = 0.0
 
@@ -203,6 +204,10 @@ class DirtyDishes(Kitchen):
             return 0.0
 
     def _check_success(self):
+        """
+        Check if the task is successful.
+        Success requires all dishes in sink, faucet on, and gripper far from all dishes.
+        """
         try:
             bowl_in_sink = self._check_dish_in_sink("bowl")
             cup_in_sink = self._check_dish_in_sink("cup")
@@ -224,6 +229,12 @@ class DirtyDishes(Kitchen):
             )
         except Exception:
             return False
+
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Damageable variant
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class DamageableDirtyDishes(RSDamageableEnvironment, DirtyDishes):

@@ -4,6 +4,7 @@ Pick Egg environment for oopsieverse.
 Task: pick up the egg gently without crushing it.
 """
 
+import os
 import numpy as np
 import robocasa.utils.env_utils as EnvUtils
 from robocasa.environments.kitchen.kitchen import FixtureType, Kitchen
@@ -54,7 +55,7 @@ class PickEgg(Kitchen):
     def _get_obj_cfgs(self):
         egg_0_path = next(
             p for p in OBJ_CATEGORIES["egg"]["objaverse"].mjcf_paths
-            if p.split("/")[-2] == "egg_0"
+            if os.path.basename(os.path.dirname(p)) == "egg_0"
         )
 
         return [

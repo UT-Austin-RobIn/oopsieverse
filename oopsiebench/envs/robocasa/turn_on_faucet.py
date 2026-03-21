@@ -11,6 +11,11 @@ from robocasa.environments.kitchen.kitchen import FixtureType, Kitchen
 from damagesim.robosuite.damageable_env import RSDamageableEnvironment
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# TurnOnFaucet environment
+# ═══════════════════════════════════════════════════════════════════════
+
+
 class TurnOnFaucet(Kitchen):
 
     def __init__(self, *args, **kwargs):
@@ -44,6 +49,8 @@ class TurnOnFaucet(Kitchen):
     def _get_obj_cfgs(self):
         return []
 
+    # ── Task checks ────────────────────────────────────────────────────
+
     def reward(self, action=None):
         try:
             handle_state = self.sink.get_handle_state(env=self)
@@ -59,6 +66,11 @@ class TurnOnFaucet(Kitchen):
             return water_on
         except Exception:
             return False
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Damageable variant
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class DamageableTurnOnFaucet(RSDamageableEnvironment, TurnOnFaucet):

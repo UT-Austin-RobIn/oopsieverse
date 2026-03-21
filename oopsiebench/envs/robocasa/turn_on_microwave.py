@@ -11,6 +11,11 @@ from robocasa.environments.kitchen.kitchen import FixtureType, Kitchen
 from damagesim.robosuite.damageable_env import RSDamageableEnvironment
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# TurnOnMicrowave environment
+# ═══════════════════════════════════════════════════════════════════════
+
+
 class TurnOnMicrowave(Kitchen):
 
     def __init__(self, *args, **kwargs):
@@ -46,6 +51,8 @@ class TurnOnMicrowave(Kitchen):
     def _get_obj_cfgs(self):
         return []
 
+    # ── Task checks ────────────────────────────────────────────────────
+
     def reward(self, action=None):
         try:
             state = self.microwave.get_state()
@@ -63,6 +70,11 @@ class TurnOnMicrowave(Kitchen):
             return turned_on and gripper_button_far
         except Exception:
             return False
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Damageable variant
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class DamageableTurnOnMicrowave(RSDamageableEnvironment, TurnOnMicrowave):
