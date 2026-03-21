@@ -8,9 +8,13 @@ import numpy as np
 import robocasa.utils.env_utils as EnvUtils
 import robocasa.utils.object_utils as OU
 from robocasa.environments.kitchen.kitchen import FixtureType, Kitchen
-from robocasa.models.objects.kitchen_object_utils import OBJ_CATEGORIES
 
 from damagesim.robosuite.damageable_env import RSDamageableEnvironment
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# CounterToMicrowave environment
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class CounterToMicrowave(Kitchen):
@@ -37,8 +41,8 @@ class CounterToMicrowave(Kitchen):
         )
         self.init_robot_base_ref = self.microwave
 
-    def _load_model(self, *args, **kwargs):
-        super()._load_model(*args, **kwargs)
+    def _load_model(self, **kwargs):
+        super()._load_model(**kwargs)
         robot_offset = (0.0, -0.1)
         pos, ori = EnvUtils.compute_robot_base_placement_pose(
             self, ref_fixture=self.microwave, offset=robot_offset
@@ -46,15 +50,11 @@ class CounterToMicrowave(Kitchen):
         self.init_robot_base_pos_anchor = pos
         self.init_robot_base_ori_anchor = ori
 
-    def _reset_internal(self):
-        super()._reset_internal()
+    def _setup_scene(self):
+        super()._setup_scene()
         self.microwave.open_door(env=self)
 
     def _get_obj_cfgs(self):
-        coffee_cup_3_path = next(
-            p for p in OBJ_CATEGORIES["coffee_cup"]["objaverse"].mjcf_paths
-            if p.split("/")[-2] == "coffee_cup_3"
-        )
         cup_pos = ("ref", -1.0)
         cup_size = (
             0.30,
@@ -64,7 +64,7 @@ class CounterToMicrowave(Kitchen):
         return [
             dict(
                 name="coffee_cup",
-                obj_groups=coffee_cup_3_path,
+                obj_groups="coffee_cup",
                 graspable=True,
                 microwavable=True,
                 placement=dict(
@@ -78,6 +78,8 @@ class CounterToMicrowave(Kitchen):
                 ),
             )
         ]
+
+    # ── Task checks ────────────────────────────────────────────────────
 
     def reward(self, action=None):
         try:
@@ -93,6 +95,12 @@ class CounterToMicrowave(Kitchen):
             return obj_inside_microwave and gripper_obj_far
         except Exception:
             return False
+
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Damageable variant
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class DamageableCounterToMicrowave(RSDamageableEnvironment, CounterToMicrowave):

@@ -4,6 +4,7 @@ Prepare Coffee environment for oopsieverse.
 Task: pick the mug from the cabinet and place it under the coffee machine dispenser.
 """
 
+import os
 import numpy as np
 import robocasa.utils.env_utils as EnvUtils
 import robocasa.utils.object_utils as OU
@@ -11,6 +12,11 @@ from robocasa.environments.kitchen.kitchen import FixtureType, Kitchen
 from robocasa.models.objects.kitchen_object_utils import OBJ_CATEGORIES
 
 from damagesim.robosuite.damageable_env import RSDamageableEnvironment
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# PrepareCoffee environment
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class PrepareCoffee(Kitchen):
@@ -32,10 +38,7 @@ class PrepareCoffee(Kitchen):
 
     def get_ep_meta(self):
         ep_meta = super().get_ep_meta()
-        obj_name = self.get_obj_lang()
-        ep_meta[
-            "lang"
-        ] = f"Pick the {obj_name} from the cabinet and place it under the coffee machine dispenser."
+        ep_meta["lang"] = "Pick the mug from the cabinet and place it under the coffee machine dispenser."
         return ep_meta
 
     def _load_model(self, *args, **kwargs):
@@ -50,7 +53,7 @@ class PrepareCoffee(Kitchen):
     def _get_obj_cfgs(self):
         mug_1_path = next(
             p for p in OBJ_CATEGORIES["mug"]["objaverse"].mjcf_paths
-            if p.split("/")[-2] == "mug_1"
+            if os.path.basename(os.path.dirname(p)) == "mug_1"
         )
 
         cfgs = []
@@ -73,7 +76,7 @@ class PrepareCoffee(Kitchen):
         )
         cfgs.append(
             dict(
-                name="distr_cab",
+                name="distr_object",
                 obj_groups="all",
                 placement=dict(
                     fixture=self.cab,
@@ -86,9 +89,11 @@ class PrepareCoffee(Kitchen):
 
         return cfgs
 
-    def _reset_internal(self):
-        super()._reset_internal()
+    def _setup_scene(self):
+        super()._setup_scene()
         self.cab.set_door_state(min=0.90, max=1.0, env=self)
+
+    # ── Task checks ────────────────────────────────────────────────────
 
     def _post_action(self, action):
         reward, done, info = super()._post_action(action)
@@ -118,6 +123,12 @@ class PrepareCoffee(Kitchen):
         contact_check = self.coffee_machine.check_receptacle_placement_for_pouring(self, "mug")
 
         return contact_check and gripper_obj_far
+
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Damageable variant
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class DamageablePrepareCoffee(RSDamageableEnvironment, PrepareCoffee):

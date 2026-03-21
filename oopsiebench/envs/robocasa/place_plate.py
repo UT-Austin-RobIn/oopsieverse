@@ -4,6 +4,7 @@ Place Plate environment for oopsieverse.
 Task: pick up the plate and place it into the sink.
 """
 
+import os
 import numpy as np
 import robocasa.utils.env_utils as EnvUtils
 import robocasa.utils.object_utils as OU
@@ -12,6 +13,11 @@ from robocasa.models.objects.kitchen_object_utils import OBJ_CATEGORIES
 from robocasa.models.scenes.scene_registry import LayoutType, StyleType
 
 from damagesim.robosuite.damageable_env import RSDamageableEnvironment
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# PlacePlate environment
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class PlacePlate(Kitchen):
@@ -35,7 +41,7 @@ class PlacePlate(Kitchen):
     def _setup_kitchen_references(self):
         super()._setup_kitchen_references()
 
-        self.sink = self.get_fixture(FixtureType.SINK)
+        self.sink = self.register_fixture_ref("sink", dict(id=FixtureType.SINK))
 
         self.counter = self.register_fixture_ref(
             "counter",
@@ -44,8 +50,8 @@ class PlacePlate(Kitchen):
 
         self.init_robot_base_ref = self.sink
 
-    def _load_model(self, *args, **kwargs):
-        super()._load_model(*args, **kwargs)
+    def _load_model(self, **kwargs):
+        super()._load_model(**kwargs)
         robot_offset = [0.0, 0.0]
         pos, ori = EnvUtils.compute_robot_base_placement_pose(
             self, ref_fixture=self.sink, offset=robot_offset
@@ -56,30 +62,29 @@ class PlacePlate(Kitchen):
     def _get_obj_cfgs(self):
         plate_4_path = next(
             p for p in OBJ_CATEGORIES["plate"]["objaverse"].mjcf_paths
-            if p.split("/")[-2] == "plate_4"
+            if os.path.basename(os.path.dirname(p)) == "plate_4"
         )
-
+        
         return [
             dict(
                 name="plate",
                 obj_groups=plate_4_path,
-                graspable=True,
                 placement=dict(
                     fixture=self.counter,
                     sample_region_kwargs=dict(
-                        top_size=(0.50, 0.40)
+                        ref=self.sink,
+                        loc="left_right",
                     ),
-                    size=(0.0, 0.0),
-                    pos=(3.2, -0.3),
+                    size=(0.40, 0.40),
+                    pos=("ref", -0.7),
                     rotation=(-0.1, 0.1),
-                    ensure_object_boundary_in_range=False,
-                    ensure_valid_placement=False,
                 ),
             )
         ]
 
+    # ── Task checks ────────────────────────────────────────────────────
+
     def _get_sink_bounds(self):
-        """Get the sink basin bounds for placement checking."""
         try:
             sink_pos = np.array(self.sink.pos)
 
@@ -96,7 +101,6 @@ class PlacePlate(Kitchen):
             return None
 
     def _check_plate_in_sink(self):
-        """Check if the plate is positioned inside the sink basin."""
         sink_bounds = self._get_sink_bounds()
         if sink_bounds is None:
             return False
@@ -109,35 +113,39 @@ class PlacePlate(Kitchen):
             dx = abs(plate_pos[0] - sink_center[0])
             dy = abs(plate_pos[1] - sink_center[1])
 
-            within_x = dx <= half_size[0] * 1.2
-            within_y = dy <= half_size[1] * 1.2
+            within_x = dx <= half_size[0]
+            within_y = dy <= half_size[1]
 
             sink_rim_z = sink_center[2] + 0.1
-            plate_in_basin = plate_pos[2] <= sink_rim_z + 0.15
+            plate_below_rim = plate_pos[2] <= sink_rim_z
 
-            return within_x and within_y and plate_in_basin
+            return within_x and within_y and plate_below_rim
         except Exception:
             return False
 
-    def _check_plate_near_sink(self):
-        """Check if the plate is near the sink."""
+    def _check_plate_settled(self):
         try:
-            plate_pos = np.array(self.sim.data.body_xpos[self.obj_body_id["plate"]])
-            sink_pos = np.array(self.sink.pos)
+            plate_body_id = self.obj_body_id["plate"]
+            lin_vel = self.sim.data.cvel[plate_body_id][3:6]
+            speed = np.linalg.norm(lin_vel)
+            return speed < 0.05
+        except Exception:
+            return False
 
-            distance = np.linalg.norm(plate_pos[:2] - sink_pos[:2])
-            return distance < 0.5
+    def _check_gripper_away_from_sink(self):
+        try:
+            sink_pos = np.array(self.sink.pos)
+            gripper_pos = self.sim.data.site_xpos[self.robots[0].eef_site_id["right"]]
+            distance = np.linalg.norm(gripper_pos[:2] - sink_pos[:2])
+            return distance > 0.10
         except Exception:
             return False
 
     def _post_action(self, action):
         reward, done, info = super()._post_action(action)
 
-        plate_in_sink = self._check_plate_in_sink()
-        plate_near_sink = self._check_plate_near_sink()
-
-        info['plate_in_sink'] = plate_in_sink
-        info['plate_near_sink'] = plate_near_sink
+        info['plate_in_sink'] = self._check_plate_in_sink()
+        info['plate_settled'] = self._check_plate_settled()
         info['task_success'] = self._check_success()
 
         return reward, done, info
@@ -152,9 +160,9 @@ class PlacePlate(Kitchen):
             reward = 1.0 / (distance + 0.1)
 
             if self._check_plate_in_sink():
-                reward += 10.0
-            elif self._check_plate_near_sink():
-                reward += 2.0
+                reward += 5.0
+                if self._check_plate_settled():
+                    reward += 5.0
 
             return reward
         except Exception:
@@ -162,9 +170,16 @@ class PlacePlate(Kitchen):
 
     def _check_success(self):
         plate_in_sink = self._check_plate_in_sink()
-        gripper_away = OU.gripper_obj_far(self, "plate")
+        plate_settled = self._check_plate_settled()
+        gripper_obj_far = OU.gripper_obj_far(self, "plate")
+        gripper_away_from_sink = self._check_gripper_away_from_sink()
 
-        return plate_in_sink and gripper_away
+        return plate_in_sink and plate_settled and gripper_obj_far and gripper_away_from_sink
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Damageable variant
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class DamageablePlacePlate(RSDamageableEnvironment, PlacePlate):

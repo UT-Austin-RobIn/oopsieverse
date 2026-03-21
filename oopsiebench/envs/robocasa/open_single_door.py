@@ -11,6 +11,11 @@ from robocasa.environments.kitchen.kitchen import FixtureType, Kitchen
 from damagesim.robosuite.damageable_env import RSDamageableEnvironment
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# OpenSingleDoor environment
+# ═══════════════════════════════════════════════════════════════════════
+
+
 class OpenSingleDoor(Kitchen):
 
     def __init__(self, *args, **kwargs):
@@ -44,6 +49,8 @@ class OpenSingleDoor(Kitchen):
     def _get_obj_cfgs(self):
         return []
 
+    # ── Task checks ────────────────────────────────────────────────────
+
     def reward(self, action=None):
         try:
             door_state = self.microwave.get_door_state(env=self)
@@ -58,6 +65,11 @@ class OpenSingleDoor(Kitchen):
             if joint_p < 0.90:
                 return False
         return True
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Damageable variant
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class DamageableOpenSingleDoor(RSDamageableEnvironment, OpenSingleDoor):

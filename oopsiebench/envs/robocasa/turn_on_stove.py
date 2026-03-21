@@ -11,6 +11,11 @@ from robocasa.environments.kitchen.kitchen import FixtureType, Kitchen
 from damagesim.robosuite.damageable_env import RSDamageableEnvironment
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# TurnOnStove environment
+# ═══════════════════════════════════════════════════════════════════════
+
+
 class TurnOnStove(Kitchen):
 
     def __init__(self, knob_id="random", *args, **kwargs):
@@ -73,6 +78,8 @@ class TurnOnStove(Kitchen):
     def _get_obj_cfgs(self):
         return []
 
+    # ── Task checks ────────────────────────────────────────────────────
+
     def reward(self, action=None):
         try:
             knobs_state = self.stove.get_knobs_state(env=self)
@@ -90,6 +97,11 @@ class TurnOnStove(Kitchen):
             return knob_on
         except Exception:
             return False
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Damageable variant
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class DamageableTurnOnStove(RSDamageableEnvironment, TurnOnStove):

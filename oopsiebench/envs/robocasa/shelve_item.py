@@ -4,6 +4,7 @@ Shelve Item environment for oopsieverse.
 Task: pick the cereal box and place it on the table mat.
 """
 
+import os
 import numpy as np
 import robocasa.utils.env_utils as EnvUtils
 import robocasa.utils.object_utils as OU
@@ -18,8 +19,17 @@ from damagesim.robosuite.damageable_env import RSDamageableEnvironment
 from damagesim.robosuite.params.damage_params import get_params_for_object
 
 
-TABLE_MAT_SIZE = [0.09, 0.18, 0.002]
+# ═══════════════════════════════════════════════════════════════════════
+# Constants
+# ═══════════════════════════════════════════════════════════════════════
+
+TABLE_MAT_SIZE = [0.09, 0.18, 0.001]
 TABLE_MAT_COLOR = [0.06, 0.10, 0.30, 1.0]
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# ShelveItem environment
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class ShelveItem(Kitchen):
@@ -27,6 +37,7 @@ class ShelveItem(Kitchen):
     def __init__(self, *args, **kwargs):
         kwargs.pop("layout_ids", None)
         kwargs.pop("style_ids", None)
+        kwargs.pop("obj_registries", None)
 
         self.table_mat = None
         self._table_mat_pos = None
@@ -34,6 +45,7 @@ class ShelveItem(Kitchen):
         super().__init__(
             layout_ids=LayoutType.LAYOUT010,
             style_ids=StyleType.STYLE010,
+            obj_registries=("objaverse", "lightwheel", "aigen"),
             *args,
             **kwargs,
         )
@@ -60,13 +72,18 @@ class ShelveItem(Kitchen):
         pos, ori = EnvUtils.compute_robot_base_placement_pose(
             self, ref_fixture=self.dining_table, offset=robot_offset
         )
-        ori = np.array(ori)
-        ori[2] += np.pi / 2
         self.init_robot_base_pos_anchor = pos
         self.init_robot_base_ori_anchor = ori
 
+    def _reset_internal(self):
+        super()._reset_internal()
+        # Rotate robot 90 degrees CCW via the mobile base yaw joint.
+        rotation_jnt = "mobilebase0_joint_mobile_yaw"
+        addr = self.sim.model.get_joint_qpos_addr(rotation_jnt)
+        self.sim.data.qpos[addr] += np.pi / 2
+        self.sim.forward()
+
     def _add_table_mat(self):
-        """Add a table mat to the far right edge of the dining table."""
         existing_bodies = [child.get("name") for child in self.model.worldbody]
         if "table_mat" in existing_bodies or "table_mat_main" in existing_bodies:
             return
@@ -138,27 +155,27 @@ class ShelveItem(Kitchen):
     def _get_obj_cfgs(self):
         cereal_2_path = next(
             p for p in OBJ_CATEGORIES["cereal"]["objaverse"].mjcf_paths
-            if p.split("/")[-2] == "cereal_2"
+            if os.path.basename(os.path.dirname(p)) == "cereal_2"
         )
         wine_5_path = next(
             p for p in OBJ_CATEGORIES["wine"]["objaverse"].mjcf_paths
-            if p.split("/")[-2] == "wine_5"
+            if os.path.basename(os.path.dirname(p)) == "wine_5"
         )
-        wine_2_path = next(
-            p for p in OBJ_CATEGORIES["wine"]["objaverse"].mjcf_paths
-            if p.split("/")[-2] == "wine_2"
+        wine_glass_path = next(
+            p for p in OBJ_CATEGORIES["wine_glass"]["aigen"].mjcf_paths
+            if os.path.basename(os.path.dirname(p)) == "wine_glass_1"
         )
         wine_4_path = next(
             p for p in OBJ_CATEGORIES["wine"]["objaverse"].mjcf_paths
-            if p.split("/")[-2] == "wine_4"
+            if os.path.basename(os.path.dirname(p)) == "wine_2"
         )
-        mug_1_path = next(
-            p for p in OBJ_CATEGORIES["mug"]["objaverse"].mjcf_paths
-            if p.split("/")[-2] == "mug_1"
+        flour_bag_path = next(
+            p for p in OBJ_CATEGORIES["flour_bag"]["lightwheel"].mjcf_paths
+            if os.path.basename(os.path.dirname(p)) == "FlourBag002"
         )
 
         cfgs = []
-        # Cereal box
+
         cfgs.append(
             dict(
                 name="cereal",
@@ -171,14 +188,13 @@ class ShelveItem(Kitchen):
                     ),
                     size=(0.0, 0.0),
                     pos=(0.94, -0.68),
-                    rotation=(1.57 - 0.1, 1.57 + 0.1),
+                    rotation=(1.57, 1.57),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
                 ),
             )
         )
 
-        # Wine bottle 1
         cfgs.append(
             dict(
                 name="wine_1",
@@ -190,7 +206,7 @@ class ShelveItem(Kitchen):
                         top_size=(0.50, 0.40)
                     ),
                     size=(0.0, 0.0),
-                    pos=(0.78, -0.95),
+                    pos=(0.78, -0.92),
                     rotation=(-0.1, 0.1),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
@@ -198,11 +214,10 @@ class ShelveItem(Kitchen):
             )
         )
 
-        # Wine bottle 2
         cfgs.append(
             dict(
-                name="wine_2",
-                obj_groups=wine_2_path,
+                name="wine_glass",
+                obj_groups=wine_glass_path,
                 graspable=True,
                 placement=dict(
                     fixture=self.dining_table,
@@ -210,7 +225,7 @@ class ShelveItem(Kitchen):
                         top_size=(0.50, 0.40)
                     ),
                     size=(0.0, 0.0),
-                    pos=(0.78, -0.68),
+                    pos=(0.78, -0.65),
                     rotation=(-0.1, 0.1),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
@@ -218,10 +233,9 @@ class ShelveItem(Kitchen):
             )
         )
 
-        # Wine bottle 3
         cfgs.append(
             dict(
-                name="wine_3",
+                name="wine_2",
                 obj_groups=wine_4_path,
                 graspable=True,
                 placement=dict(
@@ -230,7 +244,7 @@ class ShelveItem(Kitchen):
                         top_size=(0.50, 0.40)
                     ),
                     size=(0.0, 0.0),
-                    pos=(0.78, -0.5),
+                    pos=(0.78, -0.47),
                     rotation=(-0.1, 0.1),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
@@ -238,11 +252,10 @@ class ShelveItem(Kitchen):
             )
         )
 
-        # Mug
         cfgs.append(
             dict(
-                name="mug",
-                obj_groups=mug_1_path,
+                name="flour_bag",
+                obj_groups=flour_bag_path,
                 graspable=True,
                 placement=dict(
                     fixture=self.dining_table,
@@ -250,8 +263,8 @@ class ShelveItem(Kitchen):
                         top_size=(0.50, 0.40)
                     ),
                     size=(0.0, 0.0),
-                    pos=(0.78, -0.35),
-                    rotation=(1.57 - 0.1, 1.57 + 0.1),
+                    pos=(0.78, -0.30),
+                    rotation=(1.57, 1.57),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
                 ),
@@ -260,8 +273,9 @@ class ShelveItem(Kitchen):
 
         return cfgs
 
+    # ── Task checks ────────────────────────────────────────────────────
+
     def _check_cereal_on_table_mat(self):
-        """Check if the cereal box is positioned on the table mat."""
         if self._table_mat_pos is None:
             return False
 
@@ -287,7 +301,6 @@ class ShelveItem(Kitchen):
             return False
 
     def _get_cereal_distance_to_mat(self):
-        """Get the distance from cereal box to table mat."""
         if self._table_mat_pos is None:
             return float('inf')
 
@@ -336,6 +349,11 @@ class ShelveItem(Kitchen):
             return cereal_on_mat and gripper_away
         except Exception:
             return False
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Damageable variant
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class DamageableShelveItem(RSDamageableEnvironment, ShelveItem):
