@@ -83,10 +83,6 @@ class DamageDataCollectionWrapper:
         self.output_hdf5_file = h5py.File(output_path, "w")
 
         self._mj_renderer = None
-        if save_cameras and self.camera_names:
-            self._mj_renderer = mujoco.Renderer(
-                self.env.sim.model._model, height=camera_height, width=camera_width
-            )
 
     def _reset_episode_buffer(self):
         self.episode_data = []
@@ -94,6 +90,10 @@ class DamageDataCollectionWrapper:
     def reset(self):
         self._reset_episode_buffer()
         self.env.reset()
+        if self.save_cameras and self.camera_names and self._mj_renderer is None:
+            self._mj_renderer = mujoco.Renderer(
+                self.env.sim.model._model, height=self.camera_height, width=self.camera_width
+            )
 
         self._model_xml = self.env.sim.model.get_xml()
         self._ep_meta = self.env.get_ep_meta()
@@ -970,6 +970,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
         use_camera_obs=False,
         render_segmentation=False,
         control_freq=env_config.control_freq,
+        use_external_camera=args.save_cameras,
     )
     if not args.health_hud:
         env_kwargs["renderer"] = "mjviewer"
