@@ -7,14 +7,12 @@ Task: move around the stool and lift the bowl next to the stove.
 import os
 
 import numpy as np
-import robocasa
 import robocasa.utils.env_utils as EnvUtils
 import robocasa.utils.object_utils as OU
 from robocasa.environments.kitchen.kitchen import FixtureType, Kitchen
 from robocasa.models.fixtures.accessories import Stool
 from robocasa.models.objects.kitchen_object_utils import OBJ_CATEGORIES
 from robocasa.models.scenes.scene_registry import LayoutType, StyleType
-from robosuite.utils.mjcf_utils import xml_path_completion
 
 from damagesim.robosuite.damageable_env import RSDamageableEnvironment
 
@@ -26,7 +24,7 @@ class NavToCounter(Kitchen):
         kwargs.pop("style_ids", None)
 
         super().__init__(
-            layout_ids=LayoutType.LAYOUT002,
+            layout_ids=LayoutType.LAYOUT036,
             style_ids=StyleType.STYLE004,
             *args,
             **kwargs,
@@ -75,15 +73,8 @@ class NavToCounter(Kitchen):
         stool_y = robot_pos[1]
         stool_z = 0.35
 
-        stool_xml = xml_path_completion(
-            "fixtures/accessories/stools/stool_1_2",
-            root=robocasa.models.assets_root,
-        )
-        if not os.path.exists(stool_xml):
-            return
-
         self.stool = Stool(
-            xml=stool_xml,
+            xml="objects/lightwheel/stool/Stool002",
             name="stool_obstacle",
             pos=[stool_x, stool_y, stool_z],
         )
@@ -94,7 +85,7 @@ class NavToCounter(Kitchen):
     def _get_obj_cfgs(self):
         bowl_6_path = next(
             p for p in OBJ_CATEGORIES["bowl"]["objaverse"].mjcf_paths
-            if p.split("/")[-2] == "bowl_6"
+            if os.path.basename(os.path.dirname(p)) == "bowl_6"
         )
 
         return [
@@ -103,12 +94,13 @@ class NavToCounter(Kitchen):
                 obj_groups=bowl_6_path,
                 graspable=True,
                 placement=dict(
-                    fixture=self.stove,
-                    size=(0.0, 0.0),
-                    pos=(30.0, 5.0),
+                    fixture=self.counter,
+                    sample_region_kwargs=dict(
+                        ref=self.stove,
+                    ),
+                    size=(0.30, 0.30),
+                    pos=("ref", -0.7),
                     rotation=(-0.1, 0.1),
-                    ensure_object_boundary_in_range=False,
-                    ensure_valid_placement=False,
                 ),
             )
         ]
