@@ -4,6 +4,8 @@ Wipe Counter environment for oopsieverse.
 Task: wipe the dirt on the counter with the sponge.
 """
 
+import os
+
 import numpy as np
 import robocasa.utils.env_utils as EnvUtils
 from robocasa.environments.kitchen.kitchen import FixtureType, Kitchen
@@ -74,7 +76,7 @@ class WipeCounter(Kitchen):
     def _get_obj_cfgs(self):
         sponge_1_path = next(
             p for p in OBJ_CATEGORIES["sponge"]["objaverse"].mjcf_paths
-            if p.split("/")[-2] == "sponge_1"
+            if os.path.basename(os.path.dirname(p)) == "sponge_1"
         )
 
         return [
@@ -96,6 +98,7 @@ class WipeCounter(Kitchen):
 
     def _add_dirt_markers(self):
         """Add visual dirt markers to the counter surface."""
+        self.markers = []
 
         # Define dirt bounds relative to sink
         self._dirt_bounds = {
@@ -135,10 +138,13 @@ class WipeCounter(Kitchen):
             self.model.merge_assets(marker)
             marker_obj = marker.get_obj()
 
-            for site in marker_obj.findall("site"):
-                marker_obj.remove(site)
+            sites_to_remove = marker_obj.findall(".//site")
+            for site in sites_to_remove:
+                for parent in marker_obj.iter():
+                    if site in parent:
+                        parent.remove(site)
+                        break
 
-            marker_obj.set("pos", f"{pos[0]} {pos[1]} {self.counter.pos[2] + 0.001}")
             self.model.worldbody.append(marker_obj)
 
             self.markers.append(marker)
@@ -200,24 +206,12 @@ class WipeCounter(Kitchen):
         """Reset dirt marker positions and visibility."""
         if not self.markers or self.sim is None:
             return
+        
+        pos = self._sample_start_pos()
 
-        # Get sponge position to spawn dirt near it
-        start_center = None
-        if hasattr(self, 'objects') and 'sponge' in self.objects:
-            try:
-                sponge = self.objects['sponge']
-                sponge_body_id = self.sim.model.body_name2id(sponge.root_body)
-                sponge_pos = self.sim.data.body_xpos[sponge_body_id]
-                start_center = sponge_pos[:2]
-            except Exception:
-                pass
-
-        # Sample new positions for markers
-        pos = self._sample_start_pos(ref_pos=start_center)
-
-        # Try to get actual counter body Z from physics
+        # Try to get actual counter body Z from physic
         counter_body_id = self.sim.model.body_name2id(self.counter.root_body)
-        z_pos = self.sim.data.body_xpos[counter_body_id][2] + 0.48
+        z_pos = self.sim.data.body_xpos[counter_body_id][2] + 0.46
 
         for i, marker in enumerate(self.markers):
             try:
