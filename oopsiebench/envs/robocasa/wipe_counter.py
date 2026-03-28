@@ -25,19 +25,22 @@ DEFAULT_WIPE_CONFIG = {
 }
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# WipeCounter environment
+# ═══════════════════════════════════════════════════════════════════════
+
+
 class WipeCounter(Kitchen):
 
     def __init__(self, wipe_config=None, *args, **kwargs):
         kwargs.pop("layout_ids", None)
         kwargs.pop("style_ids", None)
 
-        # Wipe task configuration
         self.wipe_config = wipe_config if wipe_config is not None else DEFAULT_WIPE_CONFIG
         self.num_markers = self.wipe_config["num_markers"]
         self.line_width = self.wipe_config["line_width"]
         self.contact_threshold = self.wipe_config["contact_threshold"]
 
-        # Dirt markers
         self.markers = []
         self.wiped_markers = []
         self._marker_direction = None
@@ -86,21 +89,18 @@ class WipeCounter(Kitchen):
                 placement=dict(
                     fixture=self.counter,
                     sample_region_kwargs=dict(ref=self.sink, loc="right"),
-                    size=(
-                        0.1,
-                        0.1,
-                    ),
+                    size=(0.1, 0.1),
                     offset=(0, -0.50),
                     rotation=(-0.1, 0.1),
                 ),
             )
         ]
 
+    # ── Dirt markers ───────────────────────────────────────────────────
+
     def _add_dirt_markers(self):
-        """Add visual dirt markers to the counter surface."""
         self.markers = []
 
-        # Define dirt bounds relative to sink
         self._dirt_bounds = {
             'x_min': self.sink.pos[0] - 1.30,
             'x_max': self.sink.pos[0] - 0.90,
@@ -108,7 +108,6 @@ class WipeCounter(Kitchen):
             'y_max': self.sink.pos[1] + 0.05,
         }
 
-        # Define dirt material
         tex_attrib = {"type": "cube"}
         mat_attrib = {"texrepeat": "1 1", "specular": "0.0", "shininess": "0.0"}
         dirt_brown_rgba = [0.545, 0.451, 0.333, 1.0]
@@ -123,7 +122,6 @@ class WipeCounter(Kitchen):
 
         pos = self._sample_start_pos()
 
-        # Create dirt markers along a path
         for i in range(self.num_markers):
             marker_name = f"dirt_marker{i}"
             marker = CylinderObject(
@@ -151,7 +149,6 @@ class WipeCounter(Kitchen):
             pos = self._sample_path_pos(pos)
 
     def _sample_start_pos(self, ref_pos=None):
-        """Sample a starting position for the dirt path."""
         self._marker_direction = 0.0
 
         if ref_pos is not None:
@@ -169,7 +166,6 @@ class WipeCounter(Kitchen):
         ])
 
     def _sample_path_pos(self, pos):
-        """Sample next position along the dirt path."""
         if self._marker_direction is None:
             self._marker_direction = 0.0
 
@@ -177,7 +173,6 @@ class WipeCounter(Kitchen):
         posnew0 = pos[0] + step_size * np.sin(float(self._marker_direction))
         posnew1 = pos[1] + step_size * np.cos(float(self._marker_direction))
 
-        # Keep resampling until within bounds
         attempts = 0
         while attempts < 20 and self._dirt_bounds is not None:
             if (self._dirt_bounds['x_min'] <= posnew0 <= self._dirt_bounds['x_max'] and
@@ -194,22 +189,14 @@ class WipeCounter(Kitchen):
         super()._reset_internal()
         self.wiped_markers = []
         self._reset_dirt_markers()
-
-        # Reset ee force bias (will be set on first action)
         self.ee_force_bias = {arm: np.zeros(3) for arm in self.robots[0].arms}
 
-    def reset(self):
-        obs = super().reset()
-        return obs
-
     def _reset_dirt_markers(self):
-        """Reset dirt marker positions and visibility."""
         if not self.markers or self.sim is None:
             return
-        
+
         pos = self._sample_start_pos()
 
-        # Try to get actual counter body Z from physic
         counter_body_id = self.sim.model.body_name2id(self.counter.root_body)
         z_pos = self.sim.data.body_xpos[counter_body_id][2] + 0.46
 
@@ -218,27 +205,22 @@ class WipeCounter(Kitchen):
                 geom_id = self.sim.model.geom_name2id(marker.visual_geoms[0])
                 self.sim.model.geom_rgba[geom_id][3] = 1.0
 
-                # Update marker position
                 body_id = self.sim.model.body_name2id(marker.root_body)
-                position = np.array([
-                    pos[0],
-                    pos[1],
-                    z_pos
-                ])
+                position = np.array([pos[0], pos[1], z_pos])
                 self.sim.model.body_pos[body_id] = position
             except Exception:
                 pass
 
             pos = self._sample_path_pos(pos)
 
+    # ── Task checks ────────────────────────────────────────────────────
+
     def _get_active_markers(self):
-        """Get the markers that are currently being wiped by the sponge."""
         active_markers = []
 
         if not hasattr(self, 'objects') or 'sponge' not in self.objects:
             return active_markers
 
-        # Only process if there are contacts in the simulation
         if self.sim.data.ncon == 0:
             return active_markers
 
@@ -247,23 +229,19 @@ class WipeCounter(Kitchen):
             sponge_body_id = self.sim.model.body_name2id(sponge.root_body)
             sponge_pos = np.array(self.sim.data.body_xpos[sponge_body_id])
 
-            # Get actual sponge dimensions from its collision geom
-            sponge_half_size = np.array([0.034, 0.055, 0.011])  # Default fallback
+            sponge_half_size = np.array([0.034, 0.055, 0.011])
             for geom_name in sponge.contact_geoms:
                 try:
                     geom_id = self.sim.model.geom_name2id(geom_name)
-                    geom_size = self.sim.model.geom_size[geom_id]
-                    sponge_half_size = geom_size
+                    sponge_half_size = self.sim.model.geom_size[geom_id]
                     break
                 except Exception:
                     continue
         except Exception:
             return active_markers
 
-        # Use the larger of X/Y half-sizes as the effective radius
         sponge_radius = max(sponge_half_size[0], sponge_half_size[1])
 
-        # Check each marker
         for marker in self.markers:
             if marker in self.wiped_markers:
                 continue
@@ -272,16 +250,10 @@ class WipeCounter(Kitchen):
                 marker_body_id = self.sim.model.body_name2id(marker.root_body)
                 marker_pos = np.array(self.sim.data.body_xpos[marker_body_id])
 
-                # Vector from sponge to marker
                 v = marker_pos - sponge_pos
-
-                # XY distance (horizontal)
                 xy_dist = np.linalg.norm(v[:2])
-
-                # Sponge bottom Z position
                 sponge_bottom_z = sponge_pos[2] - sponge_half_size[2]
 
-                # Check if marker is within sponge contact zone
                 is_xy_close = xy_dist < (sponge_radius + self.line_width)
                 is_pressing = sponge_bottom_z < (marker_pos[2] + 0.01)
 
@@ -294,21 +266,16 @@ class WipeCounter(Kitchen):
         return active_markers
 
     def _check_wiped_markers(self):
-        """Check if sponge is wiping any dirt markers."""
         newly_wiped = []
 
-        # First check if there's gripper contact (force-based)
         if not self._has_gripper_contact:
             return newly_wiped
 
-        # Get markers that are geometrically close to the sponge
         active_markers = self._get_active_markers()
 
-        # Find newly wiped markers (active but not already wiped)
         for marker in active_markers:
             if marker not in self.wiped_markers:
                 try:
-                    # Make marker transparent
                     geom_id = self.sim.model.geom_name2id(marker.visual_geoms[0])
                     self.sim.model.geom_rgba[geom_id][3] = 0.0
                     self.wiped_markers.append(marker)
@@ -320,7 +287,6 @@ class WipeCounter(Kitchen):
 
     @property
     def _has_gripper_contact(self):
-        """Determines whether the gripper/sponge is making contact with an object."""
         try:
             for arm in self.robots[0].arms:
                 current_force = self.robots[0].ee_force.get(arm)
@@ -337,14 +303,11 @@ class WipeCounter(Kitchen):
     def _post_action(self, action):
         reward, done, info = super()._post_action(action)
 
-        # Update force bias on first action
         if self.ee_force_bias and all([np.linalg.norm(self.ee_force_bias.get(arm, np.zeros(3))) == 0 for arm in self.robots[0].arms]):
             self.ee_force_bias = {arm: self.robots[0].ee_force.get(arm, np.zeros(3)) for arm in self.robots[0].arms}
 
-        # Check for newly wiped markers
         newly_wiped = self._check_wiped_markers()
 
-        # Add wiping info to info dict
         info['newly_wiped'] = len(newly_wiped)
         info['total_wiped'] = len(self.wiped_markers)
         info['total_markers'] = len(self.markers)
@@ -361,6 +324,11 @@ class WipeCounter(Kitchen):
         return len(self.wiped_markers) == len(self.markers) and len(self.markers) > 0
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# Damageable variant
+# ═══════════════════════════════════════════════════════════════════════
+
+
 class DamageableWipeCounter(RSDamageableEnvironment, WipeCounter):
     """WipeCounter with damage tracking enabled."""
 
@@ -368,15 +336,12 @@ class DamageableWipeCounter(RSDamageableEnvironment, WipeCounter):
         super().__init__(task_name="wipe_counter", *args, **kwargs)
 
     def _register_dirt_markers_in_segmentation(self):
-        """Add dirt markers to segmentation mapping so they appear in seg images."""
         if not hasattr(self, 'seg_lut') or self.seg_lut is None:
             return
 
-        # Find a unique class ID for dirt (one higher than current max)
         dirt_class_id = max(self.seg_id_to_class.keys()) + 1
         self.seg_id_to_class[dirt_class_id] = "dirt"
 
-        # Add each dirt marker's geom to the LUT
         for marker in self.markers:
             try:
                 for geom_name in marker.visual_geoms:
@@ -387,16 +352,17 @@ class DamageableWipeCounter(RSDamageableEnvironment, WipeCounter):
                 continue
 
     def reset(self):
-        """Reset with robot positioning after segmentation is initialized."""
         obs, info = RSDamageableEnvironment.reset(self)
 
-        # Register dirt markers in segmentation (after seg_lut is created)
         self._register_dirt_markers_in_segmentation()
-
-        # Now safe to call reset_robot_above_sponge (which uses env.step())
         reset_robot_above_sponge(self, height_offset=0.0)
 
         return obs, info
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Helpers
+# ═══════════════════════════════════════════════════════════════════════
 
 
 def reset_robot_above_sponge(
@@ -410,13 +376,11 @@ def reset_robot_above_sponge(
     """
     Move robot EEF to a position above the sponge using IK.
 
-    Uses iterative IK solving to move the end-effector to the target position.
-
     Args:
         env: The environment instance
-        object_name: Name of the object to position above (default: "sponge")
-        height_offset: Height (meters) above the object (default: 0.2 = 20cm)
-        position_threshold: Distance threshold to consider "close enough" (default: 1cm)
+        object_name: Name of the object to position above
+        height_offset: Height (meters) above the object
+        position_threshold: Distance threshold to consider "close enough"
         max_steps: Maximum IK iterations
         verbose: Print progress information
 
@@ -426,9 +390,8 @@ def reset_robot_above_sponge(
     from robosuite.controllers.parts.arm.ik import InverseKinematicsController
 
     robot = env.robots[0]
-    arm = robot.arms[0]  # Usually "right" for single-arm robots
+    arm = robot.arms[0]
 
-    # Get object position
     obj_body_id = env.obj_body_id.get(object_name)
     if obj_body_id is None:
         print(f"Warning: Object '{object_name}' not found in environment")
@@ -438,7 +401,6 @@ def reset_robot_above_sponge(
     obj_pos = np.array(env.sim.data.body_xpos[obj_body_id])
     target_pos = obj_pos + np.array([0.0, 0.0, height_offset])
 
-    # Get EEF site name for IK
     eef_site_name = f"gripper0_{arm}_grip_site"
 
     if verbose:
@@ -446,28 +408,21 @@ def reset_robot_above_sponge(
         print(f"  Object position: {obj_pos}")
         print(f"  Target EEF position: {target_pos}")
 
-    # Get joint indices for the arm
     joint_indices = robot._ref_joint_pos_indexes
 
-    # Lock health during reset motion
     env.lock_health_changes()
 
     for step in range(max_steps):
-        # Get current EEF position
         current_eef_pos = np.array(env.sim.data.get_site_xpos(eef_site_name))
-        current_eef_mat = np.array(env.sim.data.get_site_xmat(eef_site_name)).reshape(3, 3)
 
-        # Compute position error
         pos_error = target_pos - current_eef_pos
         distance = np.linalg.norm(pos_error)
 
-        # Check if close enough
         if distance < position_threshold:
             if verbose:
                 print(f"  Reached target in {step} steps (distance: {distance*1000:.1f}mm)")
             break
 
-        # Compute desired joint positions using IK
         try:
             q_des = InverseKinematicsController.compute_joint_positions(
                 sim=env.sim,
@@ -476,20 +431,15 @@ def reset_robot_above_sponge(
                 ref_name=eef_site_name,
                 control_freq=env.control_freq,
                 use_delta=True,
-                dpos=pos_error * 0.5,  # Scale down for stability
-                drot=np.eye(3),  # Keep current orientation (identity = no change)
+                dpos=pos_error * 0.5,
+                drot=np.eye(3),
                 Kpos=0.95,
-                Kori=0.0,  # Don't try to change orientation
+                Kori=0.0,
                 integration_dt=1.0 / env.control_freq,
             )
 
-            # Set gripper joint positions
             robot.set_gripper_joint_positions(np.array([0.04, -0.04]), gripper_arm=arm)
-
-            # Set joint positions directly
             robot.set_robot_joint_positions(q_des)
-
-            # Step simulation to update physics
             env.sim.forward()
 
         except Exception as e:
@@ -497,21 +447,17 @@ def reset_robot_above_sponge(
                 print(f"  IK step {step} failed: {e}")
             break
 
-        # Progress logging
         if verbose and (step + 1) % 20 == 0:
             print(f"  Step {step + 1}: distance = {distance*1000:.1f}mm")
 
     else:
-        # Max steps reached
         final_eef_pos = np.array(env.sim.data.get_site_xpos(eef_site_name))
         final_distance = np.linalg.norm(target_pos - final_eef_pos)
         if verbose:
             print(f"  Warning: Max steps ({max_steps}) reached. Final distance: {final_distance*1000:.1f}mm")
 
-    # Unlock health tracking
     env.unlock_health_changes()
 
-    # Step a few times to let physics settle
     action = np.zeros(12)
     action[6] = -1.0
     for _ in range(5): obs, _, _, info = env.step(action)

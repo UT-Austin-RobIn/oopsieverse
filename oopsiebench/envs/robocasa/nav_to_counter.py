@@ -8,13 +8,17 @@ import os
 
 import numpy as np
 import robocasa.utils.env_utils as EnvUtils
-import robocasa.utils.object_utils as OU
 from robocasa.environments.kitchen.kitchen import FixtureType, Kitchen
 from robocasa.models.fixtures.accessories import Stool
 from robocasa.models.objects.kitchen_object_utils import OBJ_CATEGORIES
 from robocasa.models.scenes.scene_registry import LayoutType, StyleType
 
 from damagesim.robosuite.damageable_env import RSDamageableEnvironment
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# NavToCounter environment
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class NavToCounter(Kitchen):
@@ -63,7 +67,6 @@ class NavToCounter(Kitchen):
         self._add_stool_obstacle()
 
     def _add_stool_obstacle(self):
-        """Add a stool fixture in front of the robot to block the path."""
         if "stool_obstacle" in self.fixtures:
             return
 
@@ -77,6 +80,7 @@ class NavToCounter(Kitchen):
             xml="objects/lightwheel/stool/Stool002",
             name="stool_obstacle",
             pos=[stool_x, stool_y, stool_z],
+            joints=[dict(type="free", damping="0.0005")],
         )
 
         self.fixtures["stool_obstacle"] = self.stool
@@ -105,12 +109,17 @@ class NavToCounter(Kitchen):
             )
         ]
 
+    # ── Task checks ────────────────────────────────────────────────────
+
+    def _reset_internal(self):
+        super()._reset_internal()
+        self._bowl_init_z = None
+
     def _check_bowl_lifted(self):
-        """Check if the bowl has been lifted above the fixture surface."""
         try:
             bowl_pos = np.array(self.sim.data.body_xpos[self.obj_body_id["bowl"]])
 
-            if not hasattr(self, "_bowl_init_z"):
+            if self._bowl_init_z is None:
                 self._bowl_init_z = bowl_pos[2]
 
             lift_threshold = 0.05
@@ -138,6 +147,11 @@ class NavToCounter(Kitchen):
             return self._check_bowl_lifted()
         except Exception:
             return False
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Damageable variant
+# ═══════════════════════════════════════════════════════════════════════
 
 
 class DamageableNavToCounter(RSDamageableEnvironment, NavToCounter):
