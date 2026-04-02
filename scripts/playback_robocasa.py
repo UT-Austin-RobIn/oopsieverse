@@ -117,14 +117,14 @@ def json_default(o):
 
 def sync_damage_evaluator_velocities(env):
     """
-    Sync damage evaluators' prev_body_velocities with the current simulation state.
+    Sync damage evaluators' prev_linear_velocities with the current simulation state.
     Prevents spurious impact detection when restoring states during playback.
     """
     for obj in env.get_damageable_objects():
         for evaluator in obj.damage_evaluators:
-            if hasattr(evaluator, 'prev_body_velocities') and hasattr(evaluator, '_get_body_velocity'):
-                for body_name in evaluator._get_object_body_ids():
-                    evaluator.prev_body_velocities[body_name] = evaluator._get_body_velocity(body_name)
+            if hasattr(evaluator, 'prev_linear_velocities') and hasattr(evaluator, '_get_part_linear_velocity'):
+                for part_name in evaluator._get_damageable_part_names():
+                    evaluator.prev_linear_velocities[part_name] = evaluator._get_part_linear_velocity(part_name)
 
 
 def flush_playback_traj(env, traj_grp_name, traj_data, playback_hdf5_file):
