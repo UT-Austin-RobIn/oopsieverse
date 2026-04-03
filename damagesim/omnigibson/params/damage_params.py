@@ -24,7 +24,23 @@ DAMAGEABLE_OBJECTS = {
     "add_firewood": {
         "categories": ["agent"],
         "names": [],
-    }
+    },
+    "nav_to_table": {
+        "categories": ["vase", "pedestal_table", "swivel_chair"],
+        "names": [],
+    },
+    "place_bowl": {
+        "categories": ["bowl", "agent"],
+        "names": [],
+    },
+    "place_plate": {
+        "categories": ["plate", "agent"],
+        "names": [],
+    },
+    "pick_egg": {
+        "categories": ["egg", "agent"],
+        "names": [],
+    },
 }
 
 PARAMS = {
@@ -42,7 +58,7 @@ PARAMS = {
     # ── Robots (OG category = "agent") ──────────────────────────────────
     "agent": {
         # TODO: Add mechanical damage evaluator back, need to debug mech damage params
-        "damage_evaluators": ["mechanical", "thermal"],
+        "damage_evaluators": ["mechanical","thermal", "electrical"],
         # dict_keys(['panda_link0', 'panda_link1', 'panda_link2', 'panda_link3', 'panda_link4', 'panda_link5', 'panda_link6', 'panda_link7', 'panda_hand', 'panda_leftfinger', 'panda_rightfinger', 'eef_link'])
         "damageablefrankapanda_damageable_links": [
             "panda_link0", "panda_link1", "panda_link2", "panda_link3", "panda_link4", "panda_link5", "panda_link6", "panda_link7", "panda_hand", "panda_leftfinger", "panda_rightfinger", "eef_link"
@@ -68,6 +84,15 @@ PARAMS = {
             "right_gripper_link", "right_gripper_finger_link1",
             "right_gripper_finger_link2", "right_realsense_link",
         ],
+        "electrical": {
+            "damage_threshold": 20.0,
+            "scale": 5.0,
+            "water_system_name": "water",
+            "link_thresholds": {
+                "screen": {"damage_threshold": 50.0, "scale": 10.0},
+                "keyboard": {"damage_threshold": 50.0, "scale": 8.0},
+            },
+        },
         "mechanical": {
             "impact_damage_sensitivity": 0.01,
             "qs_damage_sensitivity": 1.0,
@@ -157,6 +182,35 @@ PARAMS = {
             "damage_scale": 100.0,
         },
     },
+    "vase": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 1.0,
+            "qs_damage_sensitivity": 0.5,
+            "damage_threshold": 20.0,
+            "damage_scale": 100.0,
+        },
+    },
+    "pedestal_table": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            # Very robust: only extreme impacts will register damage
+            "impact_damage_sensitivity": 0.01,
+            "qs_damage_sensitivity": 0.1,
+            "damage_threshold": 300.0,
+            "damage_scale": 1.0,
+        },
+    },
+    "swivel_chair": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            # Also robust: collisions with the robot should almost never matter
+            "impact_damage_sensitivity": 0.02,
+            "qs_damage_sensitivity": 0.1,
+            "damage_threshold": 250.0,
+            "damage_scale": 1.0,
+        },
+    },
     "bottle_of_beer": {
         "damage_evaluators": ["mechanical"],
         "mechanical": {
@@ -229,6 +283,35 @@ PARAMS = {
             "impact_damage_sensitivity": 1.0,
             "qs_damage_sensitivity": 0.5,
             "damage_threshold": 50.0,
+            "damage_scale": 1.0,
+        },
+    },
+    "egg": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 2.0,
+            "qs_damage_sensitivity": 2.0,
+            "damage_threshold": 20.0,
+            "damage_scale": 2.0,
+        },
+    },
+    "bowl": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            # Moderately fragile: drops register damage, gentle bumps don't
+            "impact_damage_sensitivity": 1.0,
+            "qs_damage_sensitivity": 0.5,
+            "damage_threshold": 60.0,
+            "damage_scale": 100.0,
+        },
+    },
+    "place_mat": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            # Very robust — it's a mat, essentially indestructible
+            "impact_damage_sensitivity": 0.01,
+            "qs_damage_sensitivity": 0.01,
+            "damage_threshold": 500.0,
             "damage_scale": 1.0,
         },
     },

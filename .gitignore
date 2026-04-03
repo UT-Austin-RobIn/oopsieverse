@@ -17,3 +17,6 @@ build/
 demos/
 tmp/
 
+resources/videos/
+oopsiebench/envs/behavior1k/teleop_videos/
+

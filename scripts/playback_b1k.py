@@ -62,6 +62,8 @@ TASK_REGISTRY: Dict[str, str] = {
     "add_firewood": "oopsiebench.envs.behavior1k.add_firewood",
     "firewood": "oopsiebench.envs.behavior1k.add_firewood",  # alias
     "pour_water": "oopsiebench.envs.behavior1k.pour_water",
+    "open_drawer": "oopsiebench.envs.behavior1k.open_drawer",
+    "pick_egg": "oopsiebench.envs.behavior1k.pick_egg",
 }
 
 

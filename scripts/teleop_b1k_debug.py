@@ -1,24 +1,14 @@
 #!/usr/bin/env python3
 """
-Keyboard teleop for Behavior1k-style OmniGibson tasks.
+Debug variant of `teleop_b1k.py`: same flow, plus extra prints (health deltas, pick_egg gripper).
 
-Creates the env from the TaskConfig, loads the initial state from a pickle,
-then lets you teleoperate (focus the viewer).
+For `pick_egg`, skips `ensure_gripper_closed` / `ensure_gripper_persistent_closed` so the hand
+starts open; registers Z/X incremental gripper on the `KeyboardRobotController`.
 
 Usage:
-    # Simple teleop (1 episode, saves video on quit)
-    python scripts/teleop_b1k.py --task_name shelve_item
+    python scripts/teleop_b1k_debug.py --task_name pick_egg --skip_hdf5_save
 
-    # Collect 5 episodes to HDF5 for later playback
-    python scripts/teleop_b1k.py --task_name shelve_item \\
-        --collect_hdf5_path demos/behavior1k/teleop_data/shelve_item.hdf5 --n_episodes 5
-
-Keys:
-    TAB       — end current episode (resets env, starts next episode)
-    ESC       — quit immediately (saves video + HDF5 if collecting)
-    BACKSPACE — discard current trajectory and start over (no save, no count)
-    R         — reset to initial state (mid-episode)
-    S         — save serialized state to init_states and breakpoint
+See `teleop_b1k.py` for full key help and HDF5 / video options.
 """
 
 from __future__ import annotations
@@ -127,6 +117,36 @@ def ensure_gripper_persistent_closed(action_generator):
             persistent[comp] = -1.0
     except Exception:
         pass
+
+
+def _maybe_ensure_gripper_closed(env, task_name: str):
+    """`pick_egg` starts with an open gripper from task reset; do not force-close."""
+    if task_name == "pick_egg":
+        print("[teleop_b1k_debug] pick_egg: skipping ensure_gripper_closed (start open)")
+        return
+    ensure_gripper_closed(env)
+
+
+def _maybe_ensure_gripper_persistent_closed(action_generator, task_name: str):
+    if task_name == "pick_egg":
+        print("[teleop_b1k_debug] pick_egg: skipping ensure_gripper_persistent_closed")
+        return
+    ensure_gripper_persistent_closed(action_generator)
+
+
+def _snapshot_env_health(base_env) -> dict | None:
+    gh = base_env.get_env_health()
+    return dict(gh) if gh else None
+
+
+def _debug_print_health_drops(prev: dict | None, cur: dict | None, step_i: int) -> None:
+    if not prev or not cur:
+        return
+    for k, v in cur.items():
+        pv = float(prev.get(k, 100.0))
+        fv = float(v)
+        if fv < pv - 0.01:
+            print(f"[teleop_b1k_debug] step {step_i}: health {k!r} {pv:.2f} -> {fv:.2f}")
 
 
 def save_state_to_temp_pkl(task_name: str):
@@ -516,7 +536,7 @@ def main():
         position=th.tensor(task_cfg.viewer_camera_pos, dtype=th.float32),
         orientation=th.tensor(task_cfg.viewer_camera_orn, dtype=th.float32),
     )
-    ensure_gripper_closed(env)
+    _maybe_ensure_gripper_closed(env, task_cfg.task_name)
 
     for _ in range(10):
         og.sim.step()
@@ -540,7 +560,7 @@ def main():
             position=th.tensor(task_cfg.viewer_camera_pos, dtype=th.float32),
             orientation=th.tensor(task_cfg.viewer_camera_orn, dtype=th.float32),
         )
-        ensure_gripper_closed(env)
+        _maybe_ensure_gripper_closed(env, task_cfg.task_name)
         for _ in range(10):
             og.sim.step()
     else:
@@ -549,7 +569,7 @@ def main():
 
     robot = env.robots[0]
     action_generator = KeyboardRobotController(robot=robot)
-    ensure_gripper_persistent_closed(action_generator)
+    _maybe_ensure_gripper_persistent_closed(action_generator, task_cfg.task_name)
 
     def save_state_and_break():
         save_state_to_temp_pkl(task_cfg.task_name)
@@ -565,8 +585,8 @@ def main():
                 position=th.tensor(task_cfg.viewer_camera_pos, dtype=th.float32),
                 orientation=th.tensor(task_cfg.viewer_camera_orn, dtype=th.float32),
             )
-            ensure_gripper_closed(env)
-            ensure_gripper_persistent_closed(action_generator)
+            _maybe_ensure_gripper_closed(env, task_cfg.task_name)
+            _maybe_ensure_gripper_persistent_closed(action_generator, task_cfg.task_name)
             _ensure_health_reset(the_base_env)
             env_health = the_base_env.get_env_health()
             all_clean = (
@@ -576,6 +596,10 @@ def main():
             if all_clean:
                 if _attempt > 1:
                     print(f"[teleop] Reset clean after {_attempt} attempts.")
+                if task_cfg.task_name == "pick_egg" and hasattr(
+                    task_mod, "sync_teleop_gripper_after_env_reset"
+                ):
+                    task_mod.sync_teleop_gripper_after_env_reset(env, action_generator)
                 return
             damaged = {k: v for k, v in (env_health or {}).items() if v < 100.0}
             print(f"[teleop] Reset attempt {_attempt}/{MAX_RESET_RETRIES}: "
@@ -623,9 +647,15 @@ def main():
         callback_fn=on_backspace,
     )
 
+    if task_cfg.task_name == "pick_egg" and hasattr(
+        task_mod, "register_pick_egg_incremental_gripper_keys"
+    ):
+        task_mod.register_pick_egg_incremental_gripper_keys(env, action_generator, debug=True)
+
     if args.live_feedback:
         env.enable_health_visualization()
 
+    # After pick_egg Z/X registration so custom keys appear in the banner.
     action_generator.print_keyboard_teleop_info()
 
     n_episodes = args.n_episodes
@@ -660,12 +690,32 @@ def main():
         episode_done[0] = False
         discard_requested[0] = False
         start_frame_count = len(teleop_frames)
+        debug_step_i = [0]
+        prev_health = _snapshot_env_health(the_base_env)
 
         while True:
-            action, _ = action_generator.get_teleop_action()
+            action, key_str = action_generator.get_teleop_action()
+            if task_cfg.task_name == "pick_egg" and hasattr(
+                task_mod, "sync_pick_egg_close_level_from_persistent"
+            ):
+                task_mod.sync_pick_egg_close_level_from_persistent(env, action_generator)
             if quit_requested[0] or episode_done[0] or discard_requested[0]:
                 break
             obs, reward, terminated, truncated, info = env.step(action)
+            debug_step_i[0] += 1
+            cur_health = _snapshot_env_health(the_base_env)
+            _debug_print_health_drops(prev_health, cur_health, debug_step_i[0])
+            prev_health = cur_health
+            if task_cfg.task_name == "pick_egg" and debug_step_i[0] % 300 == 0:
+                comp = getattr(action_generator, "binary_grippers", None)
+                cl = getattr(env, "_pick_egg_gripper_close_level", None)
+                pers = None
+                if comp and len(comp) > 0:
+                    pers = float(action_generator.persistent_gripper_action[comp[0]])
+                print(
+                    f"[teleop_b1k_debug] pick_egg tick {debug_step_i[0]}: "
+                    f"close_level={cl} persistent={pers} last_key={key_str!r}"
+                )
             if args.save_video:
                 health_list_link_names = getattr(env, "health_list_link_names", None) or []
                 health_arr = obs.get("health")
