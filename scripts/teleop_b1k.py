@@ -43,6 +43,9 @@ import omnigibson.lazy as lazy
 from omnigibson.macros import gm
 from omnigibson.utils.ui_utils import KeyboardRobotController
 from omnigibson.envs.data_wrapper import flatten_obs
+from telemoma.configs.base_config import teleop_config
+from omnigibson.utils.teleop_utils import TeleopSystem
+from omnigibson.controllers.controller_base import IsGraspingState
 
 from damagesim.omnigibson.damageable_env import (
     OGDamageableEnvironment,
@@ -53,6 +56,7 @@ from damagesim.utils.visualization import (
     save_rgb_health_video_with_overlay,
     save_rgb_force_video,
 )
+from utils.misc_utils import setup_viewport_layout
 
 class _TeleopDataCollectionWrapper(OGDamageableDataCollectionWrapper):
     """Subclass that optionally saves obs/info to HDF5 and conditionally
@@ -231,7 +235,8 @@ def parse_args():
                    help="Number of teleop episodes to run (default: 1).")
     p.add_argument("--skip_hdf5_save", action="store_true",
                    help="Skip saving the HDF5 file (default: False).")
-    
+    p.add_argument("--teleop_device", type=str, default="keyboard",
+                   help="Teleop device (default: keyboard).")
     p.add_argument("--overlay_links", action="store_true",
                    help="Show one health bar per link in saved video (default: one per object).")
     p.add_argument(
@@ -455,6 +460,9 @@ def main():
         position=th.tensor(task_cfg.viewer_camera_pos, dtype=th.float32),
         orientation=th.tensor(task_cfg.viewer_camera_orn, dtype=th.float32),
     )
+    # # To set the viewport layout
+    setup_viewport_layout()
+    
     ensure_gripper_closed(env)
 
     for _ in range(10):
@@ -487,6 +495,22 @@ def main():
         print(f"[teleop] WARNING: Initial health max retries reached. Forced health reset.")
 
     robot = env.robots[0]
+
+    # Telemoma: Teleoperate robot
+    teleop_device = args.teleop_device
+    arm_teleop_method = teleop_device
+    base_teleop_method = teleop_device
+    # # Franka uses arm_0 instead of arm_left/arm_right
+    teleop_config.arm_0_controller = arm_teleop_method
+    # # Tiago config (commented out):
+    teleop_config.arm_left_controller = arm_teleop_method
+    teleop_config.arm_right_controller = arm_teleop_method
+    teleop_config.base_controller = base_teleop_method
+    teleop_config.interface_kwargs["keyboard"] = {"arm_speed_scaledown": 0.04}
+    teleop_config.interface_kwargs["spacemouse"] = {"arm_speed_scaledown": 0.01}
+    teleop_sys = TeleopSystem(config=teleop_config, robot=robot, show_control_marker=False)
+    teleop_sys.start()
+
     action_generator = KeyboardRobotController(robot=robot)
     ensure_gripper_persistent_closed(action_generator)
 
@@ -592,19 +616,32 @@ def main():
         teleop_frames.append(capture_viewer_rgb())
 
     completed_episodes = 0
+    last_telemoma_grip_action = 1.0 
     while completed_episodes < n_episodes:
         print(f"[teleop] Episode {completed_episodes + 1}/{n_episodes} — teleoperating…")
         print("Press c to continue")
         breakpoint()
+        # If the robot is grasping, set the persistent gripper action to -1.0
+        if robot.is_grasping().value == IsGraspingState.TRUE:
+            action_generator.persistent_gripper_action[action_generator.binary_grippers[0]] = -1.0
+        action = th.zeros(robot.action_dim)
+        action[-1] = -1.0
         episode_done[0] = False
         discard_requested[0] = False
         start_frame_count = len(teleop_frames)
 
         while True:
-            action, _ = action_generator.get_teleop_action()
+            _, _ = action_generator.get_teleop_action()
+            telemoma_action = teleop_sys.get_action(teleop_sys.get_obs())
+            telemoma_grip_action = telemoma_action[-1]
+            if telemoma_grip_action != last_telemoma_grip_action:
+                action[-1] = -action[-1]
+            last_telemoma_grip_action = telemoma_grip_action
+            action[:-1] = telemoma_action[:-1]
+            
             if quit_requested[0] or episode_done[0] or discard_requested[0]:
                 break
-            obs, reward, terminated, truncated, info = env.step(action)
+            obs, reward, terminated, truncated, info = env.step(action.clone())
             if args.save_video:
                 health_list_link_names = getattr(env, "health_list_link_names", None) or []
                 health_arr = obs.get("health")

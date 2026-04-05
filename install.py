@@ -7,7 +7,8 @@ import argparse
 ROOT = Path("externals")
 ROOT.mkdir(exist_ok=True)
 
-ENV_NAME = "oopsieverse"
+B1K_ENV_NAME = "oopsieverse_b1k"
+ROBOCASA_ENV_NAME = "oopsieverse_robocasa"
 PYTHON_VERSION = "3.10"
 IS_WINDOWS = platform.system() == "Windows"
 
@@ -15,9 +16,9 @@ def run(cmd, cwd=None):
     print(f"[RUN] {cmd}")
     subprocess.check_call(cmd, shell=True, cwd=cwd)
 
-def conda_run(cmd, cwd=None):
+def conda_run(env_name, cmd, cwd=None):
     """Run a command inside the conda environment."""
-    run(f"conda run --no-capture-output -n {ENV_NAME} {cmd}", cwd=cwd)
+    run(f"conda run --no-capture-output -n {env_name} {cmd}", cwd=cwd)
 
 def _find_bash():
     """Locate a bash executable on Windows."""
@@ -32,26 +33,26 @@ def _find_bash():
             return str(candidate)
     return None
 
-def _conda_env_exists():
-    """Return True if the oopsieverse conda environment already exists."""
+def _conda_env_exists(env_name):
+    """Return True if the named conda environment already exists."""
     try:
         envs = subprocess.check_output("conda env list", shell=True, text=True)
         for line in envs.splitlines():
-            if line.split() and line.split()[0] == ENV_NAME:
+            if line.split() and line.split()[0] == env_name:
                 return True
     except Exception:
         pass
     return False
 
-def create_conda_env():
-    """Create a new conda environment if it doesn't exist yet."""
-    if _conda_env_exists():
-        print(f"[INFO] Conda env '{ENV_NAME}' already exists.")
+def create_conda_env(env_name):
+    """Create a named conda environment if it doesn't exist yet."""
+    if _conda_env_exists(env_name):
+        print(f"[INFO] Conda env '{env_name}' already exists.")
         return
 
-    print(f"[INFO] Creating new conda env '{ENV_NAME}' with Python {PYTHON_VERSION}...")
-    run(f"conda create -y -n {ENV_NAME} python={PYTHON_VERSION}")
-    print(f"[INFO] Done! Activate it with: conda activate {ENV_NAME}")
+    print(f"[INFO] Creating new conda env '{env_name}' with Python {PYTHON_VERSION}...")
+    run(f"conda create -y -n {env_name} python={PYTHON_VERSION}")
+    print(f"[INFO] Done! Activate it with: conda activate {env_name}")
 
 def install_behavior1k():
     repo = ROOT / "behavior1k"
@@ -73,9 +74,9 @@ def install_behavior1k():
             print("[ERROR] then re-run this script.")
             exit(1)
         print(f"[INFO] Using bash at: {bash}")
-        conda_run(f'"{bash}" setup.sh --omnigibson --bddl --dataset', cwd=repo)
+        conda_run(B1K_ENV_NAME, f'"{bash}" setup.sh --omnigibson --bddl --dataset', cwd=repo)
     else:
-        conda_run("bash setup.sh --omnigibson --bddl --dataset", cwd=repo)
+        conda_run(B1K_ENV_NAME, "bash setup.sh --omnigibson --bddl --dataset", cwd=repo)
 
 def patch_robocasa_numba_pin(rc):
     """Relax robocasa's strict numba pin, no conflict with the version required by oopsieverse."""
@@ -141,32 +142,45 @@ def install_robocasa():
     patch_robocasa_for_windows(rc)
 
     print("[INFO] Installing RoboSuite...")
-    conda_run("pip install -e .", cwd=rs)
+    conda_run(ROBOCASA_ENV_NAME, "pip install -e .", cwd=rs)
     print("[INFO] Installing RoboCasa...")
-    conda_run("pip install -e .", cwd=rc)
+    conda_run(ROBOCASA_ENV_NAME, "pip install -e .", cwd=rc)
 
-    conda_run("python robocasa/scripts/download_kitchen_assets.py", cwd=rc)
-    conda_run("python robocasa/scripts/setup_macros.py", cwd=rc)
+    conda_run(ROBOCASA_ENV_NAME, "python robocasa/scripts/download_kitchen_assets.py", cwd=rc)
+    conda_run(ROBOCASA_ENV_NAME, "python robocasa/scripts/setup_macros.py", cwd=rc)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Install OopsieVerse submodules")
     parser.add_argument("--new_env", action="store_true",
-                        help="Create a new conda env named 'oopsieverse' with Python 3.10")
+                        help="Create the needed conda env(s) for selected installs")
     parser.add_argument("--behavior1k", action="store_true", help="Install Behavior1k (OmniGibson)")
     parser.add_argument("--robocasa", action="store_true", help="Install RoboCasa and RoboSuite")
 
     args = parser.parse_args()
 
     if args.new_env:
-        create_conda_env()
+        if args.behavior1k:
+            create_conda_env(B1K_ENV_NAME)
+        if args.robocasa:
+            create_conda_env(ROBOCASA_ENV_NAME)
+        if not args.behavior1k and not args.robocasa:
+            create_conda_env(B1K_ENV_NAME)
+            create_conda_env(ROBOCASA_ENV_NAME)
+            print("[SUCCESS] Both conda environments are ready.")
+            exit(0)
 
     if not args.behavior1k and not args.robocasa:
         print("[WARNING] No submodule selected. Use --behavior1k, --robocasa, or both.")
         exit(1)
 
-    # Ensure the conda env exists before trying to install anything into it
-    if not _conda_env_exists():
-        print(f"[ERROR] Conda environment '{ENV_NAME}' does not exist.")
+    # Ensure required conda env(s) exist before installing
+    if args.behavior1k and not _conda_env_exists(B1K_ENV_NAME):
+        print(f"[ERROR] Conda environment '{B1K_ENV_NAME}' does not exist.")
+        print(f"[ERROR] Re-run with --new_env to create it:")
+        print(f"[ERROR]   python install.py --new_env --behavior1k")
+        exit(1)
+    if args.robocasa and not _conda_env_exists(ROBOCASA_ENV_NAME):
+        print(f"[ERROR] Conda environment '{ROBOCASA_ENV_NAME}' does not exist.")
         print(f"[ERROR] Re-run with --new_env to create it:")
         print(f"[ERROR]   python install.py --new_env --robocasa")
         exit(1)
