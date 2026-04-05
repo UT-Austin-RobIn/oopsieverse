@@ -14,7 +14,7 @@ import numpy as np
 import matplotlib
 import torch as th
 
-matplotlib.use("Agg")
+# matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import matplotlib.animation as animation  # noqa: E402
 from matplotlib.patches import Rectangle  # noqa: E402
@@ -318,3 +318,35 @@ def save_rgb_health_video(
     )
     ani.save(output_video_path, writer=writer)
     plt.close(fig)
+
+
+def _load_og_ui_modules():
+    """
+    Lazy-import OmniGibson UI dependencies to avoid import-time overhead
+    for callers that do not need viewport utilities.
+    """
+    import omnigibson as og
+    import omnigibson.lazy as lazy
+    from omnigibson.utils.ui_utils import dock_window
+
+    return og, lazy, dock_window
+
+def setup_viewport_layout(
+):
+
+    og, lazy, _ = _load_og_ui_modules()
+    import omni.ui as ui
+    from omni.kit.viewport.window import ViewportWindow
+    viewports = [w for w in ui.Workspace.get_windows() if isinstance(w, ViewportWindow)]
+    for w in ui.Workspace.get_windows():
+        if isinstance(w, ViewportWindow):
+            w.visible = True
+        else:
+            w.visible = False
+
+    vp1 = ui.Workspace.get_window("Viewport 1")
+    vp1.visible = False
+    vp = ui.Workspace.get_window("Viewport")
+    vp.height = 890
+    vp.width = 1430
+    for _ in range(10): og.sim.render()
