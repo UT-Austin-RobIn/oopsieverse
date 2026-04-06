@@ -976,15 +976,15 @@ def render_health_bar_overlay(
 
         # Label
         display_name = display_map.get(obj_name, obj_name)
-        if len(display_name) > 20:
-            display_name = display_name[:17] + "..."
+        if len(display_name) > 13:
+            display_name = display_name[:11] + "..."
         label_color = (
             _COLORS["text_gray"] if h == 0 else _COLORS["text_light"]
         )
         cv2.putText(
             img_bgr,
             display_name,
-            (label_x, bar_y + bar_height // 2 + 5),
+            (label_x - 10, bar_y + bar_height // 2 + 5),
             cv2.FONT_HERSHEY_SIMPLEX,
             font_size,
             label_color,
