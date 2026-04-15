@@ -25,7 +25,7 @@ DAMAGEABLE_OBJECTS = {
     },
     "pastry_display": {
         "categories": ["agent"],
-        "names": ["pastry", "plate", "table_mat"],
+        "names": ["pastry", "plate"],
     },
     "open_single_door": {
         "categories": ["agent", "microwave"],
@@ -48,15 +48,15 @@ DAMAGEABLE_OBJECTS = {
         "names": [],
     },
     "place_plate": {
-        "categories": ["agent"],
+        "categories": ["agent", "sink", "counter"],
         "names": ["plate"],
     },
     "counter_to_microwave": {
-        "categories": ["agent", "counter", "microwave"],
+        "categories": ["agent", "microwave"],
         "names": ["coffee_cup"],
     },
     "prepare_coffee": {
-        "categories": ["agent", "cabinet", "coffee_machine"],
+        "categories": ["agent", "coffee_machine"],
         "names": ["mug", "distr_object"],
     },
     "shelve_item": {

@@ -65,10 +65,7 @@ class PickEgg(Kitchen):
                 placement=dict(
                     fixture=self.counter,
                     sample_region_kwargs=dict(ref=self.sink, loc="right"),
-                    size=(
-                        0.1,
-                        0.1,
-                    ),
+                    size=(0.1,0.1),
                     offset=(0, -0.50),
                     rotation=(-0.1, 0.1),
                 ),
