@@ -173,10 +173,7 @@ class PastryDisplay(Kitchen):
                 graspable=True,
                 placement=dict(
                     fixture=self.dining_table,
-                    size=(
-                        0.20,
-                        0.20,
-                    ),
+                    size=(0.20,0.20),
                     pos=(-0.4, -0.4),
                     rotation=(-0.1, 0.1),
                     ensure_object_boundary_in_range=False,
