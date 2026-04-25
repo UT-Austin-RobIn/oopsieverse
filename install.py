@@ -78,6 +78,9 @@ def install_behavior1k():
     else:
         conda_run(B1K_ENV_NAME, "bash setup.sh --omnigibson --bddl --dataset", cwd=repo)
 
+        print("[INFO] Installing teleop dependencies...")
+        conda_run(B1K_ENV_NAME, "pip install telemoma==0.3.0 pyspacemouse==1.1.4 mediapipe==0.10.21")
+
 def patch_robocasa_numba_pin(rc):
     """Relax robocasa's strict numba pin, no conflict with the version required by oopsieverse."""
     setup_py = rc / "setup.py"

@@ -21,7 +21,7 @@ try:
     import torch as th
     import omnigibson as og
     from omnigibson.envs.env_base import Environment
-    from omnigibson.envs.data_wrapper import DataPlaybackWrapper, DataCollectionWrapper
+    from omnigibson.envs.data_wrapper import DataPlaybackWrapper, DataCollectionWrapper, flatten_obs
     from omnigibson.objects import REGISTERED_OBJECTS
     from omnigibson.robots import REGISTERED_ROBOTS
     from omnigibson.scenes import REGISTERED_SCENES
@@ -391,6 +391,11 @@ class OGDamageableEnvironment(DamageableEnvironment, Environment):
 class OGDamageableDataCollectionWrapper(DataCollectionWrapper):
     """Extends OG DataCollectionWrapper to store health metadata."""
 
+    def __init__(self, *args, save_video=False,save_obs_to_hdf5=False, **kwargs):
+        self._save_video = save_video
+        self._save_obs_to_hdf5 = save_obs_to_hdf5
+        super().__init__(*args, **kwargs)
+    
     def enable_health_visualization(self):
         if hasattr(self.env, "enable_health_visualization"):
             return self.env.enable_health_visualization()
@@ -426,6 +431,20 @@ class OGDamageableDataCollectionWrapper(DataCollectionWrapper):
         grp = super().process_traj_to_hdf5(traj_data, traj_grp_name, nested_keys, data_grp)
         grp.attrs["health_list_link_names"] = health_list
         return grp
+
+    def _optimize_sim_for_data_collection(self, viewport_camera_path):
+        if self._save_video or self._save_obs_to_hdf5:
+            return
+        super()._optimize_sim_for_data_collection(viewport_camera_path)
+
+    def _parse_step_data(self, action, obs, reward, terminated, truncated, info):
+        step_data = super()._parse_step_data(action, obs, reward, terminated, truncated, info)
+        if self._save_obs_to_hdf5:
+            # process_traj_to_hdf5 expects flat obs: modality_key -> tensor per step
+            step_data["obs"] = flatten_obs(obs)
+            step_data["info"] = info
+        return step_data
+
 
 
 class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
