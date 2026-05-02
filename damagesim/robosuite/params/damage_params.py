@@ -156,7 +156,7 @@ OBJECT_PARAMS = {
         "health_thresholds": [95.0, 70.0, 40.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 50.0,
+            "damage_threshold": 30.0,
             "damage_scale": 1.0,
             "impact_damage_sensitivity": 1.0,
             "qs_damage_sensitivity": 0.5,
@@ -169,8 +169,8 @@ OBJECT_PARAMS = {
         "health_thresholds": [80.0, 50.0, 25.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 80.0,
-            "damage_scale": 0.5,
+            "damage_threshold": 300.0,
+            "damage_scale": 0.05,
             "impact_damage_sensitivity": 0.5,
             "qs_damage_sensitivity": 0.0,
         },
@@ -182,7 +182,7 @@ OBJECT_PARAMS = {
         "health_thresholds": [85.0, 60.0, 30.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 20.0,
+            "damage_threshold": 25.0,
             "damage_scale": 0.5,
             "impact_damage_sensitivity": 0.8,
             "qs_damage_sensitivity": 0.3,
@@ -195,8 +195,8 @@ OBJECT_PARAMS = {
         "health_thresholds": [90.0, 70.0, 40.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 15.0,
-            "damage_scale": 0.8,
+            "damage_threshold": 80.0,
+            "damage_scale": 0.4,
             "impact_damage_sensitivity": 0.6,
             "qs_damage_sensitivity": 0.9,
         },
@@ -205,11 +205,11 @@ OBJECT_PARAMS = {
         "solimp": (0.998, 0.998, 0.001),
         "solref": (0.001, 1),
         "friction": (0.95, 0.3, 0.1),
-        "health_thresholds": [50.0, 25.0, 0.0],
+        "health_thresholds": [95.0, 65.0, 30.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 100.0,
-            "damage_scale": 1.0,
+            "damage_threshold": 20.0,
+            "damage_scale": 1.5,
             "impact_damage_sensitivity": 1.0,
             "qs_damage_sensitivity": 1.0,
         },
@@ -221,7 +221,7 @@ OBJECT_PARAMS = {
         "health_thresholds": [95.0, 75.0, 45.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 40.0,
+            "damage_threshold": 30.0,
             "damage_scale": 0.8,
             "impact_damage_sensitivity": 0.9,
             "qs_damage_sensitivity": 0.6,
@@ -234,7 +234,7 @@ OBJECT_PARAMS = {
         "health_thresholds": [95.0, 75.0, 45.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 40.0,
+            "damage_threshold": 30.0,
             "damage_scale": 0.8,
             "impact_damage_sensitivity": 0.9,
             "qs_damage_sensitivity": 0.6,
@@ -247,7 +247,7 @@ OBJECT_PARAMS = {
         "health_thresholds": [95.0, 70.0, 40.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 45.0,
+            "damage_threshold": 35.0,
             "damage_scale": 0.9,
             "impact_damage_sensitivity": 0.95,
             "qs_damage_sensitivity": 0.5,
@@ -260,7 +260,7 @@ OBJECT_PARAMS = {
         "health_thresholds": [95.0, 70.0, 40.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 40.0,
+            "damage_threshold": 30.0,
             "damage_scale": 1.0,
             "impact_damage_sensitivity": 1.0,
             "qs_damage_sensitivity": 0.5,
@@ -286,7 +286,7 @@ OBJECT_PARAMS = {
         "health_thresholds": [85.0, 60.0, 30.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 25.0,
+            "damage_threshold": 30.0,
             "damage_scale": 0.45,
             "impact_damage_sensitivity": 0.7,
             "qs_damage_sensitivity": 0.5,
@@ -299,7 +299,7 @@ OBJECT_PARAMS = {
         "health_thresholds": [70.0, 45.0, 20.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 50.0,
+            "damage_threshold": 20.0,
             "damage_scale": 0.3,
             "impact_damage_sensitivity": 0.2,
             "qs_damage_sensitivity": 0.8,
@@ -312,8 +312,8 @@ OBJECT_PARAMS = {
         "health_thresholds": [80.0, 50.0, 25.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 30.0,
-            "damage_scale": 0.4,
+            "damage_threshold": 100.0,
+            "damage_scale": 0.3,
             "impact_damage_sensitivity": 0.3,
             "qs_damage_sensitivity": 0.9,
         },
@@ -338,7 +338,7 @@ OBJECT_PARAMS = {
         "health_thresholds": [85.0, 55.0, 30.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 40.0,
+            "damage_threshold": 60.0,
             "damage_scale": 0.35,
             "impact_damage_sensitivity": 0.4,
             "qs_damage_sensitivity": 0.6,
@@ -351,8 +351,8 @@ OBJECT_PARAMS = {
         "health_thresholds": [80.0, 50.0, 25.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 80.0,
-            "damage_scale": 0.2,
+            "damage_threshold": 200.0,
+            "damage_scale": 0.1,
             "impact_damage_sensitivity": 0.2,
             "qs_damage_sensitivity": 0.3,
         },
@@ -364,7 +364,7 @@ OBJECT_PARAMS = {
         "health_thresholds": [80.0, 50.0, 20.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 15.0,
+            "damage_threshold": 10.0,
             "damage_scale": 0.8,
             "impact_damage_sensitivity": 0.9,
             "qs_damage_sensitivity": 0.7,
@@ -377,8 +377,8 @@ OBJECT_PARAMS = {
         "health_thresholds": [85.0, 60.0, 35.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 60.0,
-            "damage_scale": 0.4,
+            "damage_threshold": 100.0,
+            "damage_scale": 0.3,
             "impact_damage_sensitivity": 0.5,
             "qs_damage_sensitivity": 0.3,
         },
@@ -390,7 +390,7 @@ OBJECT_PARAMS = {
         "health_thresholds": [75.0, 45.0, 20.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 20.0,
+            "damage_threshold": 15.0,
             "damage_scale": 0.7,
             "impact_damage_sensitivity": 0.85,
             "qs_damage_sensitivity": 0.9,
@@ -403,8 +403,8 @@ OBJECT_PARAMS = {
         "health_thresholds": [95.0, 65.0, 30.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 35.0,
-            "damage_scale": 1.2,
+            "damage_threshold": 15.0,
+            "damage_scale": 1.5,
             "impact_damage_sensitivity": 1.0,
             "qs_damage_sensitivity": 0.4,
         },
@@ -416,8 +416,8 @@ OBJECT_PARAMS = {
         "health_thresholds": [75.0, 45.0, 20.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 60.0,
-            "damage_scale": 0.3,
+            "damage_threshold": 150.0,
+            "damage_scale": 0.2,
             "impact_damage_sensitivity": 0.3,
             "qs_damage_sensitivity": 0.8,
         },
@@ -464,7 +464,7 @@ OBJECT_PARAMS = {
         "health_thresholds": [90.0, 60.0, 30.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 80.0,
+            "damage_threshold": 100.0,
             "damage_scale": 0.05,
             "impact_damage_sensitivity": 0.4,
             "qs_damage_sensitivity": 0.3,
@@ -504,7 +504,7 @@ OBJECT_PARAMS = {
         "health_thresholds": [95.0, 80.0, 50.0],
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 150.0,
+            "damage_threshold": 200.0,
             "damage_scale": 0.02,
             "impact_damage_sensitivity": 0.2,
             "qs_damage_sensitivity": 0.1,
