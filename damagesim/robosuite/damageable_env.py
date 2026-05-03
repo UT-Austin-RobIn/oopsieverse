@@ -142,7 +142,7 @@ def create_damageable_from_object(obj):
         if obj.mjcf_path is None:
             return None
         cfg["mjcf_path"] = obj.mjcf_path
-    cfg["params"] = get_params_for_object(obj.name, "default")
+    cfg["params"] = get_params_for_object(obj.name)
     try:
         return dcls(**cfg)
     except Exception as e:
