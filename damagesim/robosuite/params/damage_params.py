@@ -539,6 +539,10 @@ def get_params_for_object(obj_name: str, obj_type: str | None = None) -> dict:
         return _copy_params(OBJECT_PARAMS[obj_name])
     if obj_type and obj_type in OBJECT_PARAMS:
         return _copy_params(OBJECT_PARAMS[obj_type])
+    # Strip trailing _<digits> so instance names ("wine_1") match category keys ("wine").
+    base, _, suffix = obj_name.rpartition("_")
+    if base and suffix.isdigit() and base in OBJECT_PARAMS:
+        return _copy_params(OBJECT_PARAMS[base])
     return _copy_params(OBJECT_PARAMS["default"])
 
 
