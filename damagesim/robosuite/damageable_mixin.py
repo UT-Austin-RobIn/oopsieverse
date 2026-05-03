@@ -342,8 +342,6 @@ def create_damageable_from_fixture(fixture):
     fixture.damage_evaluators = []
     fixture.track_damage = True
     fixture.damageable_links = []
-    thresholds = found.get("health_thresholds", [90.0, 60.0, 30.0])
-    fixture.minor_threshold, fixture.major_threshold, fixture.critical_threshold = thresholds
     fixture.link_healths = {}
     fixture._damage_statuses = {}
     fixture.damage_info = {}
