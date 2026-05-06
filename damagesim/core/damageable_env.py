@@ -108,75 +108,77 @@ class DamageableEnvironment:
 
     def initialize_damageable_objects(self) -> None:
         """
-        Walk over all objects and enable damage tracking for those matching
-        the YAML config (or all ``DamageableMixin`` instances when the config
-        is empty / absent).
+        Walk over all objects and enable damage tracking.
+
+        Two modes, selected automatically based on config:
+
+        1. **Task-specific mode** (allowlist): if the current task name has an
+           entry in the config, *only* the categories / names listed there are
+           tracked.
+        2. **Default mode** (denylist): track every ``DamageableMixin`` object
+           whose category is NOT in the ``skip_categories`` list under the
+           ``default`` config key.
         """
-        # Derive allowed categories / names from config
-        damage_trackable_names: Set[str] = set()
-        damage_trackable_categories: Set[str] = set()
-        has_restrictions = False
+        task_name = getattr(self, "task_name", None) or getattr(self, "_task_name", None)
+        task_cfg = None
+        if task_name and task_name in self.damage_trackable_objects_config:
+            task_cfg = self.damage_trackable_objects_config[task_name] or {}
 
-        if self.damage_trackable_objects_config.get("track_everything", False):
-            has_restrictions = False
-        else:
-            default_cfg = self.damage_trackable_objects_config.get("default", {})
-            cats = default_cfg.get("categories", []) or []
-            names = default_cfg.get("names", []) or []
-            damage_trackable_categories.update(cats)
-            damage_trackable_names.update(names)
-            if cats or names:
-                has_restrictions = True
+        if task_name != "default":
+            # ── Task-specific mode: allowlist ────────────────────────────
+            allowed_categories: Set[str] = set(task_cfg.get("categories", []) or [])
+            allowed_names: Set[str] = set(task_cfg.get("names", []) or [])
 
-            # Task-specific rules (subclass may set self._task_name or similar)
-            task_name = getattr(self, "task_name", None) or getattr(self, "_task_name", None)
-            if task_name and task_name in self.damage_trackable_objects_config:
-                task_cfg = self.damage_trackable_objects_config[task_name] or {}
-                t_cats = task_cfg.get("categories", []) or []
-                t_names = task_cfg.get("names", []) or []
-                damage_trackable_categories.update(t_cats)
-                damage_trackable_names.update(t_names)
-                if t_cats or t_names:
-                    has_restrictions = True
+            for obj in self._get_all_objects():
+                if not isinstance(obj, DamageableMixin):
+                    continue
 
-        for obj in self._get_all_objects():
-            if not isinstance(obj, DamageableMixin):
-                continue
+                obj_name = getattr(obj, "name", None)
+                obj_category = getattr(obj, "category", None)
+                should_track = False
 
-            obj_name = getattr(obj, "name", None)
-            obj_category = getattr(obj, "category", None)
-
-            should_track = False
-
-            if not has_restrictions:
-                # No config restrictions → track everything
-                should_track = True
-            else:
-                # Check direct category / name match
-                if obj_category in damage_trackable_categories:
+                if obj_category in allowed_categories:
                     should_track = True
-                if obj_name in damage_trackable_names:
+                if obj_name in allowed_names:
                     should_track = True
 
-                # Fuzzy name ↔ category match
+                # Fuzzy name <-> category match
                 if not should_track and obj_name:
                     name_lower = obj_name.lower()
-                    for cat in damage_trackable_categories:
+                    for cat in allowed_categories:
                         if cat and (cat.lower() in name_lower or name_lower in cat.lower()):
                             should_track = True
                             break
 
-                # Always track robots if "agent" is in tracked categories
-                if "agent" in damage_trackable_categories and self._is_robot(obj):
+                if "agent" in allowed_categories and self._is_robot(obj):
                     should_track = True
 
-            if should_track:
-                obj.set_track_damage(True)
-                obj.set_damageable_links_and_params()
-                obj.initialize_health()
-                obj._initialize_damage_evaluators()
-            else:
-                obj.set_track_damage(False)
+                if should_track:
+                    obj.set_track_damage(True)
+                    obj.set_damageable_links_and_params()
+                    obj.initialize_health()
+                    obj._initialize_damage_evaluators()
+                else:
+                    obj.set_track_damage(False)
+        else:
+            # ── Default mode: track everything except skip_categories ────
+            default_cfg = self.damage_trackable_objects_config.get("default", {})
+            skip_categories: Set[str] = set(default_cfg.get("skip_categories", []) or [])
+
+            for obj in self._get_all_objects():
+                if not isinstance(obj, DamageableMixin):
+                    continue
+
+                obj_category = getattr(obj, "category", None)
+                should_track = obj_category not in skip_categories
+
+                if should_track:
+                    obj.set_track_damage(True)
+                    obj.set_damageable_links_and_params()
+                    obj.initialize_health()
+                    obj._initialize_damage_evaluators()
+                else:
+                    obj.set_track_damage(False)
 
     def _is_robot(self, obj) -> bool:
         """Heuristic to decide if *obj* is a robot."""

@@ -8,13 +8,13 @@ which evaluators are active and their tuning constants.
 from damagesim.omnigibson.evaluators import DAMAGE_EVALUATORS  # noqa: F401
 
 DAMAGEABLE_OBJECTS = {
-    "track_everything": False,
     "default": {
-        "categories": ["agent"],
-        "names": [],
+        "skip_categories": ["floors", "walls", "ceilings", "hall_tree", "roof", "countertop", "breakfast_table", 
+                            "straight_chair", "ottoman", "dining_table", "fixed_window", "carpet", "shower_stall", "toilet",
+                            "pedestal_sink", "furniture_sink", "towel_rack", "bed", "sofa", "coffee_table"],
     },
     "shelve_item": {
-        "categories": ["bottle_of_beer", "bottle_of_wine", "wineglass", "bag_of_flour", "box_of_crackers"],
+        "categories": ["bottle_of_beer", "bottle_of_wine", "wineglass", "bag_of_flour", "box_of_crackers", "agent"],
         "names": [],
     },
     "pour_water": {
@@ -24,7 +24,11 @@ DAMAGEABLE_OBJECTS = {
     "add_firewood": {
         "categories": ["agent"],
         "names": [],
-    }
+    },
+    "open_drawer": {
+        "categories": ["agent"],
+        "names": ["bottom_cabinet_bamfsz_1",],
+    },
 }
 
 PARAMS = {
@@ -73,23 +77,23 @@ PARAMS = {
             "qs_damage_sensitivity": 1.0,
             "damage_threshold": 70.0,
             "damage_scale": 0.2,
-            "link_config_overrides": {
+            "part_config_overrides": {
                 "gripper": {
-                    "impact_damage_sensitivity": 0.01,
-                    "qs_damage_sensitivity": 1.0,
-                    "damage_threshold": 70.0,
-                    "damage_scale": 0.2,
-                },
-                "base": {
                     "impact_damage_sensitivity": 0.01,
                     "qs_damage_sensitivity": 1.0,
                     "damage_threshold": 100.0,
                     "damage_scale": 0.2,
                 },
+                "base": {
+                    "impact_damage_sensitivity": 0.01,
+                    "qs_damage_sensitivity": 1.0,
+                    "damage_threshold": 200.0,
+                    "damage_scale": 0.2,
+                },
                 "arm": {
                     "impact_damage_sensitivity": 0.01,
                     "qs_damage_sensitivity": 1.0,
-                    "damage_threshold": 70.0,
+                    "damage_threshold": 100.0,
                     "damage_scale": 0.2,
                 },
             },
@@ -101,7 +105,7 @@ PARAMS = {
         },
     },
 
-    # ── BEHAVIOR-1K Tasks ───────────────────────────────────────────────
+    # ── Used in OopsieVerse paper experiments ───────────────────────────────────────────────
     "microwave": {
         "damage_evaluators": ["mechanical"],
         "damageable_links": ["base_link", "link_0", "glass"],
@@ -194,7 +198,13 @@ PARAMS = {
         },
     },
     "laptop": {
-        "damage_evaluators": ["electrical"],
+        "damage_evaluators": ["mechanical", "electrical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 1.0,
+            "qs_damage_sensitivity": 0.5,
+            "damage_threshold": 80.0,
+            "damage_scale": 100.0,
+        },
         "electrical": {
             "damage_threshold": 20.0,
             "scale": 5.0,
@@ -250,12 +260,210 @@ PARAMS = {
             "damage_scale": 1.0,
         },
     },
+
+    # ── Large appliances (sturdy, high threshold) ──────────────────────
+    "fridge": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 0.1,
+            "qs_damage_sensitivity": 0.1,
+            "damage_threshold": 250.0,
+            "damage_scale": 1.0,
+        },
+    },
+    "oven": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 0.1,
+            "qs_damage_sensitivity": 0.5,
+            "damage_threshold": 150.0,
+            "damage_scale": 1.0,
+        },
+    },
+    "dishwasher": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 0.1,
+            "qs_damage_sensitivity": 0.1,
+            "damage_threshold": 200.0,
+            "damage_scale": 1.0,
+        },
+    },
+
+    # ── Heavy furniture (sturdy, high threshold) ─────────────────────
+    "bed": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 0.05,
+            "qs_damage_sensitivity": 0.05,
+            "damage_threshold": 500.0,
+            "damage_scale": 1.0,
+        },
+    },
+    "sofa": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 0.05,
+            "qs_damage_sensitivity": 0.05,
+            "damage_threshold": 500.0,
+            "damage_scale": 1.0,
+        },
+    },
+    "bookcase": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 0.1,
+            "qs_damage_sensitivity": 0.1,
+            "damage_threshold": 200.0,
+            "damage_scale": 1.0,
+        },
+    },
+    "top_cabinet": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 0.1,
+            "qs_damage_sensitivity": 1.0,
+            "damage_threshold": 100.0,
+            "damage_scale": 1.0,
+        },
+    },
     "bottom_cabinet": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 0.1,
+            "qs_damage_sensitivity": 0.1,
+            "damage_threshold": 700.0,
+            "damage_scale": 1.0,
+            "part_config_overrides": {
+                "link_{i}": {
+                    "impact_damage_sensitivity": 0.05,
+                    "qs_damage_sensitivity": 1.0,
+                    "damage_threshold": 300.0,
+                    "damage_scale": 1.0,
+                },
+            },
+        },
+    },
+    "coffee_table": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 0.1,
+            "qs_damage_sensitivity": 0.1,
+            "damage_threshold": 500.0,
+            "damage_scale": 1.0,
+        },
+    },
+    "swivel_chair": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 0.1,
+            "qs_damage_sensitivity": 0.1,
+            "damage_threshold": 500.0,
+            "damage_scale": 1.0,
+        },
+    },
+
+    # ── Electronics (fragile, low threshold) ─────────────────────────
+    "standing_tv": {
         "damage_evaluators": ["mechanical"],
         "mechanical": {
             "impact_damage_sensitivity": 1.0,
             "qs_damage_sensitivity": 0.5,
+            "damage_threshold": 80.0,
+            "damage_scale": 100.0,
+        },
+    },
+    "loudspeaker": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 1.0,
+            "qs_damage_sensitivity": 0.5,
+            "damage_threshold": 80.0,
+            "damage_scale": 10.0,
+        },
+    },
+
+    # ── Fragile / light objects (moderate-to-low threshold) ──────────
+    "floor_lamp": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 1.0,
+            "qs_damage_sensitivity": 0.5,
+            "damage_threshold": 80.0,
+            "damage_scale": 10.0,
+        },
+    },
+    "table_lamp": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 1.0,
+            "qs_damage_sensitivity": 0.5,
+            "damage_threshold": 80.0,
+            "damage_scale": 10.0,
+        },
+    },
+    "pot_plant": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 1.0,
+            "qs_damage_sensitivity": 0.5,
+            "damage_threshold": 60.0,
+            "damage_scale": 10.0,
+        },
+    },
+    "mirror": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 1.0,
+            "qs_damage_sensitivity": 0.5,
+            "damage_threshold": 40.0,
+            "damage_scale": 100.0,
+        },
+    },
+    "picture": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 0.5,
+            "qs_damage_sensitivity": 0.3,
             "damage_threshold": 50.0,
+            "damage_scale": 10.0,
+        },
+    },
+    "public_trash_can": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 0.1,
+            "qs_damage_sensitivity": 0.1,
+            "damage_threshold": 200.0,
+            "damage_scale": 1.0,
+        },
+    },
+
+    # ── Structural fixtures (very sturdy) ────────────────────────────
+    "door": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 0.05,
+            "qs_damage_sensitivity": 0.05,
+            "damage_threshold": 300.0,
+            "damage_scale": 1.0,
+        },
+    },
+    "openable_window": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 0.5,
+            "qs_damage_sensitivity": 0.3,
+            "damage_threshold": 100.0,
+            "damage_scale": 10.0,
+        },
+    },
+    "electric_switch": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 0.1,
+            "qs_damage_sensitivity": 0.1,
+            "damage_threshold": 200.0,
             "damage_scale": 1.0,
         },
     },

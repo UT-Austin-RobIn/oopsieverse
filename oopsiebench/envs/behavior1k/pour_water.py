@@ -9,18 +9,17 @@ Note: ``USE_GPU_DYNAMICS = True`` is required for fluid simulation.
 """
 
 import math
-
+import pickle
 import numpy as np
 import torch as th
 import omnigibson as og
+from omnigibson import object_states
 from omnigibson.object_states import Filled
 
 from oopsiebench.envs.behavior1k.base import TaskConfig
 
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaPanda"
-
-# ── Task objects ────────────────────────────────────────────────────────
 
 TASK_OBJECTS = {
     "laptop": {
@@ -52,8 +51,6 @@ TASK_OBJECTS = {
     },
 }
 
-# ── Cameras ─────────────────────────────────────────────────────────────
-
 VIEWER_CAMERA_POS = [7.0659, -0.7141, 1.9185]
 VIEWER_CAMERA_ORN = [0.4850, 0.1528, 0.2586, 0.8213]
 
@@ -70,8 +67,7 @@ EXTERNAL_CAMERA_CONFIGS = {
     },
 }
 
-
-# ── Task-specific reset (used by teleop when present) ──────────────────────
+INIT_STATE_PATH = "resources/init_states/pour_water.pkl"
 
 def set_laptop_pose(env, target_deg: float = 130.0):
     """Open the laptop to a specified angle (degrees)."""
@@ -96,6 +92,11 @@ def reset(env):
     """
     Task-specific reset: match pour_glass.reset_env exactly (state already loaded by teleop).
     """
+    
+    # Load initial state
+    with open(INIT_STATE_PATH, "rb") as f: state_flat_array = pickle.load(f)
+    og.sim.load_state(state_flat_array, serialized=True)
+    
     if not env.robots:
         return
     robot = env.robots[0]
@@ -265,8 +266,14 @@ def reset(env):
 
     robot.keep_still()
 
+def task_completion_check(env):
+    coffee_cup = env.scene.object_registry("name", "coffee_cup_1")
+    water_system = env.scene.get_system("water", force_init=True)
+    particles_in_coffee_cup = coffee_cup.states[object_states.ContainedParticles].get_value(system=water_system).n_in_volume
+    if particles_in_coffee_cup > 10:
+        return True
+    return False
 
-# ── Public entry point ──────────────────────────────────────────────────
 
 def get_task_config() -> TaskConfig:
     return TaskConfig(
