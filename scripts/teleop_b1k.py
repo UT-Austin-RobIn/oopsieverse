@@ -62,11 +62,15 @@ from utils.misc_utils import setup_viewport_layout
 # --task_name picks which module to import from this package
 TASK_CONFIG_PACKAGE = "oopsiebench.envs.behavior1k"
 
+# Default task when --task_name omitted: Rs_int, damage = all except skip_categories
+
 TASK_REGISTRY = {
+    "default": "default",
     "shelve_item": "shelve_item",
     "add_firewood": "add_firewood",
     "firewood": "add_firewood",
     "pour_water": "pour_water",
+    "open_drawer": "open_drawer",
 }
 
 # Global variables for teleop
@@ -269,7 +273,7 @@ def save_video(teleop_frames, teleop_health_records, target_objects_for_overlay,
 
 def parse_args():
     p = argparse.ArgumentParser(description="Keyboard teleop for Behavior1k tasks.")
-    p.add_argument("--task_name", type=str, required=True,
+    p.add_argument("--task_name", type=str, default="default",
                    help="Task name (e.g. shelve_item, pour_water, add_firewood).")
     p.add_argument("--collect_hdf5_path", type=str, default=None,
                    help="If specified, save teleop demos to this HDF5 for later playback. Otherwise resorts to a default path")
@@ -309,36 +313,25 @@ def reset_env(env, task_cfg, task_mod):
     """
     Reset the environment to the initial state.
     """
-    # TODO: Check if multiple attempts are needed
-    for _attempt in range(1, MAX_RESET_RETRIES + 1):
 
-        # Set the viewer camera position and orientation
+    # Set the viewer camera position and orientation
+    if task_cfg.viewer_camera_pos is not None and task_cfg.viewer_camera_orn is not None:
         og.sim.viewer_camera.set_position_orientation(
             position=th.tensor(task_cfg.viewer_camera_pos, dtype=th.float32),
             orientation=th.tensor(task_cfg.viewer_camera_orn, dtype=th.float32),
         )
 
-        # Load the initial state from the pickle file if it exists, else just reset the environment
-        load_state_from_pkl(env, task_name=task_cfg.task_name, task_module=task_mod)
-        for _ in range(10): og.sim.step()
+    env.reset()
+    # Call task specific reset
+    if task_mod is not None and hasattr(task_mod, "reset") and callable(task_mod.reset):
+        task_mod.reset(env)
 
-        env._reset_damage_tracking()
-        for _ in range(5): og.sim.step()
-        env_health = env.get_env_health()
-        all_clean = (
-            all(h >= 100.0 for h in env_health.values())
-            if env_health else True
-        )
-        if all_clean:
-            if _attempt > 1:
-                print(f"[teleop] Initial state clean after {_attempt} attempts.")
-            break
-        
-        damaged = {k: v for k, v in (env_health or {}).items() if v < 100.0}
-        print(f"[teleop] Initial load attempt {_attempt}/{MAX_RESET_RETRIES}: "
-              f"health not clean: {damaged}. Retrying load…")
-    else:
-        raise RuntimeError(f"[teleop] Initial health max retries reached. All objects are not at 100% health.")
+    env._reset_damage_tracking()
+    for _ in range(5): og.sim.step()
+    env_health = env.get_env_health()
+    damaged = {k: v for k, v in (env_health or {}).items() if v < 100.0}
+    if damaged:
+        print(f"health not clean: {damaged}")
 
 
 class TeleopWrapper:
@@ -620,6 +613,12 @@ def main():
             if args.save_video:
                 teleop_wrapper.record_step(obs, info)
 
+            if hasattr(task_mod, "task_completion_check") and task_mod.task_completion_check(env):
+                for _ in range(20): og.sim.step()
+                print(f"[TELEOP] Task completed. Ending episode.")
+                EPISODE_DONE[0] = True
+                break
+
         if QUIT_REQUESTED[0]:
             break
 
@@ -629,6 +628,7 @@ def main():
             DISCARD_REQUESTED[0] = False
 
         if EPISODE_DONE[0]:
+            breakpoint()
             teleop_wrapper.on_episode_done()
 
             completed_episodes += 1

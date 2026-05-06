@@ -60,6 +60,8 @@ class OGMechanicalDamageEvaluator(MechanicalDamageEvaluator):
             pco = link_config_overrides
         super().__init__(entity, part_config_overrides=pco, **kwargs)
 
+        self._expand_indexed_overrides()
+
         # ── Extra tracking for position-based velocity ──────────────────
         self.prev_link_positions: Dict[str, th.Tensor] = {}
         self.prev_link_quats: Dict[str, th.Tensor] = {}
@@ -70,6 +72,29 @@ class OGMechanicalDamageEvaluator(MechanicalDamageEvaluator):
 
         # Initialise tracking from current sim state
         self._init_og_tracking()
+
+    def _expand_indexed_overrides(self):
+        """
+        Expand template keys containing ``{i}`` in ``part_config_overrides``
+        into concrete link names by probing the entity's actual links.
+
+        For example, a key ``"link_{i}"`` will be expanded to ``"link_0"``,
+        ``"link_1"``, … for every ``link_<n>`` that exists on the entity.
+        """
+        if not self.part_config_overrides:
+            return
+        entity_links = set(getattr(self.entity, "links", {}).keys())
+        if not entity_links:
+            return
+
+        templates = {k: v for k, v in self.part_config_overrides.items() if "{i}" in k}
+        for template_key, override_values in templates.items():
+            del self.part_config_overrides[template_key]
+            i = 0
+            for i in range(len(entity_links)):
+                concrete = template_key.replace("{i}", str(i))
+                if concrete in entity_links:
+                    self.part_config_overrides[concrete] = override_values
 
     # ── Tracking initialisation ─────────────────────────────────────────
 
