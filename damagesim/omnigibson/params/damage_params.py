@@ -29,6 +29,18 @@ DAMAGEABLE_OBJECTS = {
         "categories": ["agent"],
         "names": ["bottom_cabinet_bamfsz_1",],
     },
+    "turn_on_stove": {
+        "categories": ["agent", "stove"],
+        "names": [],
+    },
+    "open_single_door": {
+        "categories": ["agent", "microwave"],
+        "names": [],
+    },
+    "food_in_microwave": {
+        "categories": ["agent", "microwave", "cupcake", "bowl"],
+        "names": [],
+    },
 }
 
 PARAMS = {
@@ -75,7 +87,7 @@ PARAMS = {
         "mechanical": {
             "impact_damage_sensitivity": 0.01,
             "qs_damage_sensitivity": 1.0,
-            "damage_threshold": 70.0,
+            "damage_threshold": 100.0,
             "damage_scale": 0.2,
             "part_config_overrides": {
                 "gripper": {
@@ -112,8 +124,22 @@ PARAMS = {
         "mechanical": {
             "impact_damage_sensitivity": 1.0,
             "qs_damage_sensitivity": 1.0,
-            "damage_threshold": 100.0,
+            "damage_threshold": 300.0,
             "damage_scale": 1.0,
+        },
+        "part_config_overrides": {
+            "link_0": {
+                "impact_damage_sensitivity": 1.0,
+                "qs_damage_sensitivity": 1.0,
+                "damage_threshold": 200.0,
+                "damage_scale": 1.0,
+            },
+            "glass": {
+                "impact_damage_sensitivity": 1.0,
+                "qs_damage_sensitivity": 1.0,
+                "damage_threshold": 150.0,
+                "damage_scale": 1.0,
+            },
         },
     },
     "camera_tripod": {
@@ -237,7 +263,25 @@ PARAMS = {
         "damage_evaluators": ["mechanical"],
         "mechanical": {
             "impact_damage_sensitivity": 1.0,
-            "qs_damage_sensitivity": 0.5,
+            "qs_damage_sensitivity": 0.2,
+            "damage_threshold": 50.0,
+            "damage_scale": 1.0,
+        },
+    },
+    "bowl": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 1.0,
+            "qs_damage_sensitivity": 0.2,
+            "damage_threshold": 50.0,
+            "damage_scale": 1.0,
+        },
+    },
+    "cupcake": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 1.0,
+            "qs_damage_sensitivity": 1.0,
             "damage_threshold": 50.0,
             "damage_scale": 1.0,
         },
@@ -257,6 +301,15 @@ PARAMS = {
             "impact_damage_sensitivity": 0.1,
             "qs_damage_sensitivity": 0.1,
             "damage_threshold": 200.0,
+            "damage_scale": 1.0,
+        },
+    },
+    "can": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 1.0,
+            "qs_damage_sensitivity": 0.5,
+            "damage_threshold": 500.0,
             "damage_scale": 1.0,
         },
     },
@@ -291,6 +344,15 @@ PARAMS = {
     },
 
     # ── Heavy furniture (sturdy, high threshold) ─────────────────────
+    "stove": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 0.1,
+            "qs_damage_sensitivity": 0.1,
+            "damage_threshold": 500.0,
+            "damage_scale": 1.0,
+        },
+    },
     "bed": {
         "damage_evaluators": ["mechanical"],
         "mechanical": {
