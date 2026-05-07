@@ -71,6 +71,9 @@ TASK_REGISTRY = {
     "firewood": "add_firewood",
     "pour_water": "pour_water",
     "open_drawer": "open_drawer",
+    "turn_on_stove": "turn_on_stove",
+    "open_single_door": "open_single_door",
+    "food_in_microwave": "food_in_microwave",
 }
 
 # Global variables for teleop
