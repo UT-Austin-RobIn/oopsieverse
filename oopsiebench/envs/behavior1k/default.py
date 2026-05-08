@@ -14,6 +14,11 @@ ROBOT_NAME = "robot0"
 ROBOT_TYPE = "FrankaPanda"
 
 
+def reset(env):
+    """Default no-op reset hook (kept for API consistency across tasks)."""
+    return
+
+
 def get_task_config() -> TaskConfig:
     return TaskConfig(
         task_name="default",

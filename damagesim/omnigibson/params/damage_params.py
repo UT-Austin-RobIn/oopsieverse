@@ -29,6 +29,30 @@ DAMAGEABLE_OBJECTS = {
         "categories": ["agent"],
         "names": ["bottom_cabinet_bamfsz_1",],
     },
+    "wipe_counter": {
+        "categories": ["agent"],
+        "names": [],
+    },
+    "place_plate": {
+        "categories": ["agent", "plate"],
+        "names": [],
+    },
+    "place_bowl": {
+        "categories": ["agent", "bowl"],
+        "names": [],
+    },
+    "pick_egg": {
+        "categories": ["agent", "egg"],
+        "names": [],
+    },
+    "nav_to_table": {
+        "categories": ["agent", "swivel_chair", "vase"],
+        "names": [],
+    },
+    "turn_on_faucet": {
+        "categories": ["agent"],
+        "names": [],
+    },
 }
 
 PARAMS = {
@@ -46,7 +70,7 @@ PARAMS = {
     # ── Robots (OG category = "agent") ──────────────────────────────────
     "agent": {
         # TODO: Add mechanical damage evaluator back, need to debug mech damage params
-        "damage_evaluators": ["mechanical", "thermal"],
+        "damage_evaluators": ["mechanical", "thermal", "electrical"],
         # dict_keys(['panda_link0', 'panda_link1', 'panda_link2', 'panda_link3', 'panda_link4', 'panda_link5', 'panda_link6', 'panda_link7', 'panda_hand', 'panda_leftfinger', 'panda_rightfinger', 'eef_link'])
         "damageablefrankapanda_damageable_links": [
             "panda_link0", "panda_link1", "panda_link2", "panda_link3", "panda_link4", "panda_link5", "panda_link6", "panda_link7", "panda_hand", "panda_leftfinger", "panda_rightfinger", "eef_link"
@@ -102,6 +126,11 @@ PARAMS = {
             "heating_threshold": 45.0,
             "cooling_threshold": -20.0,
             "scale": 1.0,
+        },
+        "electrical": {
+            "damage_threshold": 10.0,
+            "scale": 10.0,
+            "water_system_name": "water",
         },
     },
 
@@ -234,6 +263,15 @@ PARAMS = {
         },
     },
     "plate": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 1.0,
+            "qs_damage_sensitivity": 0.5,
+            "damage_threshold": 50.0,
+            "damage_scale": 1.0,
+        },
+    },
+    "bowl": {
         "damage_evaluators": ["mechanical"],
         "mechanical": {
             "impact_damage_sensitivity": 1.0,
