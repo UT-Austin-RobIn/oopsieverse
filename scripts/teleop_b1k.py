@@ -43,8 +43,6 @@ import omnigibson.lazy as lazy
 from omnigibson.macros import gm
 from omnigibson.utils.ui_utils import KeyboardRobotController
 from omnigibson.envs.data_wrapper import flatten_obs
-from telemoma.configs.base_config import teleop_config
-from omnigibson.utils.teleop_utils import TeleopSystem
 from omnigibson.controllers.controller_base import IsGraspingState
 
 from damagesim.omnigibson.damageable_env import (
@@ -71,6 +69,12 @@ TASK_REGISTRY = {
     "firewood": "add_firewood",
     "pour_water": "pour_water",
     "open_drawer": "open_drawer",
+    "wipe_counter": "wipe_counter",
+    "nav_to_table": "nav_to_table",
+    "pick_egg": "pick_egg",
+    "place_bowl": "place_bowl",
+    "place_plate": "place_plate",
+    "turn_on_faucet": "turn_on_faucet",
 }
 
 # Global variables for teleop
@@ -102,6 +106,10 @@ def save_state_to_pkl(task_name: str):
 
 
 def load_state_from_pkl(env, task_name: str, task_module=None):
+    # Used by some task modules (e.g. wipe_counter) to decide whether to run
+    # runtime-only setup after restoring a saved sim state.
+    setattr(env, "_teleop_loaded_from_pkl", False)
+
     init_dir = os.path.join(
         _REPO_ROOT, "resources", "init_states",
     )
@@ -124,6 +132,7 @@ def load_state_from_pkl(env, task_name: str, task_module=None):
     if not og.sim.is_playing():
         og.sim.play()
     og.sim.load_state(state, serialized=True)
+    setattr(env, "_teleop_loaded_from_pkl", True)
     for _ in range(10):
         og.sim.step()
 
@@ -314,17 +323,15 @@ def reset_env(env, task_cfg, task_mod):
     Reset the environment to the initial state.
     """
 
-    # Set the viewer camera position and orientation
+    # Restore the saved init-state when available (falls back to env.reset()).
+    load_state_from_pkl(env, task_name=task_cfg.task_name, task_module=task_mod)
+
+    # Set the viewer camera position and orientation (after state restore).
     if task_cfg.viewer_camera_pos is not None and task_cfg.viewer_camera_orn is not None:
         og.sim.viewer_camera.set_position_orientation(
             position=th.tensor(task_cfg.viewer_camera_pos, dtype=th.float32),
             orientation=th.tensor(task_cfg.viewer_camera_orn, dtype=th.float32),
         )
-
-    env.reset()
-    # Call task specific reset
-    if task_mod is not None and hasattr(task_mod, "reset") and callable(task_mod.reset):
-        task_mod.reset(env)
 
     env._reset_damage_tracking()
     for _ in range(5): og.sim.step()
@@ -368,7 +375,10 @@ class TeleopWrapper:
         if self.teleop_device == "keyboard":
             teleop_interface = KeyboardRobotController(robot=self.robot)
         elif self.teleop_device == "spacemouse":
-            # Telemoma
+            # Telemoma (optional dependency) — only required for non-keyboard teleop.
+            from telemoma.configs.base_config import teleop_config
+            from omnigibson.utils.teleop_utils import TeleopSystem
+
             arm_teleop_method = self.teleop_device
             base_teleop_method = self.teleop_device
             # # Franka config: uses arm_0 instead of arm_left/arm_right
@@ -586,6 +596,10 @@ def main():
         init_grasp=init_grasp,
         **vars(args),
         )
+
+    # Optional task-specific teleop key bindings (e.g. pick_egg's Z/X incremental gripper).
+    if hasattr(task_mod, "register_teleop_keys") and callable(task_mod.register_teleop_keys):
+        task_mod.register_teleop_keys(env, teleop_wrapper.teleop_interface)
 
     # Setup live health visualization if enabled
     if args.live_feedback:
