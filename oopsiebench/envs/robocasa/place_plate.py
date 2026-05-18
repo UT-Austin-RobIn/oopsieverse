@@ -22,6 +22,8 @@ from damagesim.robosuite.damageable_env import RSDamageableEnvironment
 
 class PlacePlate(Kitchen):
 
+    POST_SUCCESS_STEPS = 10
+
     def __init__(self, *args, **kwargs):
         kwargs.pop("layout_ids", None)
         kwargs.pop("style_ids", None)
@@ -32,6 +34,7 @@ class PlacePlate(Kitchen):
             *args,
             **kwargs,
         )
+        self._post_success_counter = None
 
     def get_ep_meta(self):
         ep_meta = super().get_ep_meta()
@@ -52,6 +55,7 @@ class PlacePlate(Kitchen):
 
     def _load_model(self, **kwargs):
         super()._load_model(**kwargs)
+        self._post_success_counter = None
         robot_offset = [0.0, 0.0]
         pos, ori = EnvUtils.compute_robot_base_placement_pose(
             self, ref_fixture=self.sink, offset=robot_offset
@@ -141,12 +145,19 @@ class PlacePlate(Kitchen):
         except Exception:
             return False
 
+    def _check_task_conditions(self):
+        """Pure success check with no side effects — used for info reporting."""
+        plate_in_sink = self._check_plate_in_sink()
+        gripper_obj_far = OU.gripper_obj_far(self, "plate")
+        gripper_away_from_sink = self._check_gripper_away_from_sink()
+        return plate_in_sink and gripper_obj_far and gripper_away_from_sink
+
     def _post_action(self, action):
         reward, done, info = super()._post_action(action)
 
         info['plate_in_sink'] = self._check_plate_in_sink()
         info['plate_settled'] = self._check_plate_settled()
-        info['task_success'] = self._check_success()
+        info['task_success'] = self._check_task_conditions()
 
         return reward, done, info
 
@@ -169,12 +180,16 @@ class PlacePlate(Kitchen):
             return 0.0
 
     def _check_success(self):
-        plate_in_sink = self._check_plate_in_sink()
-        plate_settled = self._check_plate_settled()
-        gripper_obj_far = OU.gripper_obj_far(self, "plate")
-        gripper_away_from_sink = self._check_gripper_away_from_sink()
+        if self._check_task_conditions() and self._post_success_counter is None:
+            # Start countdown so the sim captures impact damage from the drop
+            self._post_success_counter = self.POST_SUCCESS_STEPS
 
-        return plate_in_sink and plate_settled and gripper_obj_far and gripper_away_from_sink
+        if self._post_success_counter is not None:
+            self._post_success_counter -= 1
+            if self._post_success_counter <= 0:
+                return True
+
+        return False
 
 
 # ═══════════════════════════════════════════════════════════════════════

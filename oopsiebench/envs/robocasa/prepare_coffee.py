@@ -28,12 +28,8 @@ class PrepareCoffee(Kitchen):
     def _setup_kitchen_references(self):
         super()._setup_kitchen_references()
 
-        self.coffee_machine = self.register_fixture_ref(
-            "coffee_machine", dict(id="coffee_machine")
-        )
-        self.cab = self.register_fixture_ref(
-            "cab", dict(id=self.cab_id, ref=self.coffee_machine)
-        )
+        self.coffee_machine = self.get_fixture(FixtureType.COFFEE_MACHINE)
+        self.cab = self.get_fixture(self.cab_id, ref=self.coffee_machine)
         self.init_robot_base_ref = self.cab
 
     def get_ep_meta(self):
@@ -65,10 +61,7 @@ class PrepareCoffee(Kitchen):
                 graspable=True,
                 placement=dict(
                     fixture=self.cab,
-                    size=(
-                        0.30,
-                        0.20,
-                    ),
+                    size=(0.30, 0.20),
                     pos=(0, -1.0),
                     rotation=(-0.1, 0.1),
                 ),
