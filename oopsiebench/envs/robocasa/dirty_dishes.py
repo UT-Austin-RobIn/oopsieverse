@@ -65,9 +65,9 @@ class DirtyDishes(Kitchen):
         self.sink.set_handle_state(mode="off", env=self, rng=self.rng)
 
     def _get_obj_cfgs(self):
-        bowl_6_path = next(
+        bowl_10_path = next(
             p for p in OBJ_CATEGORIES["bowl"]["objaverse"].mjcf_paths
-            if os.path.basename(os.path.dirname(p)) == "bowl_10"
+            if os.path.basename(os.path.dirname(p)) == "bowl_5"
         )
         mug_1_path = next(
             p for p in OBJ_CATEGORIES["mug"]["objaverse"].mjcf_paths
@@ -83,7 +83,7 @@ class DirtyDishes(Kitchen):
         cfgs.append(
             dict(
                 name="bowl",
-                obj_groups=bowl_6_path,
+                obj_groups=bowl_10_path,
                 graspable=True,
                 washable=True,
                 placement=dict(

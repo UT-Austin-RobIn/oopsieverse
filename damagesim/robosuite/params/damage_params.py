@@ -94,7 +94,7 @@ OBJECT_PARAMS = {
         "friction": (0.95, 0.3, 0.1),
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 0.0,
+            "damage_threshold": 0.5,
             "damage_scale": 0.01,
             "impact_damage_sensitivity": 0.5,
             "qs_damage_sensitivity": 0.25,
@@ -228,7 +228,7 @@ OBJECT_PARAMS = {
             "damage_threshold": 12.0,
             "damage_scale": 0.8,
             "impact_damage_sensitivity": 1.0,
-            "qs_damage_sensitivity": 0.5,
+            "qs_damage_sensitivity": 0.2,
         },
     },
     "mug": {
