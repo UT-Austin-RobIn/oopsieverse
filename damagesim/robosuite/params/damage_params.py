@@ -121,25 +121,25 @@ OBJECT_PARAMS = {
                 "gripper": {
                     "impact_damage_sensitivity": 0.0,
                     "qs_damage_sensitivity": 1.0,
-                    "damage_threshold": 70.0,
+                    "damage_threshold": 100.0,
                     "damage_scale": 0.2,
                 },
                 "link0": {
                     "impact_damage_sensitivity": 0.0,
                     "qs_damage_sensitivity": 1.0,
-                    "damage_threshold": 100.0,
+                    "damage_threshold": 200.0,
                     "damage_scale": 0.2,
                 },
                 "hand": {
                     "impact_damage_sensitivity": 0.0,
                     "qs_damage_sensitivity": 1.0,
-                    "damage_threshold": 70.0,
+                    "damage_threshold": 100.0,
                     "damage_scale": 0.2,
                 },
                 "link": {
                     "impact_damage_sensitivity": 0.0,
                     "qs_damage_sensitivity": 1.0,
-                    "damage_threshold": 70.0,
+                    "damage_threshold": 100.0,
                     "damage_scale": 0.2,
                 },
             },
@@ -437,10 +437,30 @@ OBJECT_PARAMS = {
     "microwave": {
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 143.0,
+            "damage_threshold": 400.0,
             "damage_scale": 0.05,
             "impact_damage_sensitivity": 0.5,
-            "qs_damage_sensitivity": 0.5,
+            "qs_damage_sensitivity": 1.0,
+            "link_config_overrides": {
+                "microwave_main_group_1_door": {
+                    "damage_threshold": 200.0,
+                    "damage_scale": 0.1,
+                    "impact_damage_sensitivity": 0.5,
+                    "qs_damage_sensitivity": 1.0,
+                },
+                "microwave_main_group_1_Button001": {
+                    "damage_threshold": 150.0,
+                    "damage_scale": 0.1,
+                    "impact_damage_sensitivity": 0.5,
+                    "qs_damage_sensitivity": 1.0,
+                },
+                "microwave_main_group_1_Button002": {
+                    "damage_threshold": 150.0,
+                    "damage_scale": 0.1,
+                    "impact_damage_sensitivity": 0.5,
+                    "qs_damage_sensitivity": 1.0,
+                }
+            }
         },
     },
     "cabinet": {
