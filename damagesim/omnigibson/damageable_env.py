@@ -391,10 +391,20 @@ class OGDamageableEnvironment(DamageableEnvironment, Environment):
 class OGDamageableDataCollectionWrapper(DataCollectionWrapper):
     """Extends OG DataCollectionWrapper to store health metadata."""
 
-    def __init__(self, *args, save_video=False,save_obs_to_hdf5=False, **kwargs):
+    def __init__(self, *args, save_video=False, save_obs_to_hdf5=False, transition_systems=(), **kwargs):
         self._save_video = save_video
         self._save_obs_to_hdf5 = save_obs_to_hdf5
+        # Only record particle-system transitions for names in this allowlist.
+        # Kitchen scenes auto-init water; recording every system breaks playback for dry tasks.
+        self._transition_systems = frozenset(transition_systems)
         super().__init__(*args, **kwargs)
+
+    def add_transition_info(self, obj, add=True):
+        from omnigibson.objects.object_base import BaseObject
+
+        if not isinstance(obj, BaseObject) and obj.name not in self._transition_systems:
+            return
+        super().add_transition_info(obj, add=add)
     
     def enable_health_visualization(self):
         if hasattr(self.env, "enable_health_visualization"):
@@ -450,18 +460,39 @@ class OGDamageableDataCollectionWrapper(DataCollectionWrapper):
 class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
     """Extends OG DataPlaybackWrapper to use OGDamageableEnvironment."""
 
+    def _preinit_playback_systems(self, transitions):
+        """Init particle systems from teleop transitions before loading serialized state."""
+        scene = og.sim.scenes[0]
+        for step_data in transitions.values():
+            for name in step_data.get("systems", {}).get("add", []):
+                if name not in scene.available_systems:
+                    continue
+                try:
+                    scene.get_system(name, force_init=True)
+                except ValueError as e:
+                    if "USE_GPU_DYNAMICS=True" in str(e):
+                        from omnigibson.macros import gm
+                        gm.USE_GPU_DYNAMICS = True
+                        scene.get_system(name, force_init=True)
+                    else:
+                        print(f"[playback] skip preinit system {name}: {e}")
+
     def _load_state_with_size_fallback(self, state, saved_size):
         try:
             og.sim.load_state(state[:saved_size], serialized=True)
             return saved_size
         except AssertionError as e:
-            if "Invalid state deserialization" in str(e):
+            msg = str(e)
+            if "Invalid state deserialization" in msg:
                 for try_size in range(saved_size - 1, max(0, saved_size - 10), -1):
                     try:
                         og.sim.load_state(state[:try_size], serialized=True)
                         return try_size
                     except AssertionError:
                         continue
+            if "Could not find object while deserializing" in msg:
+                print(f"[playback] Warning: skipping state load: {msg}")
+                return saved_size
             raise
 
     @classmethod
@@ -720,7 +751,9 @@ class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
         if not og.sim.is_playing():
             og.sim.play()
         
-        # Try loading state with saved size, but handle size mismatches gracefully
+        # Init particle systems before deserializing state (state blob may reference them).
+        self._preinit_playback_systems(transitions)
+
         saved_state_size = int(state_size[0])
         self._load_state_with_size_fallback(state[0], saved_state_size)
         for _ in range(10): og.sim.step()

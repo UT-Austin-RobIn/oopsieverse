@@ -52,9 +52,11 @@ class OGDamageableMixin(DamageableMixin):
     """
 
     def __init__(self, *args, **kwargs):
-        # OG robots generate their own USD path; remove it so super().__init__
-        # doesn't pass it through to the OG base class twice.
-        kwargs.pop("usd_path", None)
+        # Robots generate their own USD path; strip it so ControllableObject init
+        # does not receive a duplicate. Asset objects (USDObject, DatasetObject, …)
+        # need usd_path when recreated from teleop transition info during playback.
+        if ControllableObject is not object and isinstance(self, ControllableObject):
+            kwargs.pop("usd_path", None)
         super().__init__(*args, **kwargs)
 
     # ── Evaluator registry ──────────────────────────────────────────────
