@@ -149,7 +149,8 @@ class WipeCounter(Kitchen):
             pos = self._sample_path_pos(pos)
 
     def _sample_start_pos(self, ref_pos=None):
-        self._marker_direction = 0.0
+        rng = getattr(self, 'rng', np.random)
+        self._marker_direction = float(rng.uniform(0, 2 * np.pi))
 
         if ref_pos is not None:
             return np.array([
@@ -161,8 +162,8 @@ class WipeCounter(Kitchen):
             return np.array([0.0, 0.0])
 
         return np.array([
-            (self._dirt_bounds['x_min'] + self._dirt_bounds['x_max']) / 2,
-            (self._dirt_bounds['y_min'] + self._dirt_bounds['y_max']) / 2,
+            float(rng.uniform(self._dirt_bounds['x_min'], self._dirt_bounds['x_max'])),
+            float(rng.uniform(self._dirt_bounds['y_min'], self._dirt_bounds['y_max'])),
         ])
 
     def _sample_path_pos(self, pos):
