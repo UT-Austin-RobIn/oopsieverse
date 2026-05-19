@@ -165,7 +165,7 @@ class ShelveItem(Kitchen):
             p for p in OBJ_CATEGORIES["wine_glass"]["aigen"].mjcf_paths
             if os.path.basename(os.path.dirname(p)) == "wine_glass_1"
         )
-        wine_4_path = next(
+        wine_2_path = next(
             p for p in OBJ_CATEGORIES["wine"]["objaverse"].mjcf_paths
             if os.path.basename(os.path.dirname(p)) == "wine_2"
         )
@@ -236,7 +236,7 @@ class ShelveItem(Kitchen):
         cfgs.append(
             dict(
                 name="wine_2",
-                obj_groups=wine_4_path,
+                obj_groups=wine_2_path,
                 graspable=True,
                 placement=dict(
                     fixture=self.dining_table,

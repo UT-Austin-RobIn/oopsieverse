@@ -82,19 +82,13 @@ class CounterToMicrowave(Kitchen):
     # ── Task checks ────────────────────────────────────────────────────
 
     def reward(self, action=None):
-        try:
-            obj_inside = OU.obj_inside_of(self, "coffee_cup", self.microwave)
-            return 10.0 if obj_inside else 0.0
-        except Exception:
-            return 0.0
+        obj_inside = OU.obj_inside_of(self, "coffee_cup", self.microwave)
+        return 10.0 if obj_inside else 0.0
 
     def _check_success(self):
-        try:
-            obj_inside_microwave = OU.obj_inside_of(self, "coffee_cup", self.microwave)
-            gripper_obj_far = OU.gripper_obj_far(self)
-            return obj_inside_microwave and gripper_obj_far
-        except Exception:
-            return False
+        obj_inside_microwave = OU.obj_inside_of(self, "coffee_cup", self.microwave)
+        gripper_obj_far = OU.gripper_obj_far(self, obj_name="coffee_cup")
+        return obj_inside_microwave and gripper_obj_far
 
 
 

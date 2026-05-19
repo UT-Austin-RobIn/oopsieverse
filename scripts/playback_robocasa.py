@@ -166,14 +166,18 @@ def playback_episode(src_f, demo_name, env, playback_hdf5_file):
         f"{demo_name}: expected {num_actions + 1} states, got {num_states}"
     )
 
+    demo_grp = src_f[f"data/{demo_name}"]
+    ep_meta = json.loads(demo_grp.attrs.get("ep_meta", "{}"))
+    if ep_meta:
+        env.set_ep_meta(ep_meta)
+    else:
+        env.unset_ep_meta()
+
     env.reset()
 
     # ── Restore exact model if stored ──
-    demo_grp = src_f[f"data/{demo_name}"]
     if "model_file" in demo_grp.attrs:
         model_xml = demo_grp.attrs["model_file"]
-        ep_meta = json.loads(demo_grp.attrs.get("ep_meta", "{}"))
-        env.set_ep_meta(ep_meta)
         env.reset_from_xml_string(model_xml)
         env.sim.reset()
 
