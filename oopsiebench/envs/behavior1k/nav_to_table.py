@@ -6,8 +6,7 @@ Robot : Tiago (tiago0)
 Damage: mechanical only (task objects of interest)
 """
 
-from __future__ import annotations
-
+import numpy as np
 import omnigibson as og
 import torch as th
 
@@ -16,8 +15,7 @@ from oopsiebench.envs.behavior1k.base import TaskConfig
 ROBOT_NAME = "tiago0"
 ROBOT_TYPE = "Tiago"
 
-
-# ── Task objects ────────────────────────────────────────────────────────
+# ── Task objects ─────────────────────────────────────────────────────────
 
 TASK_OBJECTS = {
     "pedestal_table": {
@@ -47,7 +45,6 @@ TASK_OBJECTS = {
         "orientation": [0.0, 0.0, 0.0, 1.0],
         "scale": [1.0, 1.0, 1.0],
     },
-    # Spawn a water bottle and snap it onto the breakfast table at runtime.
     "water_bottle": {
         "type": "DatasetObject",
         "name": "water_bottle",
@@ -55,24 +52,14 @@ TASK_OBJECTS = {
         "model": "hrzznl",
         "position": [0.0, 0.0, 1.5],
         "orientation": [0.0, 0.0, 0.0, 1.0],
-        "scale": [1.0, 1.0, 1.0],
+        "scale": [0.9, 0.9, 0.9],
     },
 }
 
+# ── Cameras ──────────────────────────────────────────────────────────────
 
-# ── Cameras ─────────────────────────────────────────────────────────────
-
-VIEWER_CAMERA_POS = [
-    1.5345655679702759,
-    -2.3398592472076416,
-    1.3116816282272339,
-]
-VIEWER_CAMERA_ORN = [
-    0.605172872543335,
-    0.14635765552520752,
-    0.18393288552761078,
-    0.7606010437011719,
-]
+VIEWER_CAMERA_POS = [1.5345655679702759, -2.3398592472076416, 1.3116816282272339]
+VIEWER_CAMERA_ORN = [0.605172872543335, 0.14635765552520752, 0.18393288552761078, 0.7606010437011719]
 
 EXTERNAL_CAMERA_CONFIGS = {
     "external_sensor_0": {
@@ -97,96 +84,19 @@ EXTERNAL_CAMERA_CONFIGS = {
     },
 }
 
-
-# ── Task-specific reset ──────────────────────────────────────────────────
-
-def reset(env):
-    """
-    Post-state-load reset:
-    - Snap the water bottle onto the scene breakfast_table top surface.
-    """
-    try:
-        bottle = env.scene.object_registry("name", "water_bottle")
-        if bottle is None:
-            return
-
-        # The breakfast table is part of the base scene, so it may not be
-        # directly retrievable via a single exact object_registry query.
-        table = None
-        all_scene_objects = getattr(env.scene, "objects", None) or []
-        for obj in all_scene_objects:
-            name = (getattr(obj, "name", "") or "").lower()
-            cat = (getattr(obj, "category", "") or "").lower()
-            if "breakfast_table" in name or "breakfast_table" in cat:
-                table = obj
-                break
-        if table is None:
-            # Fall back to exact lookups as a last resort.
-            table = env.scene.object_registry("category", "breakfast_table")
-            if table is None:
-                table = env.scene.object_registry("name", "breakfast_table")
-        if table is None:
-            return
-
-        # Ensure AABBs are available.
-        for _ in range(5):
-            og.sim.step()
-
-        if not hasattr(table, "aabb") or table.aabb is None:
-            return
-        tmin, tmax = table.aabb
-
-        # Prefer placing near the table center.
-        xy = th.tensor(
-            [
-                (float(tmin[0]) + float(tmax[0])) * 0.5,
-                (float(tmin[1]) + float(tmax[1])) * 0.5,
-            ]
-        )
-
-        # Estimate object height from its AABB if available; otherwise use a small offset.
-        z_offset = 0.05
-        if hasattr(bottle, "aabb") and bottle.aabb is not None:
-            mmin, mmax = bottle.aabb
-            z_offset = max(0.02, 0.5 * float(mmax[2] - mmin[2])) + 0.002
-
-        pos = th.tensor(
-            [float(xy[0]), float(xy[1]), float(tmax[2]) + float(z_offset)],
-            dtype=th.float32,
-        )
-        bottle.set_position_orientation(
-            pos,
-            th.tensor([0.0, 0.0, 0.0, 1.0], dtype=th.float32),
-        )
-        try:
-            bottle.keep_still()
-        except Exception:
-            pass
-    except Exception:
-        return
-
-
-# ── Public entry point ──────────────────────────────────────────────────
-
+# ── Public entry point ───────────────────────────────────────────────────
 
 def get_task_config() -> TaskConfig:
-    """
-    Build a TaskConfig for nav_to_table that matches the older Tiago teleop
-    setup closely enough for use with scripts/teleop_b1k.py.
-    """
     return TaskConfig(
         task_name="nav_to_table",
-        # OG macros
         use_gpu_dynamics=True,
         enable_transition_rules=False,
-        # Scene: Tiago primitives-style indoor scene
         scene_config={
             "type": "InteractiveTraversableScene",
             "scene_model": "Rs_int",
             "include_robots": False,
             "load_object_categories": ["floors", "walls", "breakfast_table"],
         },
-        # Robot
         robot_name=ROBOT_NAME,
         robot_type=ROBOT_TYPE,
         robot_config={
@@ -221,32 +131,93 @@ def get_task_config() -> TaskConfig:
             },
             "exclude_sensor_names": ["left_eef_link", "right_eef_link"],
         },
-        # Objects
         task_objects=TASK_OBJECTS,
-        # Cameras
         viewer_camera_pos=VIEWER_CAMERA_POS,
         viewer_camera_orn=VIEWER_CAMERA_ORN,
         external_camera_configs=EXTERNAL_CAMERA_CONFIGS,
-        # Visualization: track only task objects (robot damage not the focus)
         target_objects_health_with_links=[
             "pedestal_table@base_link",
             "vase@base_link",
             "swivel_chair@base_link",
         ],
-        target_objects_health=[
-            "pedestal_table",
-            "vase",
-            "swivel_chair",
-        ],
+        target_objects_health=["pedestal_table", "vase", "swivel_chair"],
         target_objects_forces=[
             "pedestal_table@base_link",
             "vase@base_link",
             "swivel_chair@base_link",
         ],
         force_keys=["filtered_qs_forces", "impact_forces"],
-        # Default paths (Behavior1k-style layout)
         default_collect_hdf5="demos/behavior1k/teleop_data/nav_to_table.hdf5",
         default_playback_hdf5="demos/behavior1k/playback_data/nav_to_table_playback.hdf5",
         default_video_dir="demos/behavior1k/playback_videos/nav_to_table",
     )
 
+
+_BOTTLE_U_XY = 0.03
+_LIFT_Z = 0.1
+
+
+def reset(env):
+    """Snap the water bottle onto the breakfast_table top with light XY jitter."""
+    try:
+        bottle = env.scene.object_registry("name", "water_bottle")
+        if bottle is None:
+            return
+
+        # breakfast_table is part of the base scene; substring match handles instanced names.
+        table = None
+        for obj in getattr(env.scene, "objects", []) or []:
+            name = (getattr(obj, "name", "") or "").lower()
+            cat = (getattr(obj, "category", "") or "").lower()
+            if "breakfast_table" in name or "breakfast_table" in cat:
+                table = obj
+                break
+        if table is None:
+            table = (env.scene.object_registry("category", "breakfast_table")
+                     or env.scene.object_registry("name", "breakfast_table"))
+        if table is None:
+            return
+
+        for _ in range(5):
+            og.sim.step()
+
+        if not hasattr(table, "aabb") or table.aabb is None:
+            return
+        tmin, tmax = table.aabb
+
+        cx = (float(tmin[0]) + float(tmax[0])) * 0.5
+        cy = (float(tmin[1]) + float(tmax[1])) * 0.5
+
+        z_offset = 0.05
+        if hasattr(bottle, "aabb") and bottle.aabb is not None:
+            mmin, mmax = bottle.aabb
+            z_offset = max(0.02, 0.5 * float(mmax[2] - mmin[2])) + 0.002
+
+        pos = th.tensor(
+            [
+                cx + float(np.random.uniform(-_BOTTLE_U_XY, _BOTTLE_U_XY)),
+                cy + float(np.random.uniform(-_BOTTLE_U_XY, _BOTTLE_U_XY)),
+                float(tmax[2]) + float(z_offset),
+            ],
+            dtype=th.float32,
+        )
+        bottle.set_position_orientation(pos, th.tensor([0.0, 0.0, 0.0, 1.0], dtype=th.float32))
+        try:
+            bottle.keep_still()
+        except Exception:
+            pass
+        bottle_pos, _ = bottle.get_position_orientation()
+        env._nav_bottle_start_z = float(bottle_pos[2])
+    except Exception:
+        return
+
+
+def task_completion_check(env):
+    start_z = getattr(env, "_nav_bottle_start_z", None)
+    if start_z is None:
+        return False
+    bottle = env.scene.object_registry("name", "water_bottle")
+    if bottle is None:
+        return False
+    bottle_pos, _ = bottle.get_position_orientation()
+    return (float(bottle_pos[2]) - start_z) >= _LIFT_Z

@@ -67,6 +67,17 @@ PARAMS = {
         },
     },
 
+    # ── Egg (pick_egg, fragile vs impacts) ────────────────────────────────
+    "egg": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 1.0,
+            "qs_damage_sensitivity": 1.0,
+            "damage_threshold": 10.0,
+            "damage_scale": 0.5,
+        },
+    },
+
     # ── Robots (OG category = "agent") ──────────────────────────────────
     "agent": {
         # TODO: Add mechanical damage evaluator back, need to debug mech damage params
@@ -267,8 +278,8 @@ PARAMS = {
         "mechanical": {
             "impact_damage_sensitivity": 1.0,
             "qs_damage_sensitivity": 0.5,
-            "damage_threshold": 50.0,
-            "damage_scale": 1.0,
+            "damage_threshold": 40.0,
+            "damage_scale": 1.5,
         },
     },
     "bowl": {

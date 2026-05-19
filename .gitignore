@@ -17,3 +17,4 @@ build/
 demos/
 tmp/
 MUJOCO_LOG.TXT
+teleop_demos/*/nav_to_table_playback.hdf5

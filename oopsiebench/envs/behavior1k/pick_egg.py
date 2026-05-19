@@ -1,41 +1,42 @@
 """
 Task configuration for **pick_egg**.
 
-Scene matches the simple household tasks (e.g. `pour_water`, `wipe_counter`),
-but the interactive objects are intentionally minimal:
-- One Franka robot (`franka0`)
-- One egg on the table at the same pose used for the laptop/sponge in other tasks
+Scene : house_single_floor
+Robot : FrankaPanda (franka0)
 
-No dirt, no water, no extra particles.
+Keyboard teleop: ``T`` toggles gripper; ``Z`` / ``X`` nudge smooth gripper command.
 """
 
 from __future__ import annotations
 
+import numpy as np
 import omnigibson as og
 import omnigibson.lazy as lazy
 import torch as th
+from omnigibson.utils import transform_utils as T
 
 from oopsiebench.envs.behavior1k.base import TaskConfig
 
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaPanda"
 
-# BehaviorKB: `brkitw` corresponds to "egg".
+# ── Task objects ─────────────────────────────────────────────────────────
+
+# BehaviorKB: ``brkitw`` corresponds to "egg".
 TASK_OBJECTS = {
     "egg": {
         "type": "DatasetObject",
         "name": "egg",
         "category": "egg",
         "model": "brkitw",
-        # Place where `laptop` / `sponge` are positioned in other tasks.
         "position": [6.3, 0.2, 1.3],
         "orientation": [0.0, 0.0, 0.0, 1.0],
         "scale": [1.0, 1.0, 1.0],
-        # Must be movable so the robot can actually lift it.
-        # We'll still snap it onto the counter-top in `reset()`.
         "fixed_base": False,
     },
 }
+
+# ── Cameras ──────────────────────────────────────────────────────────────
 
 VIEWER_CAMERA_POS = [7.0659, -0.7141, 1.9185]
 VIEWER_CAMERA_ORN = [0.4850, 0.1528, 0.2586, 0.8213]
@@ -53,273 +54,140 @@ EXTERNAL_CAMERA_CONFIGS = {
     },
 }
 
-# Step size for Z / X incremental gripper (must match teleop `register_pick_egg_incremental_gripper_keys`).
-PICK_EGG_GRIPPER_INCREMENT = 0.06
+_U_XY = 0.03
+_U_YAW = 0.12
+_U_ARM = 0.07
+_LIFT_Z = 0.25
 
-# Allow the user to "squeeze past" full close. Values >1.0 don't push the
-# persistent gripper command lower (it saturates at -1.0); instead they scale
-# up the finger joint drive (stiffness + max_effort) so the gripper applies
-# more force the more you press Z.
-_PICK_EGG_MAX_CLOSE_LEVEL = 3.0
-_PICK_EGG_FORCE_SCALE_AT_MAX = 8.0
+# Smaller step ⇒ finer smooth-gripper nudges (KeyboardRobotController ``persistent_gripper_action``).
+GRIPPER_SMOOTH_STEP = 0.1
 
 
-def _pick_egg_gripper_component(action_generator):
-    comps = getattr(action_generator, "binary_grippers", None) or []
-    if len(comps) >= 1:
-        return comps[0]
-    return "gripper_0"
-
-
-def persistent_value_from_close_level(close_level: float) -> float:
-    """Map 0=fully open, 1=fully closed to KeyboardRobotController gripper command (-1..1).
-
-    Saturates at 1.0; any extra "squeeze" beyond is handled via finger drive scaling.
+def register_teleop_keys(env, kb, *, debug: bool = False) -> None:
     """
-    lvl = max(0.0, min(1.0, float(close_level)))
-    return 1.0 - 2.0 * lvl
+    Increment smooth gripper target: ``Z`` tighter, ``X`` looser. ``T`` remains the usual toggle.
 
-
-def _capture_finger_drive_baseline(env, robot) -> None:
-    """Cache baseline finger joint stiffness / max_effort once per session."""
-    if getattr(env, "_pick_egg_finger_drive_baseline", None):
-        return
-    if not (
-        hasattr(robot, "default_arm")
-        and hasattr(robot, "finger_joint_names")
-        and hasattr(robot, "joints")
-    ):
-        return
-    arm = robot.default_arm
-    baseline = {}
-    for jn in robot.finger_joint_names[arm]:
-        try:
-            joint = robot.joints[jn]
-            baseline[jn] = (float(joint.stiffness), float(joint.max_effort))
-        except Exception:
-            pass
-    env._pick_egg_finger_drive_baseline = baseline
-
-
-def _apply_finger_force_scale(env, robot, close_level: float) -> None:
-    """Scale finger drive proportionally to (close_level - 1.0); identity at <=1.0."""
-    baseline = getattr(env, "_pick_egg_finger_drive_baseline", None) or {}
-    if not baseline:
-        return
-    extra = max(0.0, float(close_level) - 1.0) / max(
-        1e-6, _PICK_EGG_MAX_CLOSE_LEVEL - 1.0
-    )
-    factor = 1.0 + extra * (_PICK_EGG_FORCE_SCALE_AT_MAX - 1.0)
-    for jn, (k0, e0) in baseline.items():
-        try:
-            joint = robot.joints[jn]
-            joint.stiffness = k0 * factor
-            joint.max_effort = e0 * factor
-        except Exception:
-            pass
-
-
-def sync_pick_egg_close_level_from_persistent(env, action_generator) -> None:
-    """Keep `_pick_egg_gripper_close_level` aligned after binary `T` toggles."""
-    if not getattr(env, "_pick_egg_incremental_gripper_registered", False):
-        return
-    comp = _pick_egg_gripper_component(action_generator)
-    persistent = float(action_generator.persistent_gripper_action[comp])
-    env._pick_egg_gripper_close_level = max(0.0, min(1.0, (1.0 - persistent) / 2.0))
-
-
-def sync_teleop_gripper_after_env_reset(env, action_generator) -> None:
-    """After pickle load + `reset()`, align smooth gripper command with physically open fingers."""
-    if not getattr(env, "_pick_egg_incremental_gripper_registered", False):
-        return
-    comp = _pick_egg_gripper_component(action_generator)
-    env._pick_egg_gripper_close_level = 0.0
-    action_generator.persistent_gripper_action[comp] = 1.0
-    action_generator.gripper_direction[comp] = 1.0
-
-
-def register_pick_egg_incremental_gripper_keys(env, action_generator, *, debug: bool = False) -> None:
-    """
-    Z / X adjust gripper open-ness via smooth gripper command (press + repeat from carb).
-    Stock `T` remains the binary open/close toggle (MultiFingerGripperController smooth, dim=1).
-
-    Call from teleop after `KeyboardRobotController` is constructed.
+    No-op unless ``kb`` is a ``KeyboardRobotController`` with smooth gripper maps.
     """
     if not getattr(env, "robots", None):
-        if debug:
-            print("[pick_egg] register incremental gripper: no robots")
         return
-    robot = env.robots[0]
-    env._pick_egg_incremental_gripper_registered = True
-    comp = _pick_egg_gripper_component(action_generator)
-    step = PICK_EGG_GRIPPER_INCREMENT
 
-    def _bump(delta: float) -> None:
-        if not getattr(env, "robots", None) or not env.robots or env.robots[0] is not robot:
-            return
-        if getattr(env, "scene", None) is None or env.scene.object_registry("name", "egg") is None:
-            return
-        _capture_finger_drive_baseline(env, robot)
-        lvl = float(getattr(env, "_pick_egg_gripper_close_level", 0.0))
-        lvl = max(0.0, min(_PICK_EGG_MAX_CLOSE_LEVEL, lvl + delta))
-        env._pick_egg_gripper_close_level = lvl
-        persistent = persistent_value_from_close_level(lvl)
-        action_generator.persistent_gripper_action[comp] = persistent
-        action_generator.gripper_direction[comp] = 1.0 if persistent >= 0.0 else -1.0
-        _apply_finger_force_scale(env, robot, lvl)
+    register = getattr(kb, "register_custom_keymapping", None)
+    persistent = getattr(kb, "persistent_gripper_action", None)
+    direction = getattr(kb, "gripper_direction", None)
+    if register is None or persistent is None or direction is None:
+        return
+
+    grippers = getattr(kb, "binary_grippers", None)
+    comp = grippers[0] if grippers else "gripper_0"
+    step = GRIPPER_SMOOTH_STEP
+
+    def bump(delta: float) -> None:
+        nxt = max(-1.0, min(1.0, float(persistent[comp]) + delta))
+        persistent[comp] = nxt
+        direction[comp] = 1.0 if nxt >= 0.0 else -1.0
         if debug:
-            print(
-                f"[pick_egg] gripper inc: close_level={lvl:.3f} persistent={persistent:.3f} "
-                f"comp={comp!r}"
-            )
+            print(f"[pick_egg] gripper cmd {comp}={nxt:.3f}")
 
-    action_generator.register_custom_keymapping(
+    register(
         key=lazy.carb.input.KeyboardInput.Z,
-        description="pick_egg: gripper close (more press = more force)",
-        callback_fn=lambda: _bump(step),
+        description="pick_egg: gripper tighter (smooth)",
+        callback_fn=lambda: bump(-step),
     )
-    action_generator.register_custom_keymapping(
+    register(
         key=lazy.carb.input.KeyboardInput.X,
-        description="pick_egg: gripper open",
-        callback_fn=lambda: _bump(-step),
+        description="pick_egg: gripper looser (smooth)",
+        callback_fn=lambda: bump(step),
     )
-    if debug:
-        print(
-            f"[pick_egg] Z=close (more force the more you press), X=open, T=binary toggle; "
-            f"binary_grippers={getattr(action_generator, 'binary_grippers', None)!r}"
+
+
+def _support_surface_top_z(env, obj) -> float:
+    obj_pos, _ = obj.get_position_orientation()
+    obj_pos = obj_pos if isinstance(obj_pos, th.Tensor) else th.tensor(obj_pos, dtype=th.float32)
+    target_z = float(obj_pos[2])
+
+    def _inside_xy(p, aabb_min, aabb_max):
+        return (
+            float(aabb_min[0]) <= float(p[0]) <= float(aabb_max[0])
+            and float(aabb_min[1]) <= float(p[1]) <= float(aabb_max[1])
         )
 
+    candidates = []
+    excluded = {obj.name}
+    for r in getattr(env, "robots", []) or []:
+        if hasattr(r, "name"):
+            excluded.add(r.name)
+    for scene_obj in getattr(env.scene, "objects", []) or []:
+        if scene_obj is None or getattr(scene_obj, "name", None) in excluded:
+            continue
+        if not hasattr(scene_obj, "aabb") or scene_obj.aabb is None:
+            continue
+        aabb_min, aabb_max = scene_obj.aabb
+        top_z = float(aabb_max[2])
+        if top_z >= target_z or not _inside_xy(obj_pos, aabb_min, aabb_max):
+            continue
+        candidates.append((target_z - top_z, top_z))
 
-# Generic hook used by scripts/teleop_b1k.py
-register_teleop_keys = register_pick_egg_incremental_gripper_keys
+    if not candidates:
+        raise RuntimeError("[pick_egg] no supporting surface found under egg")
+    candidates.sort(key=lambda x: x[0])
+    return candidates[0][1]
 
 
 def reset(env):
-    """
-    Predictable start: gripper open, egg snapped to counter. Z/X/T gripper is wired in teleop
-    via `register_pick_egg_incremental_gripper_keys`.
-    """
+    """Jitter robot pose/joints from current scene state (config or teleop pickle), then settle."""
     if not getattr(env, "robots", None):
         return
     robot = env.robots[0]
+    pos, orn = robot.get_position_orientation()
+    pos = pos.clone()
+    pos[0] += float(np.random.uniform(-_U_XY, _U_XY))
+    pos[1] += float(np.random.uniform(-_U_XY, _U_XY))
+    euler = T.quat2euler(orn).clone()
+    euler[2] = euler[2] + float(np.random.uniform(-_U_YAW, _U_YAW))
+    orn = T.euler2quat(euler)
+    robot.set_position_orientation(pos, orn)
 
-    if not (
-        hasattr(robot, "gripper_control_idx")
-        and hasattr(robot, "finger_joint_names")
-        and hasattr(robot, "joints")
-        and hasattr(robot, "default_arm")
-    ):
-        print("[pick_egg] warning: missing robot gripper fields; cannot open fingers on reset")
-    else:
-        arm = robot.default_arm
-        gripper_dof_idx = robot.gripper_control_idx[arm]
-        finger_joint_names = robot.finger_joint_names[arm]
+    q = robot.get_joint_positions().clone()
+    for arm_name in robot.arm_control_idx:
+        idx = robot.arm_control_idx[arm_name]
+        u = (th.rand(len(idx), device=q.device, dtype=q.dtype) * 2 - 1) * _U_ARM
+        q[idx] = q[idx] + u
+    robot.set_joint_positions(q)
+    robot.set_joint_velocities(th.zeros(robot.n_dof, device=q.device, dtype=q.dtype))
+    robot.keep_still()
 
-        open_qpos = []
-        for jn in finger_joint_names:
-            joint = robot.joints[jn]
-            lower = float(joint.lower_limit)
-            upper = float(joint.upper_limit)
-            open_qpos.append(max(lower, upper))
-
-        open_qpos_t = th.tensor(open_qpos, dtype=th.float32)
-        robot.set_joint_positions(open_qpos_t, indices=gripper_dof_idx, drive=False)
-        if hasattr(robot, "set_joint_velocities"):
-            robot.set_joint_velocities(th.zeros_like(open_qpos_t), indices=gripper_dof_idx, drive=False)
-
-        env._pick_egg_gripper_close_level = 0.0
-
-    # Lower the egg so it sits on the closest supporting surface under its (x, y).
-    egg = (
-        env.scene.object_registry("name", "egg")
-        if getattr(env, "scene", None) is not None
-        else None
-    )
-    if egg is None:
-        print("[pick_egg] warning: egg not found in scene; skipping egg placement")
-        for _ in range(5):
-            og.sim.step()
-        return
-
-    egg_pos, egg_orn = egg.get_position_orientation()
-    egg_pos_t = egg_pos if isinstance(egg_pos, th.Tensor) else th.tensor(egg_pos, dtype=th.float32)
-
-    # Compute egg min-z from AABB (most robust way to correct "floating" assets).
-    if not hasattr(egg, "aabb") or egg.aabb is None:
-        print("[pick_egg] warning: egg has no aabb; cannot snap to counter")
-        for _ in range(5):
-            og.sim.step()
-        return
-    egg_aabb_min, egg_aabb_max = egg.aabb
-    egg_min_z = float(egg_aabb_min[2])
-
-    egg_xy = egg_pos_t[:2]
-
-    def _xy_inside(p_xy: th.Tensor, aabb_min, aabb_max) -> bool:
-        return (
-            float(aabb_min[0]) <= float(p_xy[0]) <= float(aabb_max[0])
-            and float(aabb_min[1]) <= float(p_xy[1]) <= float(aabb_max[1])
-        )
-
-    target_surface = None
-    target_top_z = -1e9
-    excluded_names = {"egg"}
-    if hasattr(robot, "name"):
-        excluded_names.add(robot.name)
-
-    for obj in getattr(env.scene, "objects", []) or []:
-        if obj is None:
-            continue
-        name = getattr(obj, "name", None)
-        if name in excluded_names:
-            continue
-        if not hasattr(obj, "aabb") or obj.aabb is None:
-            continue
-        aabb_min, aabb_max = obj.aabb
-
-        # Candidate support surfaces must be below the egg (by their top-z).
-        top_z = float(aabb_max[2])
-        if top_z >= float(egg_pos_t[2]):
-            continue
-        # And must cover the egg's (x, y).
-        if not _xy_inside(egg_xy, aabb_min, aabb_max):
-            continue
-
-        # Pick the closest surface below the egg.
-        if top_z > target_top_z:
-            target_top_z = top_z
-            target_surface = obj
-
-    if target_surface is None:
-        print("[pick_egg] warning: no supporting surface found under egg; leaving z as-is")
-    else:
-        clearance = 0.005
-        desired_egg_min_z = target_top_z + clearance
-        dz = desired_egg_min_z - egg_min_z
-
-        new_pos = [float(egg_pos_t[0]), float(egg_pos_t[1]), float(egg_pos_t[2]) + dz]
-        egg.set_position_orientation(new_pos, egg_orn)
-        if hasattr(egg, "keep_still"):
-            egg.keep_still()
-        print(
-            f"[pick_egg] snapped egg: surface={target_surface.name} surface_top_z={target_top_z:.4f} "
-            f"egg_min_z={egg_min_z:.4f} dz={dz:.4f}"
-        )
-
-    # Let the sim settle briefly.
-    for _ in range(5):
+    for _ in range(10):
         og.sim.step()
+
+    egg = env.scene.object_registry("name", "egg")
+    if egg is not None:
+        try:
+            env._pick_egg_table_top_z = _support_surface_top_z(env, egg)
+        except RuntimeError:
+            env._pick_egg_table_top_z = None
+    else:
+        env._pick_egg_table_top_z = None
+
+
+def task_completion_check(env):
+    table_top_z = getattr(env, "_pick_egg_table_top_z", None)
+    if table_top_z is None:
+        return False
+    egg = env.scene.object_registry("name", "egg")
+    if egg is None:
+        return False
+    egg_pos, _ = egg.get_position_orientation()
+    return (float(egg_pos[2]) - table_top_z) >= _LIFT_Z
 
 
 def get_task_config() -> TaskConfig:
     return TaskConfig(
         task_name="pick_egg",
 
-        # OG macros
         use_gpu_dynamics=False,
         enable_transition_rules=False,
 
-        # Scene: same as `pour_water` / `wipe_counter`
         scene_config={
             "scene_model": "house_single_floor",
             "not_load_object_categories": ["ottoman"],
@@ -331,7 +199,6 @@ def get_task_config() -> TaskConfig:
             ],
         },
 
-        # Robot
         robot_name=ROBOT_NAME,
         robot_type=ROBOT_TYPE,
         robot_config={
@@ -339,7 +206,7 @@ def get_task_config() -> TaskConfig:
             "name": ROBOT_NAME,
             "position": [6.8, 0.2, 1.0],
             "orientation": [0.0, 0.0, 1.0, 0.0],
-            "grasping_mode": "physical",
+            "grasping_mode": "assisted",
             "obs_modalities": ["rgb", "depth", "proprio"],
             "action_normalize": False,
             "self_collisions": True,
@@ -351,26 +218,17 @@ def get_task_config() -> TaskConfig:
                 "gripper_0": {
                     "name": "MultiFingerGripperController",
                     "command_input_limits": (0.0, 1.0),
-                    # `smooth` + command_dim 1 => stock `T` binary toggle in KeyboardRobotController.
-                    # Z/X adjust the same smooth command via `persistent_gripper_action` (see teleop).
                     "mode": "smooth",
-                    "motor_type": "position",
-                    # Stronger squeeze than defaults (same gains as place_bowl reload_controllers).
-                    "isaac_kp": 30000.0,
-                    "isaac_kd": 15000.0,
                 },
             },
         },
 
-        # Objects
         task_objects=TASK_OBJECTS,
 
-        # Cameras
         viewer_camera_pos=VIEWER_CAMERA_POS,
         viewer_camera_orn=VIEWER_CAMERA_ORN,
         external_camera_configs=EXTERNAL_CAMERA_CONFIGS,
 
-        # Visualization: track robot + egg
         target_objects_health_with_links=[
             f"{ROBOT_NAME}@eef_link",
             f"{ROBOT_NAME}@panda_hand",
@@ -388,9 +246,7 @@ def get_task_config() -> TaskConfig:
         ],
         force_keys=["filtered_qs_forces", "impact_forces"],
 
-        # Default paths
         default_collect_hdf5="demos/behavior1k/teleop_data/pick_egg.hdf5",
         default_playback_hdf5="demos/behavior1k/playback_data/pick_egg_playback.hdf5",
         default_video_dir="demos/behavior1k/playback_videos/pick_egg",
     )
-

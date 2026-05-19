@@ -14,11 +14,13 @@ Usage:
         --collect_hdf5_path demos/behavior1k/teleop_data/shelve_item.hdf5 --n_episodes 5
 
 Keys:
-    TAB       — end current episode (resets env, starts next episode)
+    WASD / QE — fly the **viewer camera** (QE = down / up world Z)
+    TAB       — print ``og.sim.viewer_camera`` pose and ``breakpoint()``
+    K         — end current episode (reset & start next)
     ESC       — quit immediately (saves video + HDF5 if save_to_hdf5)
     BACKSPACE — discard current trajectory and start over (no save, no count)
-    R         — reset to initial state (mid-episode)
-    S         — save serialized state to init_states and breakpoint
+    R         — reset to initial state from pickle (mid-episode)
+    F         — save serialized state to init_states and breakpoint
 """
 
 from __future__ import annotations
@@ -105,7 +107,7 @@ def save_state_to_pkl(task_name: str):
     breakpoint()
 
 
-def load_state_from_pkl(env, task_name: str, task_module=None):
+def load_state_from_pkl(env, task_name: str, task_module=None, *, run_task_reset: bool = True):
     # Used by some task modules (e.g. wipe_counter) to decide whether to run
     # runtime-only setup after restoring a saved sim state.
     setattr(env, "_teleop_loaded_from_pkl", False)
@@ -136,7 +138,7 @@ def load_state_from_pkl(env, task_name: str, task_module=None):
     for _ in range(10):
         og.sim.step()
 
-    if task_module is not None and hasattr(task_module, "reset") and callable(task_module.reset):
+    if run_task_reset and task_module is not None and hasattr(task_module, "reset") and callable(task_module.reset):
         task_module.reset(env)
 
 
@@ -202,6 +204,56 @@ def capture_viewer_rgb():
     if frame.dtype != np.uint8:
         frame = (frame * 255).astype(np.uint8) if frame.max() <= 1.0 else frame.astype(np.uint8)
     return frame
+
+
+_VIEWER_CAM_STEP = 0.075
+
+
+def _quat_rotate_vec(q: th.Tensor, v: th.Tensor) -> th.Tensor:
+    """Rotate vector *v* by unit quaternion *q* (x, y, z, w)."""
+    qv = q[:3]
+    w = q[3]
+    uv = th.cross(qv, v)
+    uuv = th.cross(qv, uv)
+    return v + 2.0 * (w * uv + uuv)
+
+
+def viewer_camera_print_pose_and_break() -> None:
+    cam = og.sim.viewer_camera
+    pos, orn = cam.get_position_orientation()
+    pe = pos.flatten().tolist()[:3]
+    oe = orn.flatten().tolist()[:4]
+    print("[viewer_camera] position:", pe)
+    print("[viewer_camera] orientation (x,y,z,w):", oe)
+    breakpoint()
+
+
+def viewer_camera_nudge(forward: float, right: float, up_world: float) -> None:
+    """Translate viewer camera in its horizontal plane (+world Z via Q/E)."""
+    cam = og.sim.viewer_camera
+    pos, orn = cam.get_position_orientation()
+    pos = pos.flatten()[:3].to(dtype=th.float32)
+    orn = orn.flatten()[:4].to(dtype=th.float32)
+    look_local = th.tensor([0.0, 0.0, -1.0], dtype=th.float32)
+    fwd_w = _quat_rotate_vec(orn, look_local)
+    fwd_w = fwd_w.clone()
+    fwd_w[2] = 0.0
+    fn = fwd_w.norm()
+    if fn > 1e-6:
+        fwd_w = fwd_w / fn
+    else:
+        fwd_w = th.tensor([1.0, 0.0, 0.0], dtype=th.float32)
+    right_w = th.cross(th.tensor([0.0, 0.0, 1.0], dtype=th.float32), fwd_w)
+    rn = right_w.norm()
+    if rn > 1e-6:
+        right_w = right_w / rn
+    up_w = th.tensor([0.0, 0.0, 1.0], dtype=th.float32)
+    delta = (
+        fwd_w * float(forward) * _VIEWER_CAM_STEP
+        + right_w * float(right) * _VIEWER_CAM_STEP
+        + up_w * float(up_world) * _VIEWER_CAM_STEP
+    )
+    cam.set_position_orientation(position=pos + delta, orientation=orn)
 
 
 def save_video(teleop_frames, teleop_health_records, target_objects_for_overlay,
@@ -318,37 +370,58 @@ def parse_args():
 
 
 MAX_RESET_RETRIES = 5
+
+
 def reset_env(env, task_cfg, task_mod):
-    """
-    Reset the environment to the initial state.
-    """
+    """Reset to init pickle (or config), settle, and retry the full reload if robot health < 100."""
+    robot_name = task_cfg.robot_name
 
-    # Restore the saved init-state when available (falls back to env.reset()).
-    load_state_from_pkl(env, task_name=task_cfg.task_name, task_module=task_mod)
+    for attempt in range(MAX_RESET_RETRIES):
+        env._reset_settle_attempt = attempt
+        load_state_from_pkl(env, task_name=task_cfg.task_name, task_module=None)
+        if task_mod is not None and hasattr(task_mod, "reset") and callable(task_mod.reset):
+            task_mod.reset(env)
+        env._reset_damage_tracking()
+        for _ in range(5):
+            og.sim.step()
+        if hasattr(env, "_update_all_health"):
+            env._update_all_health()
+        if env.get_env_health().get(robot_name, 100.0) >= 100.0:
+            break
+        print(
+            f"[teleop] reset retry {attempt + 1}/{MAX_RESET_RETRIES}: "
+            f"{robot_name} health {env.get_env_health().get(robot_name, 0.0):.1f}"
+        )
+    else:
+        env._reset_settle_attempt = MAX_RESET_RETRIES
+        load_state_from_pkl(env, task_name=task_cfg.task_name, task_module=None)
+        if task_mod is not None and hasattr(task_mod, "reset") and callable(task_mod.reset):
+            task_mod.reset(env)
 
-    # Set the viewer camera position and orientation (after state restore).
+    env._reset_damage_tracking()
+    for _ in range(5):
+        og.sim.step()
+
     if task_cfg.viewer_camera_pos is not None and task_cfg.viewer_camera_orn is not None:
         og.sim.viewer_camera.set_position_orientation(
             position=th.tensor(task_cfg.viewer_camera_pos, dtype=th.float32),
             orientation=th.tensor(task_cfg.viewer_camera_orn, dtype=th.float32),
         )
 
-    env._reset_damage_tracking()
-    for _ in range(5): og.sim.step()
-    env_health = env.get_env_health()
-    damaged = {k: v for k, v in (env_health or {}).items() if v < 100.0}
+    damaged = {k: v for k, v in (env.get_env_health() or {}).items() if v < 100.0}
     if damaged:
-        print(f"health not clean: {damaged}")
+        print(f"[teleop] health not clean after reset: {damaged}")
 
 
 class TeleopWrapper:
     """
     Wrapper for the teleop system to control the teleop session and the robot controller.
     """
-    def __init__(self, env, robot, task_cfg, init_grasp=False, **kwargs):
+    def __init__(self, env, robot, task_cfg, task_mod, init_grasp=False, **kwargs):
         self.env = env
         self.robot = robot
         self.task_cfg = task_cfg
+        self.task_mod = task_mod
         self.init_grasp = init_grasp
         self.teleop_device = kwargs["teleop_device"]
         self.save_video = kwargs["save_video"]
@@ -367,7 +440,7 @@ class TeleopWrapper:
 
         # setup teleop interface
         self.teleop_interface = self.setup_teleop_interface()
-        # setup keyboard interface to control the teleop session
+        # Session keys + viewer WASD: same KeyboardRobotController as robot when using keyboard.
         self.keyboard_interface = self.setup_keyboard_interface()
 
 
@@ -414,45 +487,90 @@ class TeleopWrapper:
             self.env.current_traj_history = []
     
     def setup_keyboard_interface(self):
-        # This is only used for controlling the teleop session and not for the robot controller
-        keyboard_interface = KeyboardRobotController(robot=self.robot)
+        # Keyboard teleop: reuse the robot KeyboardRobotController so custom mappings fire each step.
+        # SpaceMouse: separate lightweight keyboard controller for session keys only.
+        if self.teleop_device == "keyboard":
+            keyboard_interface = self.teleop_interface
+        else:
+            keyboard_interface = KeyboardRobotController(robot=self.robot)
 
         def save_state_and_break():
             save_state_to_pkl(self.task_cfg.task_name)
-        
+
         def on_esc():
             QUIT_REQUESTED[0] = True
 
-        def on_tab():
+        def on_episode_done():
             EPISODE_DONE[0] = True
 
         def on_backspace():
             DISCARD_REQUESTED[0] = True
 
+        def do_reset():
+            reset_env(self.env, self.task_cfg, self.task_mod)
+
+        Ki = lazy.carb.input.KeyboardInput
+
         keyboard_interface.register_custom_keymapping(
-            key=lazy.carb.input.KeyboardInput.R,
+            key=Ki.R,
             description="Reset to initial state from pickle",
-            callback_fn=reset_env,
+            callback_fn=do_reset,
         )
         keyboard_interface.register_custom_keymapping(
-            key=lazy.carb.input.KeyboardInput.S,
+            key=Ki.F,
             description="Save serialized state to init_states and breakpoint",
             callback_fn=save_state_and_break,
         )
         keyboard_interface.register_custom_keymapping(
-            key=lazy.carb.input.KeyboardInput.ESCAPE,
+            key=Ki.ESCAPE,
             description="Quit immediately and save video",
             callback_fn=on_esc,
         )
         keyboard_interface.register_custom_keymapping(
-            key=lazy.carb.input.KeyboardInput.TAB,
-            description="End current episode (reset & start next)",
-            callback_fn=on_tab,
+            key=Ki.TAB,
+            description="Print viewer_camera pose and breakpoint",
+            callback_fn=viewer_camera_print_pose_and_break,
         )
         keyboard_interface.register_custom_keymapping(
-            key=lazy.carb.input.KeyboardInput.BACKSPACE,
+            key=Ki.K,
+            description="End current episode (reset & start next)",
+            callback_fn=on_episode_done,
+        )
+        keyboard_interface.register_custom_keymapping(
+            key=Ki.BACKSPACE,
             description="Discard current trajectory and start over (no save)",
             callback_fn=on_backspace,
+        )
+
+        keyboard_interface.register_custom_keymapping(
+            key=Ki.W,
+            description="Viewer camera forward",
+            callback_fn=lambda: viewer_camera_nudge(1.0, 0.0, 0.0),
+        )
+        keyboard_interface.register_custom_keymapping(
+            key=Ki.S,
+            description="Viewer camera back",
+            callback_fn=lambda: viewer_camera_nudge(-1.0, 0.0, 0.0),
+        )
+        keyboard_interface.register_custom_keymapping(
+            key=Ki.A,
+            description="Viewer camera left",
+            callback_fn=lambda: viewer_camera_nudge(0.0, -1.0, 0.0),
+        )
+        keyboard_interface.register_custom_keymapping(
+            key=Ki.D,
+            description="Viewer camera right",
+            callback_fn=lambda: viewer_camera_nudge(0.0, 1.0, 0.0),
+        )
+        keyboard_interface.register_custom_keymapping(
+            key=Ki.Q,
+            description="Viewer camera down (world)",
+            callback_fn=lambda: viewer_camera_nudge(0.0, 0.0, -1.0),
+        )
+        keyboard_interface.register_custom_keymapping(
+            key=Ki.E,
+            description="Viewer camera up (world)",
+            callback_fn=lambda: viewer_camera_nudge(0.0, 0.0, 1.0),
         )
         return keyboard_interface
     
@@ -570,12 +688,14 @@ def main():
                 _REPO_ROOT, "demos", "behavior1k", "teleop_data", f"{args.task_name}.hdf5"
             )
         os.makedirs(os.path.dirname(args.collect_hdf5_path) or ".", exist_ok=True)
+        transition_systems = getattr(task_mod, "TRANSITION_SYSTEMS", ())
         env = OGDamageableDataCollectionWrapper(
             env=base_env,
             output_path=args.collect_hdf5_path,
             only_successes=False,
-            save_video=args.save_video, 
-            save_obs_to_hdf5=args.save_obs_to_hdf5
+            save_video=args.save_video,
+            save_obs_to_hdf5=args.save_obs_to_hdf5,
+            transition_systems=transition_systems,
         )
     else:
         env = base_env
@@ -593,11 +713,12 @@ def main():
         env=env,
         robot=robot,
         task_cfg=task_cfg,
+        task_mod=task_mod,
         init_grasp=init_grasp,
         **vars(args),
-        )
+    )
 
-    # Optional task-specific teleop key bindings (e.g. pick_egg's Z/X incremental gripper).
+    # Optional task-specific teleop key bindings (if a task module defines ``register_teleop_keys``).
     if hasattr(task_mod, "register_teleop_keys") and callable(task_mod.register_teleop_keys):
         task_mod.register_teleop_keys(env, teleop_wrapper.teleop_interface)
 
@@ -612,7 +733,10 @@ def main():
     while completed_episodes < n_episodes:
         print("\n" + "="*80)
         print(f"[TELEOP] Running episode {completed_episodes + 1}/{n_episodes}…")
-        print("Press TAB to end an episode (and save if save_to_hdf5 is True), ESC to quit, BACKSPACE to discard and restart.")
+        print(
+            "WASD/QE — viewer camera · TAB — print viewer_camera pose & breakpoint · "
+            "K — end episode · ESC quit · BACKSPACE discard · R reset · F save init pickle"
+        )
         print("Press c to continue")
         print("="*80 + "\n")
         teleop_wrapper.reset_teleop_wrapper()
@@ -620,7 +744,11 @@ def main():
                 
         # Loop through steps of the current episode
         while True:
-            action = teleop_wrapper.get_action()
+            if teleop_wrapper.teleop_device == "keyboard":
+                action, _ = teleop_wrapper.teleop_interface.get_teleop_action()
+            else:
+                _, _ = teleop_wrapper.keyboard_interface.get_teleop_action()
+                action = teleop_wrapper.get_action()
             if QUIT_REQUESTED[0] or EPISODE_DONE[0] or DISCARD_REQUESTED[0]:
                 break
             obs, reward, terminated, truncated, info = env.step(action.clone())

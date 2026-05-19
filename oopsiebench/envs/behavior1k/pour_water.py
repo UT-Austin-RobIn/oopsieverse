@@ -21,6 +21,8 @@ from oopsiebench.envs.behavior1k.base import TaskConfig
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaPanda"
 
+TRANSITION_SYSTEMS = ("water",)
+
 TASK_OBJECTS = {
     "laptop": {
         "type": "DatasetObject",
