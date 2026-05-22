@@ -71,6 +71,7 @@ class DamageableEnvironment:
         self._health_ax = None
         self._health_bars_dict = None
         self._health_tracked_object_names: Optional[List[str]] = None
+        self._damage_color_manager = None
         self.health_list_link_names: List[str] = []
 
     # ── Config loading ──────────────────────────────────────────────────
