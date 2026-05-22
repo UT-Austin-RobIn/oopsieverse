@@ -300,6 +300,7 @@ class OGDamageableEnvironment(DamageableEnvironment, Environment):
 
     def enable_health_visualization(self):
         from damagesim.utils.visualization import setup_live_health_bars
+        from damagesim.omnigibson.damage_color import OGDamageColorManager
         objs = self.get_damageable_objects()
         if not objs:
             print("Warning: no damageable objects found.")
@@ -310,6 +311,8 @@ class OGDamageableEnvironment(DamageableEnvironment, Environment):
         try:
             self._health_fig, self._health_ax, self._health_bars_dict = setup_live_health_bars(names)
             self._health_tracked_object_names = names
+            self._damage_color_manager = OGDamageColorManager(self)
+            self._damage_color_manager.initialize_colors()
             self._health_visualization_enabled = True
             return True
         except Exception as e:
@@ -317,15 +320,12 @@ class OGDamageableEnvironment(DamageableEnvironment, Environment):
             return False
 
     def disable_health_visualization(self):
-        # Clear object highlights
-        if self._health_tracked_object_names is not None:
-            for obj_name in self._health_tracked_object_names:
-                try:
-                    obj = self.scene.object_registry("name", obj_name)
-                    if obj is not None:
-                        obj.highlighted = False
-                except Exception:
-                    pass
+        if self._damage_color_manager is not None:
+            try:
+                self._damage_color_manager.restore()
+            except Exception:
+                pass
+            self._damage_color_manager = None
         if self._health_fig is not None:
             try:
                 import matplotlib.pyplot as plt
@@ -364,14 +364,9 @@ class OGDamageableEnvironment(DamageableEnvironment, Environment):
             vals = [v for k, v in link_healths.items() if k.startswith(f"{obj_name}@")]
             current[obj_name] = min(vals) if vals else 100.0
 
-        # Live object coloring: tint objects red proportionally to damage
-        for obj_name in self._health_tracked_object_names:
+        if self._damage_color_manager is not None:
             try:
-                obj = self.scene.object_registry("name", obj_name)
-                if obj is not None:
-                    intensity = 10000 * (100.0 - current[obj_name]) / 100.0
-                    obj.set_highlight_properties(color=[255.0, 0.0, 0.0], intensity=intensity)
-                    obj.highlighted = True
+                self._damage_color_manager.update(current)
             except Exception:
                 pass
 

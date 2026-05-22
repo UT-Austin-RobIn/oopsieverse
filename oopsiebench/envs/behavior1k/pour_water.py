@@ -112,7 +112,7 @@ def reset(env):
         water_glass_pos, water_glass_orn = None, None
 
     laptop = env.scene.object_registry("name", "laptop")
-    coffee_cup = env.scene.object_registry("name", "coffee_cup_1")
+    coffee_cup = env.scene.object_registry("name", "coffee_cup")
 
     laptop_orig_pos, laptop_orig_orn = None, None
     cup_orig_pos, cup_orig_orn = None, None
@@ -219,9 +219,17 @@ def reset(env):
         robot.set_joint_velocities(th.zeros(robot.n_dof))
         robot.keep_still()
 
+    env._pour_water_cup = coffee_cup
+    env._pour_water_system = None
+
+    water_glass = env.scene.object_registry("name", "water_glass")
+    if water_glass is not None and water_glass_pos is not None:
+        water_glass.set_position_orientation(water_glass_pos, water_glass_orn)
+
     water_glass = env.scene.object_registry("name", "water_glass")
     if water_glass is not None:
         water_system = env.scene.get_system("water", force_init=True)
+        env._pour_water_system = water_system
         if Filled in water_glass.states:
             water_glass.states[Filled].set_value(water_system, True)
         glass_pos, _ = water_glass.get_position_orientation()
@@ -252,8 +260,6 @@ def reset(env):
     robot.set_position_orientation(robot_pos, robot_orn)
     robot.set_joint_positions(robot_joint_positions)
     robot.set_joint_velocities(th.zeros(robot.n_dof))
-    if water_glass is not None and water_glass_pos is not None:
-        water_glass.set_position_orientation(water_glass_pos, water_glass_orn)
 
     arm_controller = robot.controllers.get(f"arm_{robot.default_arm}")
     if arm_controller is not None:
@@ -268,13 +274,20 @@ def reset(env):
 
     robot.keep_still()
 
+
 def task_completion_check(env):
-    coffee_cup = env.scene.object_registry("name", "coffee_cup_1")
-    water_system = env.scene.get_system("water", force_init=True)
-    particles_in_coffee_cup = coffee_cup.states[object_states.ContainedParticles].get_value(system=water_system).n_in_volume
-    if particles_in_coffee_cup > 10:
-        return True
-    return False
+    coffee_cup = getattr(env, "_pour_water_cup", None)
+    water_system = getattr(env, "_pour_water_system", None)
+    if coffee_cup is None or water_system is None:
+        return False
+    if object_states.ContainedParticles not in coffee_cup.states:
+        return False
+    return (
+        coffee_cup.states[object_states.ContainedParticles]
+        .get_value(system=water_system)
+        .n_in_volume
+        > 10
+    )
 
 
 def get_task_config() -> TaskConfig:
