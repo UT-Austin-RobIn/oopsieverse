@@ -1,5 +1,5 @@
 """
-Pastry Display environment for oopsieverse.
+ServePastry environment for oopsieverse.
 
 Task: place the pastry onto the plate, then move the plate to the table mat.
 """
@@ -28,22 +28,20 @@ TABLE_MAT_COLOR = [0.06, 0.10, 0.30, 1.0]
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# PastryDisplay environment
+# ServePastry environment
 # ═══════════════════════════════════════════════════════════════════════
 
 
-class PastryDisplay(Kitchen):
+class ServePastry(Kitchen):
 
     def __init__(self, *args, **kwargs):
-        kwargs.pop("layout_ids", None)
-        kwargs.pop("style_ids", None)
-
-        self.table_mat = None
-        self._table_mat_pos = None
+        self.layout_id = LayoutType.LAYOUT010
+        self.style_id = StyleType.STYLE010
+        self.randomize_scene = False
 
         super().__init__(
-            layout_ids=LayoutType.LAYOUT010,
-            style_ids=StyleType.STYLE010,
+            layout_ids=self.layout_id,
+            style_ids=self.style_id,
             *args,
             **kwargs,
         )
@@ -155,6 +153,8 @@ class PastryDisplay(Kitchen):
             dict(
                 name="plate",
                 obj_groups=plate_4_path,
+                object_scale=[0.7, 0.7, 1.0],
+                graspable=True,
                 placement=dict(
                     fixture=self.dining_table,
                     size=(0, 0),
@@ -280,8 +280,8 @@ class PastryDisplay(Kitchen):
 # ═══════════════════════════════════════════════════════════════════════
 
 
-class DamageablePastryDisplay(RSDamageableEnvironment, PastryDisplay):
-    """PastryDisplay with damage tracking enabled."""
+class DamageableServePastry(RSDamageableEnvironment, ServePastry):
+    """ServePastry with damage tracking enabled."""
 
     def __init__(self, *args, **kwargs):
-        super().__init__(task_name="pastry_display", *args, **kwargs)
+        super().__init__(task_name="serve_pastry", *args, **kwargs)

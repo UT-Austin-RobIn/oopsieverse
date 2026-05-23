@@ -25,12 +25,12 @@ class PlacePlate(Kitchen):
     POST_SUCCESS_STEPS = 10
 
     def __init__(self, *args, **kwargs):
-        kwargs.pop("layout_ids", None)
-        kwargs.pop("style_ids", None)
-
+        self.layout_id = LayoutType.LAYOUT002
+        self.style_id = StyleType.STYLE004
+        self.randomize_scene = False
         super().__init__(
-            layout_ids=LayoutType.LAYOUT002,
-            style_ids=StyleType.STYLE004,
+            layout_ids=self.layout_id,
+            style_ids=self.style_id,
             *args,
             **kwargs,
         )
@@ -79,7 +79,7 @@ class PlacePlate(Kitchen):
                         ref=self.sink,
                         loc="left_right",
                     ),
-                    size=(0.40, 0.40),
+                    size=(0.50, 0.50),
                     pos=("ref", -0.7),
                     rotation=(-0.1, 0.1),
                 ),

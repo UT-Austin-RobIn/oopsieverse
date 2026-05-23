@@ -24,12 +24,12 @@ from damagesim.robosuite.damageable_env import RSDamageableEnvironment
 class PrepareBreakfast(Kitchen):
 
     def __init__(self, *args, **kwargs):
-        kwargs.pop("layout_ids", None)
-        kwargs.pop("style_ids", None)
-
+        self.randomize_scene = False
+        self.layout_id = LayoutType.LAYOUT010
+        self.style_id = StyleType.STYLE010
         super().__init__(
-            layout_ids=LayoutType.LAYOUT010,
-            style_ids=StyleType.STYLE010,
+            layout_ids=self.layout_id,
+            style_ids=self.style_id,
             *args,
             **kwargs,
         )
@@ -87,6 +87,7 @@ class PrepareBreakfast(Kitchen):
             dict(
                 name="tray",
                 obj_groups=tray_4_path,
+                object_scale=[0.7, 0.5, 1.0],
                 graspable=True,
                 placement=dict(
                     fixture=self.sink_counter,

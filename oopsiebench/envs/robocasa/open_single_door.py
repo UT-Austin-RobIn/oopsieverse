@@ -17,9 +17,10 @@ from damagesim.robosuite.damageable_env import RSDamageableEnvironment
 
 
 class OpenSingleDoor(Kitchen):
-    OPEN_SUCCESS_THRESHOLD = 0.90
+    OPEN_SUCCESS_THRESHOLD = 0.95
 
     def __init__(self, *args, **kwargs):
+        self.randomize_scene = True
         super().__init__(*args, **kwargs)
 
     def get_ep_meta(self):

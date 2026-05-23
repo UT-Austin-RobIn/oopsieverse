@@ -1,7 +1,7 @@
 """
-Open Drawer environment for oopsieverse.
+Close Drawer environment for oopsieverse.
 
-Task: open the drawer.
+Task: close the drawer (episode starts open).
 """
 
 import numpy as np
@@ -12,13 +12,21 @@ from robocasa.models.scenes.scene_registry import StyleType
 
 from damagesim.robosuite.damageable_env import RSDamageableEnvironment
 
+# Lateral clearance (m) from drawer half-width anchor: larger than OpenDrawer's
+# 0.3 so the robot base starts farther from the cabinet / open drawer volume.
+_CLOSE_DRAWER_SIDE_CLEARANCE = 0.3
+
+# Min distance (m) from right-arm eef site to drawer fixture body for success
+# (matches robocasa ``object_utils.gripper_fxtr_far`` default threshold).
+_GRIPPER_FXTR_FAR_TH = 0.75
+
 
 # ═══════════════════════════════════════════════════════════════════════
-# OpenDrawer environment
+# CloseDrawer environment
 # ═══════════════════════════════════════════════════════════════════════
 
 
-class OpenDrawer(Kitchen):
+class CloseDrawer(Kitchen):
 
     def __init__(self, drawer_id=FixtureType.TOP_DRAWER, *args, **kwargs):
         self.drawer_id = drawer_id
@@ -28,7 +36,7 @@ class OpenDrawer(Kitchen):
 
     def get_ep_meta(self):
         ep_meta = super().get_ep_meta()
-        ep_meta["lang"] = f"open the {self.drawer_side} drawer"
+        ep_meta["lang"] = f"close the {self.drawer_side} drawer"
         return ep_meta
 
     def _setup_kitchen_references(self):
@@ -38,15 +46,16 @@ class OpenDrawer(Kitchen):
 
     def _load_model(self, *args, **kwargs):
         super()._load_model(*args, **kwargs)
-        x_ofs = (self.drawer.width / 2) + 0.3
-        y_ofs = -0.23
+        side_clear = _CLOSE_DRAWER_SIDE_CLEARANCE
+        x_ofs = (self.drawer.width / 2) + side_clear
+        y_ofs = -0.50
         inits = []
 
         robot_base_pos_left, robot_base_ori_left = EnvUtils.compute_robot_base_placement_pose(
             self, ref_fixture=self.drawer, offset=(-x_ofs, y_ofs)
         )
         test_pos_left, _ = EnvUtils.compute_robot_base_placement_pose(
-            self, ref_fixture=self.drawer, offset=(-x_ofs - 0.3, y_ofs)
+            self, ref_fixture=self.drawer, offset=(-x_ofs - side_clear, y_ofs)
         )
 
         if not self._check_fxtr_contact(test_pos_left) and not self._check_sidewall_contact(test_pos_left):
@@ -56,7 +65,7 @@ class OpenDrawer(Kitchen):
             self, ref_fixture=self.drawer, offset=(x_ofs, y_ofs)
         )
         test_pos_right, _ = EnvUtils.compute_robot_base_placement_pose(
-            self, ref_fixture=self.drawer, offset=(x_ofs + 0.3, y_ofs)
+            self, ref_fixture=self.drawer, offset=(x_ofs + side_clear, y_ofs)
         )
 
         if not self._check_fxtr_contact(test_pos_right) and not self._check_sidewall_contact(test_pos_right):
@@ -76,12 +85,12 @@ class OpenDrawer(Kitchen):
         self.init_robot_base_ori_anchor = robot_base_ori
 
     def _setup_scene(self):
-        self.drawer.set_door_state(min=0.0, max=0.0, env=self)
+        self.drawer.set_door_state(min=0.95, max=1.0, env=self)
         super()._setup_scene()
 
     def _check_fxtr_contact(self, pos):
         for fxtr in self.fixtures.values():
-            if hasattr(fxtr, 'wall_side'):
+            if hasattr(fxtr, "wall_side"):
                 continue
             try:
                 if OU.point_in_fixture(point=pos, fixture=fxtr, only_2d=True):
@@ -92,7 +101,7 @@ class OpenDrawer(Kitchen):
 
     def _check_sidewall_contact(self, pos):
         for name, fxtr in self.fixtures.items():
-            if not hasattr(fxtr, 'wall_side'):
+            if not hasattr(fxtr, "wall_side"):
                 continue
             if fxtr.wall_side == "right" and pos[0] > fxtr.pos[0]:
                 return True
@@ -115,17 +124,24 @@ class OpenDrawer(Kitchen):
         try:
             door_state = self.drawer.get_door_state(env=self)
             avg_state = np.mean(list(door_state.values()))
-            return avg_state * 10.0
+            return 10.0 * (1.0 - avg_state)
         except Exception:
             return 0.0
 
     def _check_success(self):
-        door_state = self.drawer.get_door_state(env=self)
-        for joint_p in door_state.values():
-            if joint_p < 0.95:
+        try:
+            door_state = self.drawer.get_door_state(env=self)
+            for joint_p in door_state.values():
+                if joint_p > 0.05:
+                    return False
+            # Fixture: use gripper_fxtr_far (gripper_obj_far is for env.objects names).
+            if not OU.gripper_fxtr_far(
+                self, self.drawer.root_body, th=_GRIPPER_FXTR_FAR_TH
+            ):
                 return False
-        return True
-
+            return True
+        except Exception:
+            return False
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -133,8 +149,8 @@ class OpenDrawer(Kitchen):
 # ═══════════════════════════════════════════════════════════════════════
 
 
-class DamageableOpenDrawer(RSDamageableEnvironment, OpenDrawer):
-    """OpenDrawer with damage tracking enabled."""
+class DamageableCloseDrawer(RSDamageableEnvironment, CloseDrawer):
+    """CloseDrawer with damage tracking enabled."""
 
     def __init__(self, *args, **kwargs):
-        super().__init__(task_name="open_drawer", *args, **kwargs)
+        super().__init__(task_name="close_drawer", *args, **kwargs)

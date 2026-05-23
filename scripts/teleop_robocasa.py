@@ -38,6 +38,7 @@ from utils.io_utils import ContinuousGripperKeyboard, ContinuousGripperSpaceMous
 
 from envs.registry import EnvironmentRegistry
 from utils.misc_utils import process_traj_to_hdf5, flush_current_file
+from damagesim.robosuite.utils import apply_gripper_finger_geom_friction
 from damagesim.utils.visualization import render_health_bar_overlay, OBJ_NAME_DISPLAY_NAME_MAPPING
 
 
@@ -62,7 +63,7 @@ class DamageDataCollectionWrapper:
     def __init__(self, env, output_path, output_frequency=50,
                  save_cameras=False, camera_names=None,
                  camera_width=128, camera_height=128,
-                 save_health=False):
+                 save_health=False, teleop_visual_helper=True):
         self.env = env
         self.output_path = output_path
         self.output_frequency = output_frequency
@@ -72,6 +73,7 @@ class DamageDataCollectionWrapper:
         self.camera_height = camera_height
         self.save_health = save_health
         self.episode_count = 0
+        self.teleop_visual_helper = teleop_visual_helper
         self._model_xml = None
         self._ep_meta = None
         self._reset_episode_buffer()
@@ -97,13 +99,19 @@ class DamageDataCollectionWrapper:
 
         self._model_xml = self.env.sim.model.get_xml()
         self._ep_meta = self.env.get_ep_meta()
-        initial_state = self.env.sim.get_state().flatten()
-
-        self.env.set_ep_meta(self._ep_meta)
-        self.env.reset_from_xml_string(self._model_xml)
-        self.env.sim.reset()
-        self.env.sim.set_state_from_flattened(initial_state)
-        self.env.sim.forward()
+        
+        if not self.env.randomize_scene:
+            initial_state = self.env.sim.get_state().flatten()
+            self.env.set_ep_meta(self._ep_meta)
+            self.env.reset_from_xml_string(self._model_xml)
+            self.env.sim.reset()
+            self.env.sim.set_state_from_flattened(initial_state)
+            self.env.sim.forward()
+        
+        if self.teleop_visual_helper:
+            self.env.visualize({"env": True, "robots": True, "grippers": True})
+        else:
+            self.env.visualize({"env": True, "robots": True, "grippers": False})
 
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
@@ -653,7 +661,7 @@ def create_device(device_type, env, continuous_gripper=False):
         device = cls(env=env, pos_sensitivity=4.0, rot_sensitivity=4.0)
     elif device_type == "spacemouse":
         cls = ContinuousGripperSpaceMouse if continuous_gripper else SpaceMouse
-        device = cls(env=env, pos_sensitivity=2.0, rot_sensitivity=2.0)
+        device = cls(env=env, vendor_id=9583, product_id=50741, pos_sensitivity=2.0, rot_sensitivity=2.0)
     else:
         raise ValueError(f"Unknown device type: {device_type}")
     return ManualRecordingWrapper(device)
@@ -703,6 +711,24 @@ def collect_human_trajectory(
 
     env.reset()
 
+    # If we want to change the gripper friction, we can do it here.
+    # apply_gripper_finger_geom_friction(env.sim.model, slide=10.0)
+
+    # For debugging
+    # for _ in range(20):
+    #     env.reset()
+    #     zero_action = np.zeros(env.action_dim)
+    #     env.step(zero_action)
+    #     # obj = env.get_damageable_objects()[2]
+    #     # pos = np.array(env.sim.data.body_xpos[env.obj_body_id[obj.name]])
+    #     # bid = env.sim.model.body_name2id("robot0_link0")
+    #     # base_pos = env.sim.data.body_xpos[bid]
+    #     # robot = env.robots[0]
+    #     # arm = robot.arms[0]
+    #     # eef_pos = env.sim.data.site_xpos[robot.eef_site_id[arm]]
+    #     # print(eef_pos, env.sim.data.qpos[robot._ref_joint_pos_indexes])
+    #     breakpoint()
+
     if render:
         env.render()
 
@@ -745,15 +771,16 @@ def collect_human_trajectory(
         except Exception:
             pass
 
-    # ── Hide teleop visualization markers ──
-    for robot in env.robots:
-        for arm_name in robot.arms:
-            if robot.eef_site_id[arm_name] is not None:
-                env.sim.model.site_rgba[robot.eef_site_id[arm_name]] = np.array([0., 0., 0., 0.])
-            if robot.eef_cylinder_id[arm_name] is not None:
-                env.sim.model.site_rgba[robot.eef_cylinder_id[arm_name]] = np.array([0., 0., 0., 0.])
+    # # ── Hide teleop visualization markers ──
+    # for robot in env.robots:
+    #     for arm_name in robot.arms:
+    #         if robot.eef_site_id[arm_name] is not None:
+    #             env.sim.model.site_rgba[robot.eef_site_id[arm_name]] = np.array([0., 0., 0., 0.])
+    #         if robot.eef_cylinder_id[arm_name] is not None:
+    #             env.sim.model.site_rgba[robot.eef_cylinder_id[arm_name]] = np.array([0., 0., 0., 0.])
 
     print("Ready for teleoperation...")
+    breakpoint()
     while True:
         start = time.time()
 
@@ -883,7 +910,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
 
     parser.add_argument("--env", required=True, choices=EnvironmentRegistry.list_envs(), help="Environment to run")
     parser.add_argument("--device", default="keyboard", choices=["keyboard", "spacemouse"], help="Input device (default: keyboard)")
-    parser.add_argument("--output", help="Output HDF5 file path (default: resources/teleop_data/ENV_NAME.hdf5)")
+    parser.add_argument("--output", help="Output HDF5 file path (default: demos/robocasa/teleop_data/ENV_NAME.hdf5)")
     parser.add_argument("--n-episodes", type=int, default=15, help="Number of episodes to collect (default: 15)")
     parser.add_argument("--health-console", action="store_true", help="Enable console health status printing")
     parser.add_argument("--health-color", action="store_true", help="Enable damage color feedback (objects turn red when damaged)")
@@ -891,7 +918,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
     parser.add_argument("--health-hud", action="store_true", help="Enable live health bar HUD (OpenCV window)")
     parser.add_argument("--video", action="store_true", help="Record video (automatically enables --health-hud)")
     parser.add_argument("--video-fps", type=int, default=30, help="Video recording FPS (default: 30)")
-    parser.add_argument("--continuous-gripper", action="store_true", help="Use continuous gripper control (float [-1,1]) instead of binary open/close toggle")
+    parser.add_argument("--binary-gripper", action="store_true", help="Use binary gripper control (open/close toggle) instead of continuous control (float [-1,1])")
     parser.add_argument("--save-cameras", action="store_true", help="Store camera RGB frames in HDF5 (default: disabled)")
     parser.add_argument("--camera-width", type=int, default=128, help="Camera image width for saved frames (default: 128)")
     parser.add_argument("--camera-height", type=int, default=128, help="Camera image height for saved frames (default: 128)")
@@ -940,7 +967,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
     np.random.seed(seed)
 
     env_config = EnvironmentRegistry.get(args.env)
-    output_path = args.output or f"resources/teleop_data/{args.env}.hdf5"
+    output_path = args.output or f"demos/robocasa/teleop_data/{args.env}.hdf5"
 
     output_dir = os.path.dirname(output_path)
     if output_dir:
@@ -954,7 +981,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
     print(f"Robot       : {env_config.robot}")
     print(f"Output      : {output_path}")
     if args.video:
-        video_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "resources", "videos")
+        video_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "demos", "robocasa", "teleop_videos")
         print(f"Video       : {video_dir}")
     print(f"Display     : {'OpenCV HUD (with health bars)' if args.health_hud else 'MuJoCo Viewer'}")
     print(f"{'='*60}\n")
@@ -983,7 +1010,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
 
     video_dir = None
     if args.video:
-        video_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "resources", "videos")
+        video_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "demos", "robocasa", "teleop_videos")
         os.makedirs(video_dir, exist_ok=True)
 
     if args.health_hud or args.video:
@@ -1008,12 +1035,12 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
     )
     env.reset()  # Must call reset() before device.start_control() so robots are initialized
 
-    device = create_device(args.device, env, continuous_gripper=args.continuous_gripper)
+    device = create_device(args.device, env, continuous_gripper=not args.binary_gripper)
     device.start_control()
 
     console_freq = args.health_console_freq
 
-    print(f"Starting teleoperation with {args.device}" + (" (continuous gripper)" if args.continuous_gripper else ""))
+    print(f"Starting teleoperation with {args.device}" + (" (continuous gripper)" if not args.binary_gripper else ""))
     print("\nHealth Tracking:")
     if args.health_hud:
         print("  ✓ Live health bar HUD (OpenCV window)")
@@ -1033,7 +1060,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
         print("  Q          — quit (in HUD window)")
     else:
         print("  Ctrl+Q     — quit teleoperation")
-    if args.continuous_gripper and args.device == "keyboard":
+    if not args.binary_gripper and args.device == "keyboard":
         print("  -          — open gripper incrementally")
         print("  =          — close gripper incrementally")
         print("  spacebar   — toggle gripper fully open/closed")
@@ -1076,6 +1103,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
                 print(f"{'='*60}")
 
                 while True:
+                    breakpoint()
                     save_response = input("Save this episode to HDF5? (y/n): ").strip().lower()
                     if save_response in ('y', 'yes'):
                         env.flush_current_traj()

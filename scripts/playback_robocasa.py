@@ -11,9 +11,9 @@ Usage::
 
 Examples::
 
-    python scripts/playback_robocasa.py --input resources/teleop_data/ENV_NAME.hdf5 --output resources/playback_data/ENV_NAME.hdf5 --env ENV_NAME
-    python scripts/playback_robocasa.py --input resources/teleop_data/ENV_NAME.hdf5 --output resources/playback_data/ENV_NAME.hdf5 --env ENV_NAME --visualize
-    python scripts/playback_robocasa.py --input resources/teleop_data/ENV_NAME.hdf5 --output resources/playback_data/ENV_NAME.hdf5 --env ENV_NAME --metrics
+    python scripts/playback_robocasa.py --input demos/robocasa/teleop_data/ENV_NAME.hdf5 --output demos/robocasa/playback_data/ENV_NAME.hdf5 --env ENV_NAME
+    python scripts/playback_robocasa.py --input demos/robocasa/teleop_data/ENV_NAME.hdf5 --output demos/robocasa/playback_data/ENV_NAME.hdf5 --env ENV_NAME --visualize
+    python scripts/playback_robocasa.py --input demos/robocasa/teleop_data/ENV_NAME.hdf5 --output demos/robocasa/playback_data/ENV_NAME.hdf5 --env ENV_NAME --metrics
 """
 
 import os
@@ -48,7 +48,9 @@ from utils.misc_utils import (
 # ═══════════════════════════════════════════════════════════════════════
 
 
-DEFAULT_FORCE_KEYS = ["filtered_qs_forces"]
+# DEFAULT_FORCE_KEYS = ["filtered_qs_forces"]
+DEFAULT_FORCE_KEYS = ["impact_forces", "filtered_qs_forces"]
+DEFAULT_CAMERA_NAME = "robot0_agentview_right"
 
 
 def _to_str(value):
@@ -56,6 +58,26 @@ def _to_str(value):
         return value.decode("utf-8")
     return str(value)
 
+
+def merge_forces_over_objects(forces_by_link, specific_object_names=None):
+    forces_by_object = {}
+    for obj_link_name in forces_by_link.keys():
+        obj_name = obj_link_name.split("@", 1)[0]
+        link_name = obj_link_name.split("@", 1)[1]
+        if specific_object_names is not None and obj_name not in specific_object_names:
+            continue
+        if "Panda" in obj_name:
+            obj_name = obj_name + "_" + link_name.split("_", 1)[0]
+        
+        for fk, values in forces_by_link[obj_link_name].items():
+            if obj_name not in forces_by_object:
+                forces_by_object.setdefault(obj_name, {})
+            if fk not in forces_by_object[obj_name]:
+                forces_by_object[obj_name][fk] = values
+            else:
+                forces_by_object[obj_name][fk] = np.maximum(forces_by_object[obj_name][fk], values)
+
+    return forces_by_object, list(forces_by_object.keys())
 
 def derive_health_series(all_obj_healths, health_list_link_names):
     link_names = [_to_str(name) for name in health_list_link_names]
@@ -75,22 +97,6 @@ def derive_health_series(all_obj_healths, health_list_link_names):
             health_by_object[obj_name] = np.minimum(health_by_object[obj_name], values)
 
     return health_by_link, health_by_object, object_order
-
-
-def resolve_force_keys(damage_info_entries, target_objects_forces):
-    for damage_info in damage_info_entries:
-        for obj_link_name in target_objects_forces:
-            obj_name, link_name = obj_link_name.split("@", 1)
-            mechanical = (
-                damage_info.get(obj_name, {})
-                .get(link_name, {})
-                .get("mechanical", {})
-            )
-            if isinstance(mechanical, dict) and mechanical:
-                if "filtered_qs_forces" in mechanical:
-                    return ["filtered_qs_forces"]
-                return [next(iter(mechanical.keys()))]
-    return DEFAULT_FORCE_KEYS.copy()
 
 
 
@@ -207,7 +213,9 @@ def playback_episode(src_f, demo_name, env, playback_hdf5_file):
 
         if (i + 1) % 100 == 0:
             print(f"  {i + 1}/{num_actions} steps")
+            
 
+    print("Final reward: ", src_f[f"data/{demo_name}/rewards"][-1])
     flush_playback_traj(env, demo_name, traj_data, playback_hdf5_file)
     return traj_data
 
@@ -236,11 +244,12 @@ Examples:
     )
     parser.add_argument("--input", required=True, help="Path to collected (teleop) HDF5 file")
     parser.add_argument("--output", required=True, help="Path for playback (rendered) HDF5 output file")
-    parser.add_argument("--env", required=True, help="Environment name (e.g. pastry_display)")
+    parser.add_argument("--env", required=True, help="Environment name (e.g. serve_pastry)")
     parser.add_argument("--camera", default="all_cameras", help="Camera(s) to render (default: all_cameras)")
     parser.add_argument("--width", type=int, default=256, help="Frame width (default: 256)")
     parser.add_argument("--height", type=int, default=256, help="Frame height (default: 256)")
     parser.add_argument("--low-dim", action="store_true", help="Use low-dimensional observations")
+    parser.add_argument("--playback", action="store_true", help="Replay recorded HDF5.")
     parser.add_argument("--visualize", action="store_true", help="Render and save videos after playback")
     parser.add_argument("--metrics", action="store_true", help="Compute and print health metrics after playback")
     return parser
@@ -250,90 +259,93 @@ def main():
     parser = create_parser()
     args = parser.parse_args()
 
-    if not os.path.exists(args.input):
-        print(f"Error: Input HDF5 file not found: {args.input}")
-        print("\nUsage: python scripts/playback_robocasa.py --input <file> --output <file> --env <env>")
-        envs = EnvironmentRegistry.list_envs()
-        print(f"Available environments: {', '.join(envs)}")
-        return
+    if args.playback:
+        if not os.path.exists(args.input):
+            print(f"Error: Input HDF5 file not found: {args.input}")
+            print("\nUsage: python scripts/playback_robocasa.py --input <file> --output <file> --env <env>")
+            envs = EnvironmentRegistry.list_envs()
+            print(f"Available environments: {', '.join(envs)}")
+            return
 
-    try:
-        env_config = EnvironmentRegistry.get(args.env)
-    except Exception:
-        print(f"Error: Invalid environment name '{args.env}'")
-        print(f"Available environments: {', '.join(EnvironmentRegistry.list_envs())}")
-        return
+        try:
+            env_config = EnvironmentRegistry.get(args.env)
+        except Exception:
+            print(f"Error: Invalid environment name '{args.env}'")
+            print(f"Available environments: {', '.join(EnvironmentRegistry.list_envs())}")
+            return
 
-    if args.camera == "all_cameras":
-        camera_names = ["robot0_eye_in_hand", "robot0_agentview_left", "robot0_agentview_right"]
-    else:
-        camera_names = [args.camera]
+        if args.camera == "all_cameras":
+            camera_names = ["robot0_eye_in_hand", "robot0_agentview_left", "robot0_agentview_right"]
+        else:
+            camera_names = [args.camera]
 
-    print(f"\n{'='*60}")
-    print(f"oopsieverse Playback")
-    print(f"{'='*60}")
-    print(f"Input  : {args.input}")
-    print(f"Output : {args.output}")
-    print(f"Env    : {args.env}")
-    print(f"Cameras: {', '.join(camera_names)}")
-    print(f"Res    : {args.width}x{args.height}")
-    print(f"{'='*60}\n")
+        print(f"\n{'='*60}")
+        print(f"oopsieverse Playback")
+        print(f"{'='*60}")
+        print(f"Input  : {args.input}")
+        print(f"Output : {args.output}")
+        print(f"Env    : {args.env}")
+        print(f"Cameras: {', '.join(camera_names)}")
+        print(f"Res    : {args.width}x{args.height}")
+        print(f"{'='*60}\n")
 
-    output_dir = os.path.dirname(args.output)
-    if output_dir:
-        os.makedirs(output_dir, exist_ok=True)
+        output_dir = os.path.dirname(args.output)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
 
-    src_f = h5py.File(args.input, "r")
-    playback_hdf5_file = h5py.File(args.output, "w")
+        src_f = h5py.File(args.input, "r")
+        playback_hdf5_file = h5py.File(args.output, "w")
 
-    if "data" not in src_f:
-        print("No data found in input HDF5 file")
-        return
+        if "data" not in src_f:
+            print("No data found in input HDF5 file")
+            return
 
-    demos = list(src_f["data"].keys())
-    print(f"Found demos: {demos}\n")
+        demos = list(src_f["data"].keys())
+        print(f"Found demos: {demos}\n")
 
-    env = env_config.damageable_class(
-        robots=env_config.robot,
-        controller_configs=load_composite_controller_config(robot=env_config.robot),
-        translucent_robot=False,
-        has_renderer=False,
-        has_offscreen_renderer=True,
-        ignore_done=True,
-        use_camera_obs=True,
-        camera_names=camera_names,
-        camera_widths=args.width,
-        camera_heights=args.height,
-        camera_depths=False,
-        low_dim=args.low_dim,
-        control_freq=env_config.control_freq,
-    )
+        env = env_config.damageable_class(
+            robots=env_config.robot,
+            controller_configs=load_composite_controller_config(robot=env_config.robot),
+            translucent_robot=False,
+            has_renderer=True,
+            has_offscreen_renderer=True,
+            ignore_done=True,
+            use_camera_obs=True,
+            camera_names=camera_names,
+            camera_widths=args.width,
+            camera_heights=args.height,
+            camera_depths=False,
+            low_dim=args.low_dim,
+            control_freq=env_config.control_freq,
+        )
 
-    for demo_num, demo_name in enumerate(demos):
-        if f"data/{demo_name}/states" not in src_f:
-            print(f"Skipping {demo_name} — no states saved")
-            continue
-        if f"data/{demo_name}/actions" not in src_f:
-            print(f"Skipping {demo_name} — no actions saved")
-            continue
+        for demo_num, demo_name in enumerate(demos):
+            if f"data/{demo_name}/states" not in src_f:
+                print(f"Skipping {demo_name} — no states saved")
+                continue
+            if f"data/{demo_name}/actions" not in src_f:
+                print(f"Skipping {demo_name} — no actions saved")
+                continue
 
-        num_states = src_f[f"data/{demo_name}/states"].shape[0]
-        num_actions = src_f[f"data/{demo_name}/actions"].shape[0]
-        # Teleop saves one (state, action) pair per step, so num_states == num_actions.
-        # playback_episode handles this by skipping actions[0].
-        if num_states != num_actions:
-            print(f"Warning: {demo_name} has {num_states} states and {num_actions} actions (expected equal counts)")
+            num_states = src_f[f"data/{demo_name}/states"].shape[0]
+            num_actions = src_f[f"data/{demo_name}/actions"].shape[0]
+            # Teleop saves one (state, action) pair per step, so num_states == num_actions.
+            # playback_episode handles this by skipping actions[0].
+            if num_states != num_actions:
+                print(f"Warning: {demo_name} has {num_states} states and {num_actions} actions (expected equal counts)")
 
-        print(f"Playing back demo {demo_num + 1}/{len(demos)}: {demo_name}")
-        start_time = time.time()
-        playback_episode(src_f, demo_name, env, playback_hdf5_file)
-        print(f"  Done in {time.time() - start_time:.1f}s")
+            print(f"Playing back demo {demo_num + 1}/{len(demos)}: {demo_name}")
+            start_time = time.time()
+            playback_episode(src_f, demo_name, env, playback_hdf5_file)
+            print(f"  Done in {time.time() - start_time:.1f}s")
 
-    src_f.close()
+        src_f.close()
+        playback_hdf5_file.close()
+
 
     if args.visualize or args.metrics:
         f = h5py.File(args.output, "r")
-        output_video_dir = f"resources/videos/{os.path.splitext(os.path.basename(args.output))[0]}"
+        output_video_dir = f"demos/robocasa/playback_videos/{os.path.splitext(os.path.basename(args.output))[0]}"
         os.makedirs(output_video_dir, exist_ok=True)
 
         final_obj_healths = defaultdict(list)
@@ -359,7 +371,7 @@ def main():
                 json.loads(demo_group["info/damage_info"][i].decode("utf-8"))
                 for i in range(len(demo_group["info/damage_info"]))
             ]
-            force_keys = resolve_force_keys(damage_info_entries, target_objects_forces)
+            force_keys = DEFAULT_FORCE_KEYS.copy()
 
             if args.metrics:
                 current_env_health = 0.0
@@ -379,7 +391,7 @@ def main():
                 if not image_keys:
                     print(f"Skipping visualization for {demo_name} — no image observations found")
                     continue
-                preferred_image_key = f"{env_config.camera_name}_image"
+                preferred_image_key = f"{DEFAULT_CAMERA_NAME}_image"
                 image_key = preferred_image_key if preferred_image_key in image_keys else image_keys[0]
                 camera_name = image_key[:-6]
                 segmentation_key = f"{camera_name}_segmentation_class"
@@ -432,8 +444,11 @@ def main():
                             )
                             data[obj_name][fk].append(value)
 
+                # Merge forces over objects
+                forces_by_object, target_objects_forces = merge_forces_over_objects(data)
+
                 forces_video_path = os.path.join(output_video_dir, f"{demo_name}_forces_video.mp4")
-                save_rgb_force_video(output_video_path=forces_video_path, imgs=imgs, target_objects=target_objects_forces, data=data, forces_to_plot=force_keys)
+                save_rgb_force_video(output_video_path=forces_video_path, imgs=imgs, target_objects=target_objects_forces, data=forces_by_object, forces_to_plot=force_keys)
 
                 health_video_path = os.path.join(output_video_dir, f"{demo_name}_health_video.mp4")
                 save_rgb_health_video(
@@ -456,7 +471,6 @@ def main():
             print(f"  Overall env: avg final health = {np.mean(final_env_healths):.1f}%")
 
     print("\nPlayback complete.")
-    playback_hdf5_file.close()
 
 
 if __name__ == "__main__":

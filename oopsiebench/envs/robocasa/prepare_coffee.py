@@ -1,7 +1,8 @@
 """
 Prepare Coffee environment for oopsieverse.
 
-Task: pick the mug from the cabinet and place it under the coffee machine dispenser.
+Task: pick the mug from the cabinet, place it under the coffee machine dispenser,
+turn the machine on, and release the mug.
 """
 
 import os
@@ -23,6 +24,7 @@ class PrepareCoffee(Kitchen):
 
     def __init__(self, cab_id=FixtureType.CABINET, *args, **kwargs):
         self.cab_id = cab_id
+        self.randomize_scene = True
         super().__init__(*args, **kwargs)
 
     def _setup_kitchen_references(self):
@@ -34,7 +36,10 @@ class PrepareCoffee(Kitchen):
 
     def get_ep_meta(self):
         ep_meta = super().get_ep_meta()
-        ep_meta["lang"] = "Pick the mug from the cabinet and place it under the coffee machine dispenser."
+        ep_meta["lang"] = (
+            "Pick the mug from the cabinet, place it under the coffee machine dispenser, "
+            "press start to turn the machine on, then release the mug."
+        )
         return ep_meta
 
     def _load_model(self, *args, **kwargs):
@@ -83,8 +88,27 @@ class PrepareCoffee(Kitchen):
         return cfgs
 
     def _setup_scene(self):
+        # Keep the mug cabinet fully open: set before parent setup so the
+        # cabinet is open during scene assembly, then again in case the base
+        # class resets fixture doors.
+        self.cab.open_door(env=self, min=1.0, max=1.0)
         super()._setup_scene()
-        self.cab.set_door_state(min=0.90, max=1.0, env=self)
+        self.cab.open_door(env=self, min=1.0, max=1.0)
+        # Episode starts with the coffee machine off (must press start during the task).
+        if hasattr(self.coffee_machine, "_turned_on"):
+            self.coffee_machine._turned_on = False
+        try:
+            self.coffee_machine.update_state(self)
+        except Exception:
+            pass
+
+    def _ensure_mug_cabinet_stays_open(self):
+        """Re-open the cabinet if contacts or dynamics let the door drift closed."""
+        try:
+            if not self.cab.is_open(env=self, th=0.95):
+                self.cab.open_door(env=self, min=1.0, max=1.0)
+        except Exception:
+            pass
 
     # ── Task checks ────────────────────────────────────────────────────
 
@@ -93,9 +117,11 @@ class PrepareCoffee(Kitchen):
 
         mug_in_machine = self.coffee_machine.check_receptacle_placement_for_pouring(self, "mug")
         gripper_away = OU.gripper_obj_far(self, "mug")
+        coffee_on = self._coffee_machine_turned_on()
 
         info['mug_in_coffee_machine'] = mug_in_machine
         info['gripper_away'] = gripper_away
+        info['coffee_machine_on'] = coffee_on
         info['task_success'] = self._check_success()
 
         return reward, done, info
@@ -109,13 +135,23 @@ class PrepareCoffee(Kitchen):
         if OU.gripper_obj_far(self, "mug"):
             reward += 1.0
 
+        if self._coffee_machine_turned_on():
+            reward += 5.0
+
         return reward
+
+    def _coffee_machine_turned_on(self):
+        try:
+            return bool(self.coffee_machine.get_state().get("turned_on", False))
+        except Exception:
+            return False
 
     def _check_success(self):
         gripper_obj_far = OU.gripper_obj_far(self, "mug")
         contact_check = self.coffee_machine.check_receptacle_placement_for_pouring(self, "mug")
+        coffee_on = self._coffee_machine_turned_on()
 
-        return contact_check and gripper_obj_far
+        return contact_check and gripper_obj_far and coffee_on
 
 
 

@@ -1,5 +1,5 @@
 """
-Dirty Dishes environment for oopsieverse.
+Dishes to sink environment for oopsieverse.
 
 Task: place the bowl, cup, and plate into the sink, then turn on the faucet.
 """
@@ -16,26 +16,26 @@ from damagesim.robosuite.damageable_env import RSDamageableEnvironment
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# DirtyDishes environment
+# DishesToSink environment
 # ═══════════════════════════════════════════════════════════════════════
 
 
-class DirtyDishes(Kitchen):
+class DishesToSink(Kitchen):
 
     def __init__(self, *args, **kwargs):
-        kwargs.pop("layout_ids", None)
-        kwargs.pop("style_ids", None)
-
+        self.layout_id = LayoutType.LAYOUT002
+        self.style_id = StyleType.STYLE004
+        self.randomize_scene = False
         super().__init__(
-            layout_ids=LayoutType.LAYOUT002,
-            style_ids=StyleType.STYLE004,
+            layout_ids=self.layout_id,
+            style_ids=self.style_id,
             *args,
             **kwargs,
         )
 
     def get_ep_meta(self):
         ep_meta = super().get_ep_meta()
-        ep_meta["lang"] = "Place the bowl, cup, and plate into the sink, then turn on the faucet"
+        ep_meta["lang"] = "Place the bowl, cup, and plate into the sink"
         return ep_meta
 
     def _setup_kitchen_references(self):
@@ -79,13 +79,14 @@ class DirtyDishes(Kitchen):
         )
 
         cfgs = []
-        
+
         cfgs.append(
             dict(
                 name="bowl",
                 obj_groups=bowl_10_path,
                 graspable=True,
                 washable=True,
+                object_scale=[0.7, 0.7, 0.7],
                 placement=dict(
                     fixture=self.counter,
                     sample_region_kwargs=dict(
@@ -147,25 +148,16 @@ class DirtyDishes(Kitchen):
         except Exception:
             return False
 
-    def _check_faucet_on(self):
-        try:
-            handle_state = self.sink.get_handle_state(env=self)
-            return handle_state.get("water_on", False)
-        except Exception:
-            return False
-
     def _post_action(self, action):
         reward, done, info = super()._post_action(action)
 
         bowl_in_sink = self._check_dish_in_sink("bowl")
         cup_in_sink = self._check_dish_in_sink("cup")
         plate_in_sink = self._check_dish_in_sink("plate")
-        faucet_on = self._check_faucet_on()
 
         info["bowl_in_sink"] = bowl_in_sink
         info["cup_in_sink"] = cup_in_sink
         info["plate_in_sink"] = plate_in_sink
-        info["faucet_on"] = faucet_on
         info["all_dishes_in_sink"] = bowl_in_sink and cup_in_sink and plate_in_sink
         info["task_success"] = self._check_success()
 
@@ -194,9 +186,6 @@ class DirtyDishes(Kitchen):
                 self._check_dish_in_sink("plate")
             )
             if all_in_sink:
-                reward += 4.0
-
-            if all_in_sink and self._check_faucet_on():
                 reward += 10.0
 
             return reward
@@ -206,13 +195,12 @@ class DirtyDishes(Kitchen):
     def _check_success(self):
         """
         Check if the task is successful.
-        Success requires all dishes in sink, faucet on, and gripper far from all dishes.
+        Success requires all dishes in the sink and the gripper far from each dish.
         """
         try:
             bowl_in_sink = self._check_dish_in_sink("bowl")
             cup_in_sink = self._check_dish_in_sink("cup")
             plate_in_sink = self._check_dish_in_sink("plate")
-            faucet_on = self._check_faucet_on()
 
             gripper_bowl_far = OU.gripper_obj_far(self, obj_name="bowl")
             gripper_cup_far = OU.gripper_obj_far(self, obj_name="cup")
@@ -222,7 +210,6 @@ class DirtyDishes(Kitchen):
                 bowl_in_sink and
                 cup_in_sink and
                 plate_in_sink and
-                faucet_on and
                 gripper_bowl_far and
                 gripper_cup_far and
                 gripper_plate_far
@@ -231,14 +218,13 @@ class DirtyDishes(Kitchen):
             return False
 
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # Damageable variant
 # ═══════════════════════════════════════════════════════════════════════
 
 
-class DamageableDirtyDishes(RSDamageableEnvironment, DirtyDishes):
-    """DirtyDishes with damage tracking enabled."""
+class DamageableDishesToSink(RSDamageableEnvironment, DishesToSink):
+    """DishesToSink with damage tracking enabled."""
 
     def __init__(self, *args, **kwargs):
-        super().__init__(task_name="dirty_dishes", *args, **kwargs)
+        super().__init__(task_name="dishes_to_sink", *args, **kwargs)

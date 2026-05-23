@@ -33,8 +33,9 @@ DEFAULT_WIPE_CONFIG = {
 class WipeCounter(Kitchen):
 
     def __init__(self, wipe_config=None, *args, **kwargs):
-        kwargs.pop("layout_ids", None)
-        kwargs.pop("style_ids", None)
+        self.layout_id = LayoutType.LAYOUT002
+        self.style_id = StyleType.STYLE004
+        self.randomize_scene = False
 
         self.wipe_config = wipe_config if wipe_config is not None else DEFAULT_WIPE_CONFIG
         self.num_markers = self.wipe_config["num_markers"]
@@ -49,8 +50,8 @@ class WipeCounter(Kitchen):
         self._dirt_bounds = None
 
         super().__init__(
-            layout_ids=LayoutType.LAYOUT002,
-            style_ids=StyleType.STYLE004,
+            layout_ids=self.layout_id,
+            style_ids=self.style_id,
             *args,
             **kwargs,
         )

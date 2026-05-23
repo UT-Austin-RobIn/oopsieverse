@@ -22,6 +22,7 @@ class CounterToMicrowave(Kitchen):
     EXCLUDE_LAYOUTS = [8]
 
     def __init__(self, *args, **kwargs):
+        self.randomize_scene = True
         super().__init__(*args, **kwargs)
 
     def get_ep_meta(self):
