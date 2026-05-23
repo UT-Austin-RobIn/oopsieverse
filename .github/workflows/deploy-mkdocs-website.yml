@@ -10,6 +10,7 @@ on:
     paths:
       - "docs/**"
       - "mkdocs.yml"
+      - ".gitattributes"
       - ".github/workflows/deploy-mkdocs-website.yml"
   workflow_dispatch:
 
@@ -29,6 +30,7 @@ jobs:
         with:
           ref: main
           path: main
+          lfs: true
 
       - name: Set production site URL (subpath)
         id: site
@@ -42,7 +44,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install MkDocs
-        run: pip install "mkdocs-material>=9.5"
+        run: pip install "mkdocs-material>=9.5" "mkdocs-glightbox>=0.5.2"
 
       - name: Build MkDocs
         working-directory: main
