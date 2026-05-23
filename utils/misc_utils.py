@@ -214,7 +214,7 @@ def save_rgb_force_video(
     ax_force = fig.add_subplot(gs[0, 1])
     ax_force.set_title("Force History")
     ax_force.set_xlabel("Time (s)")
-    ax_force.set_ylabel("End-effector Force (N)")
+    ax_force.set_ylabel("Force (N)")
     ax_force.set_xlim(0, T / fps)
     ax_force.set_ylim(0, 500.0)
     ax_force.grid(True)
