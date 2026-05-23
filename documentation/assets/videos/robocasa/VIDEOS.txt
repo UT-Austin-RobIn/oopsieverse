@@ -1,0 +1,12 @@
+RoboCasa demo videos (Git LFS)
+==============================
+
+One MP4 per task, named after the task id:
+
+  docs/assets/videos/robocasa/<task_id>.mp4
+
+Examples: pick_egg.mp4, open_drawer.mp4, wipe_counter.mp4
+
+After clone:  git lfs install && git lfs pull
+
+The OopsieBench docs page links each row to these paths (GLightbox "Play" buttons).
