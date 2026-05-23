@@ -22,17 +22,20 @@ class TurnOnStove(Kitchen):
         self.knob_id = knob_id
         self.knob = None
         self.cookware_burner = None
+        self.randomize_scene = True
         super().__init__(*args, **kwargs)
 
     def get_ep_meta(self):
-        ep_meta = super().get_ep_meta()
-        knob_name = self.knob.replace('_', ' ') if self.knob else "stove"
-        ep_meta["lang"] = f"turn on the {knob_name} burner of the stove"
-        ep_meta["task_refs"] = dict(
-            knob=self.knob,
-            cookware_burner=self.cookware_burner,
-        )
-        return ep_meta
+        if not self.randomize_scene:    
+            ep_meta = super().get_ep_meta()
+            knob_name = self.knob.replace('_', ' ') if self.knob else "stove"
+            ep_meta["lang"] = f"turn on the {knob_name} burner of the stove"
+            ep_meta["task_refs"] = dict(
+                knob=self.knob,
+                cookware_burner=self.cookware_burner,
+            )
+            return ep_meta
+        return None
 
     def _setup_kitchen_references(self):
         super()._setup_kitchen_references()

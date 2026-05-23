@@ -55,19 +55,20 @@ class EnvironmentRegistry:
 
 _ROBOCASA_ENVS = [
     ("pick_egg", "pick_egg", "PickEgg", "DamageablePickEgg"),
-    ("pastry_display", "pastry_display", "PastryDisplay", "DamageablePastryDisplay"),
+    ("serve_pastry", "serve_pastry", "ServePastry", "DamageableServePastry"),
     ("open_single_door", "open_single_door", "OpenSingleDoor", "DamageableOpenSingleDoor"),
     ("turn_on_faucet", "turn_on_faucet", "TurnOnFaucet", "DamageableTurnOnFaucet"),
     ("turn_on_microwave", "turn_on_microwave", "TurnOnMicrowave", "DamageableTurnOnMicrowave"),
     ("turn_on_stove", "turn_on_stove", "TurnOnStove", "DamageableTurnOnStove"),
     ("open_drawer", "open_drawer", "OpenDrawer", "DamageableOpenDrawer"),
+    ("close_drawer", "close_drawer", "CloseDrawer", "DamageableCloseDrawer"),
     ("place_plate", "place_plate", "PlacePlate", "DamageablePlacePlate"),
     ("counter_to_microwave", "counter_to_microwave", "CounterToMicrowave", "DamageableCounterToMicrowave"),
     ("prepare_coffee", "prepare_coffee", "PrepareCoffee", "DamageablePrepareCoffee"),
     ("shelve_item", "shelve_item", "ShelveItem", "DamageableShelveItem"),
     ("prepare_breakfast", "prepare_breakfast", "PrepareBreakfast", "DamageablePrepareBreakfast"),
-    ("dirty_dishes", "dirty_dishes", "DirtyDishes", "DamageableDirtyDishes"),
-    ("nav_to_counter", "nav_to_counter", "NavToCounter", "DamageableNavToCounter"),
+    ("dishes_to_sink", "dishes_to_sink", "DishesToSink", "DamageableDishesToSink"),
+    ("nav_lift_bowl", "nav_lift_bowl", "NavLiftBowl", "DamageableNavLiftBowl"),
     ("wipe_counter", "wipe_counter", "WipeCounter", "DamageableWipeCounter"),
 ]
 

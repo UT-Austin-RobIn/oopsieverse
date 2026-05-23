@@ -111,6 +111,10 @@ class RSMechanicalDamageEvaluator(MechanicalDamageEvaluator):
         return contacts
 
     def _get_timestep(self) -> float:
+        # FIXME: This is temporary. The impact force values from finite differences method with the control frequency of 20
+        # seems to be very low. Need to investigate why.
+        return 0.005
+        
         cf = getattr(self.entity, "control_freq", None)
         if cf is not None:
             return 1.0 / cf

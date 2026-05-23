@@ -1,5 +1,5 @@
 """
-Nav To Counter environment for oopsieverse.
+Nav lift bowl environment for oopsieverse.
 
 Task: move around the stool and lift the bowl next to the stove.
 """
@@ -17,19 +17,20 @@ from damagesim.robosuite.damageable_env import RSDamageableEnvironment
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# NavToCounter environment
+# NavLiftBowl environment
 # ═══════════════════════════════════════════════════════════════════════
 
 
-class NavToCounter(Kitchen):
+class NavLiftBowl(Kitchen):
 
     def __init__(self, *args, **kwargs):
-        kwargs.pop("layout_ids", None)
+        self.layout_id = LayoutType.LAYOUT036
+        self.style_id = StyleType.STYLE004
         kwargs.pop("style_ids", None)
-
+        self.randomize_scene = False
         super().__init__(
-            layout_ids=LayoutType.LAYOUT036,
-            style_ids=StyleType.STYLE004,
+            layout_ids=self.layout_id,
+            style_ids=self.style_id,
             *args,
             **kwargs,
         )
@@ -64,10 +65,10 @@ class NavToCounter(Kitchen):
         self._robot_spawn_pos = pos
         self._robot_spawn_ori = ori
 
-        self._add_stool_obstacle()
+        self._add_stool()
 
-    def _add_stool_obstacle(self):
-        if "stool_obstacle" in self.fixtures:
+    def _add_stool(self):
+        if "stool" in self.fixtures:
             return
 
         robot_pos = self._robot_spawn_pos
@@ -78,12 +79,12 @@ class NavToCounter(Kitchen):
 
         self.stool = Stool(
             xml="objects/lightwheel/stool/Stool002",
-            name="stool_obstacle",
+            name="stool",
             pos=[stool_x, stool_y, stool_z],
             joints=[dict(type="free", damping="0.0005")],
         )
 
-        self.fixtures["stool_obstacle"] = self.stool
+        self.fixtures["stool"] = self.stool
         self.model.merge_objects([self.stool])
 
     def _get_obj_cfgs(self):
@@ -154,8 +155,8 @@ class NavToCounter(Kitchen):
 # ═══════════════════════════════════════════════════════════════════════
 
 
-class DamageableNavToCounter(RSDamageableEnvironment, NavToCounter):
-    """NavToCounter with damage tracking enabled."""
+class DamageableNavLiftBowl(RSDamageableEnvironment, NavLiftBowl):
+    """NavLiftBowl with damage tracking enabled."""
 
     def __init__(self, *args, **kwargs):
-        super().__init__(task_name="nav_to_counter", *args, **kwargs)
+        super().__init__(task_name="nav_lift_bowl", *args, **kwargs)

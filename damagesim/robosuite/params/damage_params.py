@@ -23,7 +23,7 @@ DAMAGEABLE_OBJECTS = {
         "categories": ["agent"],
         "names": ["egg"],
     },
-    "pastry_display": {
+    "serve_pastry": {
         "categories": ["agent"],
         "names": ["pastry", "plate"],
     },
@@ -47,6 +47,10 @@ DAMAGEABLE_OBJECTS = {
         "categories": ["agent", "drawer"],
         "names": [],
     },
+    "close_drawer": {
+        "categories": ["agent", "drawer"],
+        "names": [],
+    },
     "place_plate": {
         "categories": ["agent", "sink", "counter"],
         "names": ["plate"],
@@ -67,11 +71,11 @@ DAMAGEABLE_OBJECTS = {
         "categories": ["agent"],
         "names": ["tray", "mug", "egg"],
     },
-    "dirty_dishes": {
-        "categories": ["agent", "sink", "counter"],
+    "dishes_to_sink": {
+        "categories": ["agent"],
         "names": ["bowl", "cup", "plate"],
     },
-    "nav_to_counter": {
+    "nav_lift_bowl": {
         "categories": ["agent"],
         "names": ["stool_obstacle", "bowl"],
     },
@@ -153,10 +157,10 @@ OBJECT_PARAMS = {
         "friction": (0.95, 0.3, 0.1),
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 10.0,
-            "damage_scale": 1.0,
+            "damage_threshold": 60.0,
+            "damage_scale": 2.0,
             "impact_damage_sensitivity": 1.0,
-            "qs_damage_sensitivity": 0.5,
+            "qs_damage_sensitivity": 0.2,
         },
     },
     "sponge": {
@@ -201,9 +205,9 @@ OBJECT_PARAMS = {
         "friction": (0.95, 0.3, 0.1),
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 5.0,
-            "damage_scale": 1.5,
-            "impact_damage_sensitivity": 1.0,
+            "damage_threshold": 15.0,
+            "damage_scale": 1.0,
+            "impact_damage_sensitivity": 10.0,
             "qs_damage_sensitivity": 1.0,
         },
     },
@@ -213,10 +217,10 @@ OBJECT_PARAMS = {
         "friction": (0.7, 0.2, 0.1),
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 12.0,
+            "damage_threshold": 50.0,
             "damage_scale": 0.8,
             "impact_damage_sensitivity": 1.0,
-            "qs_damage_sensitivity": 0.5,
+            "qs_damage_sensitivity": 0.1,
         },
     },
     "bowl": {
@@ -225,22 +229,22 @@ OBJECT_PARAMS = {
         "friction": (0.7, 0.2, 0.1),
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 12.0,
+            "damage_threshold": 50.0,
             "damage_scale": 0.8,
             "impact_damage_sensitivity": 1.0,
-            "qs_damage_sensitivity": 0.2,
+            "qs_damage_sensitivity": 0.1,
         },
     },
     "mug": {
         "solimp": (0.998, 0.998, 0.001),
-        "solref": (0.001, 1),
+        "solref": (0.001, 1.0),
         "friction": (0.8, 0.3, 0.1),
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 12.0,
-            "damage_scale": 0.9,
+            "damage_threshold": 60.0,
+            "damage_scale": 2.0,
             "impact_damage_sensitivity": 1.0,
-            "qs_damage_sensitivity": 0.5,
+            "qs_damage_sensitivity": 0.2,
         },
     },
     "coffee_cup": {
@@ -249,10 +253,10 @@ OBJECT_PARAMS = {
         "friction": (0.7, 0.2, 0.1),
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 10.0,
-            "damage_scale": 1.0,
+            "damage_threshold": 60.0,
+            "damage_scale": 2.0,
             "impact_damage_sensitivity": 1.0,
-            "qs_damage_sensitivity": 0.5,
+            "qs_damage_sensitivity": 0.2,
         },
     },
     "banana": {
@@ -345,22 +349,22 @@ OBJECT_PARAMS = {
         "friction": (0.6, 0.3, 0.1),
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 9.0,
-            "damage_scale": 0.8,
-            "impact_damage_sensitivity": 1.0,
-            "qs_damage_sensitivity": 0.5,
+            "damage_threshold": 15.0,
+            "damage_scale": 2.0,
+            "impact_damage_sensitivity": 20.0,
+            "qs_damage_sensitivity": 1.0,
         },
     },
     "tray": {
         "solimp": (0.95, 0.98, 0.002),
         "solref": (0.004, 1),
-        "friction": (0.7, 0.3, 0.1),
+        "friction": (1.0, 0.3, 0.1),
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 125.0,
+            "damage_threshold": 300.0,
             "damage_scale": 0.3,
-            "impact_damage_sensitivity": 0.5,
-            "qs_damage_sensitivity": 0.5,
+            "impact_damage_sensitivity": 0.1,
+            "qs_damage_sensitivity": 0.1,
         },
     },
     "pastry": {
@@ -369,8 +373,8 @@ OBJECT_PARAMS = {
         "friction": (0.6, 0.3, 0.1),
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 17.0,
-            "damage_scale": 0.7,
+            "damage_threshold": 15.0,
+            "damage_scale": 5.0,
             "impact_damage_sensitivity": 1.0,
             "qs_damage_sensitivity": 1.0,
         },
@@ -466,28 +470,28 @@ OBJECT_PARAMS = {
     "cabinet": {
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 78.0,
-            "damage_scale": 0.08,
-            "impact_damage_sensitivity": 0.5,
-            "qs_damage_sensitivity": 0.5,
+            "damage_threshold": 500.0,
+            "damage_scale": 0.1,
+            "impact_damage_sensitivity": 0.01,
+            "qs_damage_sensitivity": 1.0,
         },
     },
     "drawer": {
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 60.0,
+            "damage_threshold": 500.0,
             "damage_scale": 0.1,
-            "impact_damage_sensitivity": 0.5,
-            "qs_damage_sensitivity": 0.5,
+            "impact_damage_sensitivity": 0.01,
+            "qs_damage_sensitivity": 1.0,
         },
     },
     "coffee_machine": {
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "damage_threshold": 88.0,
+            "damage_threshold": 300.0,
             "damage_scale": 0.06,
-            "impact_damage_sensitivity": 0.5,
-            "qs_damage_sensitivity": 0.5,
+            "impact_damage_sensitivity": 1.0,
+            "qs_damage_sensitivity": 1.0,
         },
     },
     "counter": {
@@ -533,6 +537,15 @@ OBJECT_PARAMS = {
             "damage_scale": 0.05,
             "impact_damage_sensitivity": 0.5,
             "qs_damage_sensitivity": 0.5,
+        },
+    },
+    "stool": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "damage_threshold": 1000.0,
+            "damage_scale": 0.1,
+            "impact_damage_sensitivity": 0.01,
+            "qs_damage_sensitivity": 0.01,
         },
     },
 }

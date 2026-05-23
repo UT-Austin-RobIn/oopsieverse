@@ -22,12 +22,13 @@ from damagesim.robosuite.damageable_env import RSDamageableEnvironment
 class PickEgg(Kitchen):
 
     def __init__(self, *args, **kwargs):
-        kwargs.pop("layout_ids", None)
-        kwargs.pop("style_ids", None)
+        self.layout_id = LayoutType.LAYOUT002
+        self.style_id = StyleType.STYLE004
+        self.randomize_scene = False
 
-        super().__init__(
-            layout_ids=LayoutType.LAYOUT002,
-            style_ids=StyleType.STYLE004,
+        super().__init__(   
+            layout_ids=self.layout_id,
+            style_ids=self.style_id,
             *args,
             **kwargs,
         )
@@ -65,7 +66,7 @@ class PickEgg(Kitchen):
                 placement=dict(
                     fixture=self.counter,
                     sample_region_kwargs=dict(ref=self.sink, loc="right"),
-                    size=(0.1,0.1),
+                    size=(0.2,0.2),
                     offset=(0, -0.50),
                     rotation=(-0.1, 0.1),
                 ),
