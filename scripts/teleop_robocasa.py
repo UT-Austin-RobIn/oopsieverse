@@ -10,9 +10,9 @@ Usage::
 
 Examples::
 
-    python scripts/teleop_robocasa.py --env pick_egg --device keyboard
-    python scripts/teleop_robocasa.py --env pick_egg --device spacemouse
-    python scripts/teleop_robocasa.py --env pick_egg --device keyboard --output my_data.hdf5
+    python scripts/teleop_robocasa.py --env ENV_NAME --device keyboard
+    python scripts/teleop_robocasa.py --env ENV_NAME --device spacemouse
+    python scripts/teleop_robocasa.py --env ENV_NAME --device keyboard --output my_data.hdf5
 """
 
 import os
@@ -38,6 +38,7 @@ from utils.io_utils import ContinuousGripperKeyboard, ContinuousGripperSpaceMous
 
 from envs.registry import EnvironmentRegistry
 from utils.misc_utils import process_traj_to_hdf5, flush_current_file
+from damagesim.robosuite.utils import apply_gripper_finger_geom_friction
 from damagesim.utils.visualization import render_health_bar_overlay, OBJ_NAME_DISPLAY_NAME_MAPPING
 
 
@@ -52,13 +53,27 @@ class DamageDataCollectionWrapper:
         env: The environment to wrap
         output_path: Path to HDF5 output file
         output_frequency: Show periodic output every N steps (default: 50, 0 to disable)
+        save_cameras: Store camera RGB frames in HDF5 (default: False)
+        camera_names: List of camera names to capture (used when save_cameras=True)
+        camera_width: Width of captured frames (default: 128)
+        camera_height: Height of captured frames (default: 128)
+        save_health: Store health obs and damage info in HDF5 (default: False)
     """
 
-    def __init__(self, env, output_path, output_frequency=50):
+    def __init__(self, env, output_path, output_frequency=50,
+                 save_cameras=False, camera_names=None,
+                 camera_width=128, camera_height=128,
+                 save_health=False, teleop_visual_helper=True):
         self.env = env
         self.output_path = output_path
         self.output_frequency = output_frequency
+        self.save_cameras = save_cameras
+        self.camera_names = camera_names or []
+        self.camera_width = camera_width
+        self.camera_height = camera_height
+        self.save_health = save_health
         self.episode_count = 0
+        self.teleop_visual_helper = teleop_visual_helper
         self._model_xml = None
         self._ep_meta = None
         self._reset_episode_buffer()
@@ -69,33 +84,58 @@ class DamageDataCollectionWrapper:
 
         self.output_hdf5_file = h5py.File(output_path, "w")
 
+        self._mj_renderer = None
+
     def _reset_episode_buffer(self):
         self.episode_data = []
 
     def reset(self):
         self._reset_episode_buffer()
         self.env.reset()
+        if self.save_cameras and self.camera_names and self._mj_renderer is None:
+            self._mj_renderer = mujoco.Renderer(
+                self.env.sim.model._model, height=self.camera_height, width=self.camera_width
+            )
 
         self._model_xml = self.env.sim.model.get_xml()
         self._ep_meta = self.env.get_ep_meta()
-        initial_state = self.env.sim.get_state().flatten()
-
-        self.env.set_ep_meta(self._ep_meta)
-        self.env.reset_from_xml_string(self._model_xml)
-        self.env.sim.reset()
-        self.env.sim.set_state_from_flattened(initial_state)
-        self.env.sim.forward()
+        
+        if not self.env.randomize_scene:
+            initial_state = self.env.sim.get_state().flatten()
+            self.env.set_ep_meta(self._ep_meta)
+            self.env.reset_from_xml_string(self._model_xml)
+            self.env.sim.reset()
+            self.env.sim.set_state_from_flattened(initial_state)
+            self.env.sim.forward()
+        
+        if self.teleop_visual_helper:
+            self.env.visualize({"env": True, "robots": True, "grippers": True})
+        else:
+            self.env.visualize({"env": True, "robots": True, "grippers": False})
 
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
 
+        save_obs = dict(obs)
+        save_info = dict(info)
+
+        if self.save_cameras and self._mj_renderer is not None:
+            for cam in self.camera_names:
+                self._mj_renderer.update_scene(self.env.sim.data._data, camera=cam)
+                frame = self._mj_renderer.render()  # (H, W, 3) uint8
+                save_obs[f"{cam}_image"] = frame
+
+        if not self.save_health:
+            save_obs = {k: v for k, v in save_obs.items() if k != "health"}
+            save_info = {k: v for k, v in save_info.items() if k not in ("damage_info", "obs_info")}
+
         step_data = {
-            "obs": obs,
+            "obs": save_obs,
             "states": self.env.sim.get_state().flatten(),
             "actions": action,
             "rewards": reward,
             "dones": done,
-            "info": info,
+            "info": save_info,
         }
         self.episode_data.append(step_data)
         return obs, reward, done, info
@@ -107,11 +147,12 @@ class DamageDataCollectionWrapper:
             nested_keys=nested_keys, output_hdf5=self.output_hdf5_file
         )
 
-        health_list = []
-        for obj in self.env.get_damageable_objects():
-            for link_name in obj.link_healths:
-                health_list.append(f"{obj.name}@{link_name}")
-        traj_grp.attrs["health_list_link_names"] = health_list
+        if self.save_health:
+            health_list = []
+            for obj in self.env.get_damageable_objects():
+                for link_name in obj.link_healths:
+                    health_list.append(f"{obj.name}@{link_name}")
+            traj_grp.attrs["health_list_link_names"] = health_list
 
         if self._model_xml is not None:
             traj_grp.attrs["model_file"] = self._model_xml
@@ -123,6 +164,8 @@ class DamageDataCollectionWrapper:
         self.episode_count += 1
 
     def shutdown(self):
+        if self._mj_renderer is not None:
+            self._mj_renderer.close()
         self.env.close()
 
     def __getattr__(self, name):
@@ -618,7 +661,7 @@ def create_device(device_type, env, continuous_gripper=False):
         device = cls(env=env, pos_sensitivity=4.0, rot_sensitivity=4.0)
     elif device_type == "spacemouse":
         cls = ContinuousGripperSpaceMouse if continuous_gripper else SpaceMouse
-        device = cls(env=env, pos_sensitivity=2.0, rot_sensitivity=2.0)
+        device = cls(env=env, vendor_id=9583, product_id=50741, pos_sensitivity=2.0, rot_sensitivity=2.0)
     else:
         raise ValueError(f"Unknown device type: {device_type}")
     return ManualRecordingWrapper(device)
@@ -668,6 +711,24 @@ def collect_human_trajectory(
 
     env.reset()
 
+    # If we want to change the gripper friction, we can do it here.
+    # apply_gripper_finger_geom_friction(env.sim.model, slide=10.0)
+
+    # For debugging
+    # for _ in range(20):
+    #     env.reset()
+    #     zero_action = np.zeros(env.action_dim)
+    #     env.step(zero_action)
+    #     # obj = env.get_damageable_objects()[2]
+    #     # pos = np.array(env.sim.data.body_xpos[env.obj_body_id[obj.name]])
+    #     # bid = env.sim.model.body_name2id("robot0_link0")
+    #     # base_pos = env.sim.data.body_xpos[bid]
+    #     # robot = env.robots[0]
+    #     # arm = robot.arms[0]
+    #     # eef_pos = env.sim.data.site_xpos[robot.eef_site_id[arm]]
+    #     # print(eef_pos, env.sim.data.qpos[robot._ref_joint_pos_indexes])
+    #     breakpoint()
+
     if render:
         env.render()
 
@@ -710,15 +771,16 @@ def collect_human_trajectory(
         except Exception:
             pass
 
-    # ── Hide teleop visualization markers ──
-    for robot in env.robots:
-        for arm_name in robot.arms:
-            if robot.eef_site_id[arm_name] is not None:
-                env.sim.model.site_rgba[robot.eef_site_id[arm_name]] = np.array([0., 0., 0., 0.])
-            if robot.eef_cylinder_id[arm_name] is not None:
-                env.sim.model.site_rgba[robot.eef_cylinder_id[arm_name]] = np.array([0., 0., 0., 0.])
+    # # ── Hide teleop visualization markers ──
+    # for robot in env.robots:
+    #     for arm_name in robot.arms:
+    #         if robot.eef_site_id[arm_name] is not None:
+    #             env.sim.model.site_rgba[robot.eef_site_id[arm_name]] = np.array([0., 0., 0., 0.])
+    #         if robot.eef_cylinder_id[arm_name] is not None:
+    #             env.sim.model.site_rgba[robot.eef_cylinder_id[arm_name]] = np.array([0., 0., 0., 0.])
 
     print("Ready for teleoperation...")
+    breakpoint()
     while True:
         start = time.time()
 
@@ -835,12 +897,12 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""
 Examples:
-  python scripts/teleop_robocasa.py --env pick_egg --device keyboard
-  python scripts/teleop_robocasa.py --env pick_egg --device spacemouse
-  python scripts/teleop_robocasa.py --env pick_egg --output my_data.hdf5
+  python scripts/teleop_robocasa.py --env ENV_NAME --device keyboard
+  python scripts/teleop_robocasa.py --env ENV_NAME --device spacemouse
+  python scripts/teleop_robocasa.py --env ENV_NAME --output my_data.hdf5
 
 After collecting data, run playback:
-  python scripts/playback_robocasa.py --input my_data.hdf5 --output my_data_rendered.hdf5 --env pick_egg
+  python scripts/playback_robocasa.py --input my_data.hdf5 --output my_data_rendered.hdf5 --env ENV_NAME
 
 Available environments: {', '.join(EnvironmentRegistry.list_envs())}
         """
@@ -848,7 +910,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
 
     parser.add_argument("--env", required=True, choices=EnvironmentRegistry.list_envs(), help="Environment to run")
     parser.add_argument("--device", default="keyboard", choices=["keyboard", "spacemouse"], help="Input device (default: keyboard)")
-    parser.add_argument("--output", help="Output HDF5 file path (default: resources/teleop_data/ENV_NAME.hdf5)")
+    parser.add_argument("--output", help="Output HDF5 file path (default: demos/robocasa/teleop_data/ENV_NAME.hdf5)")
     parser.add_argument("--n-episodes", type=int, default=15, help="Number of episodes to collect (default: 15)")
     parser.add_argument("--health-console", action="store_true", help="Enable console health status printing")
     parser.add_argument("--health-color", action="store_true", help="Enable damage color feedback (objects turn red when damaged)")
@@ -856,7 +918,11 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
     parser.add_argument("--health-hud", action="store_true", help="Enable live health bar HUD (OpenCV window)")
     parser.add_argument("--video", action="store_true", help="Record video (automatically enables --health-hud)")
     parser.add_argument("--video-fps", type=int, default=30, help="Video recording FPS (default: 30)")
-    parser.add_argument("--continuous-gripper", action="store_true", help="Use continuous gripper control (float [-1,1]) instead of binary open/close toggle")
+    parser.add_argument("--binary-gripper", action="store_true", help="Use binary gripper control (open/close toggle) instead of continuous control (float [-1,1])")
+    parser.add_argument("--save-cameras", action="store_true", help="Store camera RGB frames in HDF5 (default: disabled)")
+    parser.add_argument("--camera-width", type=int, default=128, help="Camera image width for saved frames (default: 128)")
+    parser.add_argument("--camera-height", type=int, default=128, help="Camera image height for saved frames (default: 128)")
+    parser.add_argument("--save-health", action="store_true", help="Store health observations and damage info in HDF5 (default: disabled)")
 
     args = parser.parse_args()
 
@@ -883,9 +949,9 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
     on_macos = platform.system() == "Darwin"
     if on_macos:
         using_mjpython = "MJPYTHON_BIN" in os.environ
-        if args.health_hud:
+        if args.health_hud or args.save_cameras:
             if using_mjpython:
-                print("Error: --health-hud (and --video) require regular python on macOS, not mjpython.")
+                print("Error: --health-hud and --save-cameras require regular python on macOS, not mjpython.")
                 print("  cv2.imshow needs the main thread, which mjpython gives to its run loop.")
                 print(f"  python scripts/teleop_robocasa.py {' '.join(sys.argv[1:])}")
                 sys.exit(1)
@@ -901,7 +967,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
     np.random.seed(seed)
 
     env_config = EnvironmentRegistry.get(args.env)
-    output_path = args.output or f"resources/teleop_data/{args.env}.hdf5"
+    output_path = args.output or f"demos/robocasa/teleop_data/{args.env}.hdf5"
 
     output_dir = os.path.dirname(output_path)
     if output_dir:
@@ -915,7 +981,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
     print(f"Robot       : {env_config.robot}")
     print(f"Output      : {output_path}")
     if args.video:
-        video_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "resources", "videos")
+        video_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "demos", "robocasa", "teleop_videos")
         print(f"Video       : {video_dir}")
     print(f"Display     : {'OpenCV HUD (with health bars)' if args.health_hud else 'MuJoCo Viewer'}")
     print(f"{'='*60}\n")
@@ -931,6 +997,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
         use_camera_obs=False,
         render_segmentation=False,
         control_freq=env_config.control_freq,
+        use_external_camera=args.save_cameras,
     )
     if not args.health_hud:
         env_kwargs["renderer"] = "mjviewer"
@@ -943,7 +1010,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
 
     video_dir = None
     if args.video:
-        video_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "resources", "videos")
+        video_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "demos", "robocasa", "teleop_videos")
         os.makedirs(video_dir, exist_ok=True)
 
     if args.health_hud or args.video:
@@ -957,15 +1024,23 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
             show_window=args.health_hud,
         )
 
-    env = DamageDataCollectionWrapper(env=env, output_path=output_path)
+    env = DamageDataCollectionWrapper(
+        env=env,
+        output_path=output_path,
+        save_cameras=args.save_cameras,
+        camera_names=[env_config.camera_name] if args.save_cameras else [],
+        camera_width=args.camera_width,
+        camera_height=args.camera_height,
+        save_health=args.save_health,
+    )
     env.reset()  # Must call reset() before device.start_control() so robots are initialized
 
-    device = create_device(args.device, env, continuous_gripper=args.continuous_gripper)
+    device = create_device(args.device, env, continuous_gripper=not args.binary_gripper)
     device.start_control()
 
     console_freq = args.health_console_freq
 
-    print(f"Starting teleoperation with {args.device}" + (" (continuous gripper)" if args.continuous_gripper else ""))
+    print(f"Starting teleoperation with {args.device}" + (" (continuous gripper)" if not args.binary_gripper else ""))
     print("\nHealth Tracking:")
     if args.health_hud:
         print("  ✓ Live health bar HUD (OpenCV window)")
@@ -985,7 +1060,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
         print("  Q          — quit (in HUD window)")
     else:
         print("  Ctrl+Q     — quit teleoperation")
-    if args.continuous_gripper and args.device == "keyboard":
+    if not args.binary_gripper and args.device == "keyboard":
         print("  -          — open gripper incrementally")
         print("  =          — close gripper incrementally")
         print("  spacebar   — toggle gripper fully open/closed")
@@ -1028,6 +1103,7 @@ Available environments: {', '.join(EnvironmentRegistry.list_envs())}
                 print(f"{'='*60}")
 
                 while True:
+                    breakpoint()
                     save_response = input("Save this episode to HDF5? (y/n): ").strip().lower()
                     if save_response in ('y', 'yes'):
                         env.flush_current_traj()
