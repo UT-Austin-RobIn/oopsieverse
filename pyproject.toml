@@ -25,3 +25,8 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
+
+[project.optional-dependencies]
+docs = [
+    "mkdocs-material>=9.5",
+]
