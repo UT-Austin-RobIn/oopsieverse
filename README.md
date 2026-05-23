@@ -17,6 +17,8 @@ pip install -e ".[docs]"
 mkdocs serve
 ```
 
+Demo videos linked from the docs are stored under `docs/assets/videos/` and tracked with **Git LFS**. After cloning, run `git lfs install` and `git lfs pull` so local `mkdocs serve` can open them.
+
 ### Installation Steps
 
 1. Clone and enter the repository:

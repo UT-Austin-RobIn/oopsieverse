@@ -8,6 +8,9 @@ site_url: !ENV [OOPSIE_DOCS_SITE_URL, http://127.0.0.1:8000/]
 repo_url: https://github.com/UT-Austin-RobIn/oopsieverse
 edit_uri: edit/main/docs/
 
+extra_css:
+  - stylesheets/extra.css
+
 theme:
   name: material
   palette:
@@ -35,6 +38,21 @@ theme:
 
 plugins:
   - search
+  - glightbox:
+      manual: true
+      touchNavigation: true
+      loop: false
+      effect: zoom
+      slide_effect: slide
+      width: 90vw
+      height: auto
+      zoomable: true
+      draggable: true
+      auto_caption: false
+      caption_position: bottom
+      background: Gainsboro
+      shadow: true
+      auto_themed: true
 
 markdown_extensions:
   - tables

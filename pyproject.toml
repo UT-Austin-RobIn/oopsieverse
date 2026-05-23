@@ -29,4 +29,5 @@ where = ["."]
 [project.optional-dependencies]
 docs = [
     "mkdocs-material>=9.5",
+    "mkdocs-glightbox>=0.5.2",
 ]
