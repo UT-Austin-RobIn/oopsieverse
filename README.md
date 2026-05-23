@@ -2,6 +2,21 @@
 
 OopsieVerse provides a damage-aware, simulator-agnostic framework and benchmark for evaluating and learning safer policies
 
+## Documentation
+
+The MkDocs handbook is merged into the `website` branch under **`documentation/`** when CI runs on `main`. On GitHub Pages (project site) it is typically served at:
+
+`https://<owner>.github.io/<repo>/documentation/`
+
+For example: [https://ut-austin-robin.github.io/oopsieverse/documentation/](https://ut-austin-robin.github.io/oopsieverse/documentation/)
+
+To edit and preview locally:
+
+```bash
+pip install -e ".[docs]"
+mkdocs serve
+```
+
 ### Installation Steps
 
 1. Clone and enter the repository:

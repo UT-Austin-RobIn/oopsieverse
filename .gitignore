@@ -17,3 +17,6 @@ build/
 demos/
 tmp/
 MUJOCO_LOG.TXT
+
+# MkDocs local build output
+site/

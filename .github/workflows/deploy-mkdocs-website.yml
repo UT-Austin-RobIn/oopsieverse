@@ -1,0 +1,76 @@
+# Build MkDocs from `main` and merge the static site into the `website` branch
+# under `documentation/`, preserving the existing marketing site at the branch root.
+# GitHub Pages should remain configured to publish from branch `website`.
+
+name: Deploy MkDocs to website branch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - ".github/workflows/deploy-mkdocs-website.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-mkdocs-website
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main (sources)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main
+
+      - name: Set production site URL (subpath)
+        id: site
+        run: |
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          REPO=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
+          echo "url=https://${OWNER}.github.io/${REPO}/documentation/" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install MkDocs
+        run: pip install "mkdocs-material>=9.5"
+
+      - name: Build MkDocs
+        working-directory: main
+        env:
+          OOPSIE_DOCS_SITE_URL: ${{ steps.site.outputs.url }}
+        run: mkdocs build --strict --site-dir "$GITHUB_WORKSPACE/mkdocs-out"
+
+      - name: Checkout website branch
+        uses: actions/checkout@v4
+        with:
+          ref: website
+          path: website
+
+      - name: Merge built docs into website/documentation
+        run: |
+          rm -rf website/documentation
+          mkdir -p website/documentation
+          cp -a "$GITHUB_WORKSPACE/mkdocs-out"/. website/documentation/
+
+      - name: Commit and push
+        working-directory: website
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add documentation
+          if git diff --staged --quiet; then
+            echo "No documentation changes to commit."
+            exit 0
+          fi
+          git commit -m "docs: refresh MkDocs site under documentation/"
+          git push origin HEAD:website
