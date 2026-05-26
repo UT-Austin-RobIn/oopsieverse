@@ -1,6 +1,84 @@
-/* RoboCasa task table: compact “Play” controls for GLightbox video links */
+/* Home page brand mark (below header nav logo) */
+.md-typeset img.docs-brand-logo {
+  display: block;
+  margin: 0.5rem auto 1.75rem auto;
+  max-height: clamp(140px, 22vw, 240px);
+  width: auto;
+}
+
+/* Navbar logo — Material lays out `.md-header__button` as a compact icon grid (~2.4rem),
+   which shrinks raster logos unless the `<img>/<svg>` is sized explicitly:
+   squidfunk.github.io/mkdocs-material/discussions/2933 */
+.md-header__button.md-logo {
+  margin-block: 0;
+  padding-block: 0;
+  padding-inline: 0.45rem;
+  height: auto;
+  width: auto;
+  flex-shrink: 0;
+}
+
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: clamp(3.75rem, 6vmin, 5.25rem);
+  width: auto;
+  max-width: min(38rem, 50vw);
+  display: block;
+}
+
+/* Sidebar / drawer (mobile) */
+.md-nav__button.md-logo {
+  margin-block: 0;
+  padding-block: 0.15rem;
+  height: auto;
+  width: auto;
+}
+
+.md-nav__button.md-logo img,
+.md-nav__button.md-logo svg {
+  height: clamp(3.25rem, 5vmin, 4.25rem);
+  width: auto;
+  display: block;
+}
+
+/* ── Right sidebar: table of contents (numbered headings) ───────────────── */
+/* Nested heading levels nest `<nav>` blocks; widen step + faint guide rail so depth reads cleanly. */
+.md-nav.md-nav--secondary .md-nav__link {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.md-nav.md-nav--secondary .md-nav__item > nav.md-nav {
+  margin-block: 0.15rem 0.45rem;
+  margin-inline-start: 0;
+  padding-inline-start: 0.95rem;
+  border-inline-start: 2px solid var(--md-default-fg-color--lightest, rgba(127, 127, 127, 0.25));
+}
+
+/* OopsieBench: MkDocs hook replaces missing MP4 anchors with this pattern */
+.md-typeset .oopsiebench-video-missing abbr {
+  color: var(--md-default-fg-color--lighter, #888);
+  font-size: 0.85em;
+  font-style: italic;
+  white-space: nowrap;
+  cursor: help;
+  text-decoration: dotted underline;
+  text-underline-offset: 0.12em;
+}
+
+/* OopsieBench tables: clearer header row + compact GLightbox buttons */
+.md-typeset table:not([class]) thead th {
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  vertical-align: bottom;
+}
+
 .md-typeset table .md-button {
   margin: 0;
   font-size: 0.75rem;
   padding: 0.35em 0.75em;
+}
+
+.md-typeset table td .md-button:not(:last-child) {
+  margin-right: 0.35em;
 }

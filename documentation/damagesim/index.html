@@ -19,7 +19,7 @@
         
       
       
-      <link rel="icon" href="../assets/images/favicon.png">
+      <link rel="icon" href="../assets/images/oopsieverse_logo.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
@@ -99,12 +99,13 @@
     
       
 
-<header class="md-header" data-md-component="header">
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href=".." title="OopsieVerse" class="md-header__button md-logo" aria-label="OopsieVerse" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg>
+  <img src="../assets/images/oopsieverse_logo.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -223,131 +224,6 @@
       
         
           
-            
-<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
-  <div class="md-grid">
-    <ul class="md-tabs__list">
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href=".." class="md-tabs__link">
-        
-  
-  
-    
-  
-  Home
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../install/" class="md-tabs__link">
-        
-  
-  
-    
-  
-  Install
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../quickstart/" class="md-tabs__link">
-        
-  
-  
-    
-  
-  Quickstart
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-    
-  
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="./" class="md-tabs__link">
-        
-  
-  
-    
-  
-  DamageSim
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../oopsiebench/" class="md-tabs__link">
-        
-  
-  
-    
-  
-  OopsieBench
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../troubleshooting/" class="md-tabs__link">
-        
-  
-  
-    
-  
-  Troubleshooting
-
-      </a>
-    </li>
-  
-
-      
-    </ul>
-  </div>
-</nav>
-          
         
       
       <main class="md-main" data-md-component="main">
@@ -361,15 +237,12 @@
                     
 
 
-  
 
-
-<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href=".." title="OopsieVerse" class="md-nav__button md-logo" aria-label="OopsieVerse" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg>
+  <img src="../assets/images/oopsieverse_logo.png" alt="logo">
 
     </a>
     OopsieVerse
@@ -537,10 +410,221 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
       
         <li class="md-nav__item">
-  <a href="#where-to-look-in-the-codebase" class="md-nav__link">
+  <a href="#mental-model" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Where to look in the codebase
+        Mental model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-to-look-core" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where to look (core)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-damageableenvironment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. DamageableEnvironment
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. DamageableEnvironment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_get_all_objects-abstract-in-spirit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _get_all_objects() (abstract in spirit)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#responsibilities-owned-by-core" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Responsibilities owned by core
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#who-gets-tracked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Who gets tracked?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-damageablemixin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. DamageableMixin
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. DamageableMixin">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#terminology" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Terminology
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluator-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Evaluator lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-damageevaluator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. DamageEvaluator
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. DamageEvaluator">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#families-in-core" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Families in core
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-augmented-step-health-health_list_link_names-damage_info" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Augmented step, health, health_list_link_names, damage_info
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Augmented step, health, health_list_link_names, damage_info">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#intended-order-of-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intended order of operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#obshealth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        obs["health"]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#health_list_link_names" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        health_list_link_names
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#damage_info" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        damage_info
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#packages-outside-this-pages-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Packages outside this page’s contract
       
     </span>
   </a>
@@ -636,10 +720,221 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
       
         <li class="md-nav__item">
-  <a href="#where-to-look-in-the-codebase" class="md-nav__link">
+  <a href="#mental-model" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Where to look in the codebase
+        Mental model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-to-look-core" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where to look (core)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-damageableenvironment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. DamageableEnvironment
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. DamageableEnvironment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_get_all_objects-abstract-in-spirit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _get_all_objects() (abstract in spirit)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#responsibilities-owned-by-core" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Responsibilities owned by core
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#who-gets-tracked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Who gets tracked?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-damageablemixin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. DamageableMixin
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. DamageableMixin">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#terminology" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Terminology
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluator-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Evaluator lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-damageevaluator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. DamageEvaluator
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. DamageEvaluator">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#families-in-core" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Families in core
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-augmented-step-health-health_list_link_names-damage_info" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Augmented step, health, health_list_link_names, damage_info
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Augmented step, health, health_list_link_names, damage_info">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#intended-order-of-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intended order of operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#obshealth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        obs["health"]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#health_list_link_names" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        health_list_link_names
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#damage_info" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        damage_info
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#packages-outside-this-pages-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Packages outside this page’s contract
       
     </span>
   </a>
@@ -667,30 +962,228 @@
 
 
 <h1 id="damagesim">DamageSim</h1>
-<p><strong>DamageSim</strong> is the damage-aware simulation layer used with <strong>robosuite / RoboCasa</strong> in this repository. It tracks contact-relevant properties and task-specific <strong>damageable objects</strong> so policies can be evaluated under realistic harm constraints—not only task success.</p>
-<h2 id="where-to-look-in-the-codebase">Where to look in the codebase</h2>
+<p><strong>DamageSim</strong> is defined in <strong><code>damagesim/core</code></strong>: a portable, physics-informed <strong>health</strong> signal built from generic simulator measurements (forces, motion, temperature-related signals, contact summaries, and similar). Shared abstractions let you plug in different simulators by subclassing the same environment and mixin hooks; this page documents only that <strong>core contract</strong>, not any one engine.</p>
+<div class="admonition info">
+<p class="admonition-title">Relationship to OopsieBench</p>
+<p><a href="../oopsiebench/">OopsieBench</a> wires these types into concrete task environments and scripts. For <strong>which</strong> tasks and <strong>how</strong> to run them, use that page.</p>
+</div>
+<hr>
+<h2 id="mental-model">Mental model</h2>
+<ol>
+<li>Entities in the scene participate as <strong><code>DamageableMixin</code></strong> instances (<strong>which</strong> parts track health and <strong>which</strong> evaluators run are configuration concerns).</li>
+<li>After each simulation step, <strong>damage evaluators</strong> read state attached to those entities and emit <strong>per-part nonnegative damage</strong>.</li>
+<li>Damage is subtracted from <strong>part health</strong>; the optional <strong><code>obs["health"]</code></strong> vector and <strong><code>info["damage_info"]</code></strong> tree are <strong>contracts</strong> implemented on top of <strong><code>DamageableEnvironment</code></strong> and <strong><code>DamageableMixin</code></strong> in core.</li>
+</ol>
+<p><strong><code>DamageableEnvironment</code></strong> is mixed with a <strong>simulator-native base environment</strong> (multiple inheritance). The base class in core does not import a specific simulator; subclasses implement <strong><code>_get_all_objects()</code></strong>, <strong><code>step</code>/<code>reset</code> orchestration</strong>, and <strong><code>_process_obs()</code></strong> as needed.</p>
+<hr>
+<h2 id="where-to-look-core">Where to look (core)</h2>
 <table>
 <thead>
 <tr>
-<th>Area</th>
+<th>Module</th>
 <th>Role</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a href="https://github.com/UT-Austin-RobIn/oopsieverse/blob/main/damagesim/robosuite/params/damage_params.py"><code>damagesim/robosuite/params/damage_params.py</code></a></td>
-<td>Per-task <strong>damageable object</strong> sets, contact parameters, and damage tuning keyed by environment / object names.</td>
+<td><a href="https://github.com/UT-Austin-RobIn/oopsieverse/blob/main/damagesim/core/damageable_env.py"><code>damagesim/core/damageable_env.py</code></a></td>
+<td><strong><code>DamageableEnvironment</code></strong>: tracking policy, <strong><code>reset</code></strong> / <strong><code>step</code></strong> helpers (<strong><code>_reset_damage_tracking</code></strong>, <strong><code>_update_all_health</code></strong>), <strong><code>health_list_link_names</code></strong>, <strong><code>_append_health_to_obs</code></strong>.</td>
 </tr>
 <tr>
-<td><a href="https://github.com/UT-Austin-RobIn/oopsieverse/tree/main/damagesim/robosuite/evaluators"><code>damagesim/robosuite/evaluators/</code></a></td>
-<td>Damage <strong>evaluators</strong> wired into simulation steps.</td>
+<td><a href="https://github.com/UT-Austin-RobIn/oopsieverse/blob/main/damagesim/core/damageable_mixin.py"><code>damagesim/core/damageable_mixin.py</code></a></td>
+<td><strong><code>DamageableMixin</code></strong>: <strong><code>link_healths</code></strong>, evaluator wiring, <strong><code>update_health</code></strong>, <strong><code>damage_info</code></strong>.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/UT-Austin-RobIn/oopsieverse/blob/main/damagesim/core/evaluators/base.py"><code>damagesim/core/evaluators/base.py</code></a></td>
+<td><strong><code>DamageEvaluator</code></strong> ABC.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/UT-Austin-RobIn/oopsieverse/blob/main/damagesim/core/evaluators/mechanical.py"><code>damagesim/core/evaluators/mechanical.py</code></a></td>
+<td>Mechanical damage math (impact + quasistatic contact); abstract hooks for simulator data.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/UT-Austin-RobIn/oopsieverse/blob/main/damagesim/core/evaluators/thermal.py"><code>damagesim/core/evaluators/thermal.py</code></a></td>
+<td>Thermal evaluator base.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/UT-Austin-RobIn/oopsieverse/blob/main/damagesim/core/evaluators/electrical.py"><code>damagesim/core/evaluators/electrical.py</code></a></td>
+<td>Electrical evaluator base.</td>
 </tr>
 </tbody>
 </table>
-<div class="admonition info">
-<p class="admonition-title">Relationship to OopsieBench</p>
-<p><a href="https://github.com/UT-Austin-RobIn/oopsieverse/tree/main/oopsiebench"><code>oopsiebench</code></a> environments pair standard task definitions with <strong>damageable</strong> subclasses that use this stack. See <a href="../oopsiebench/">OopsieBench</a> for the task catalog.</p>
-</div>
+<hr>
+<h2 id="1-damageableenvironment">1. <strong><code>DamageableEnvironment</code></strong></h2>
+<p><a href="https://github.com/UT-Austin-RobIn/oopsieverse/blob/main/damagesim/core/damageable_env.py"><strong><code>DamageableEnvironment</code></strong></a> is the simulator-agnostic environment side of the stack. A concrete simulator integration typically declares something of the shape:</p>
+<div class="highlight"><pre><span></span><code>class MyDamageableEnv(DamageableEnvironment, SimulatorBaseEnvironment):
+    ...
+</code></pre></div>
+<p>The <strong>simulator-specific</strong> parent must still provide the real <strong><code>reset</code></strong>, <strong><code>step</code></strong>, and physics; <strong><code>DamageableEnvironment</code></strong> supplies reusable damage bookkeeping and observation helpers Subclasses extend.</p>
+<h3 id="_get_all_objects-abstract-in-spirit"><strong><code>_get_all_objects()</code></strong> (abstract in spirit)</h3>
+<p>Core logic iterates <strong><code>self._get_all_objects()</code></strong>, which subclasses <strong>must implement</strong> to return scene entities that may carry <strong><code>DamageableMixin</code></strong> (objects, robots, fixtures, etc.). The core module never enumerates simulator types itself.</p>
+<h3 id="responsibilities-owned-by-core">Responsibilities owned by core</h3>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Behavior in core</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Flags</strong></td>
+<td><strong><code>damage_config</code></strong> (e.g. <strong><code>enable_damage</code></strong>, <strong><code>track_robot_damage</code></strong>) and <strong><code>lock_health</code></strong> to freeze health updates without removing wrappers.</td>
+</tr>
+<tr>
+<td><strong>Tracking YAML / dict</strong></td>
+<td><strong><code>damage_trackable_objects_config</code></strong> is a dict (often loaded by the subclass constructor). <strong><code>_load_damage_trackable_objects_config()</code></strong> defaults to <strong><code>{}</code></strong>; subclasses may override where that file lives.</td>
+</tr>
+<tr>
+<td><strong><code>initialize_damageable_objects()</code></strong></td>
+<td>For each <strong><code>DamageableMixin</code></strong> from <strong><code>_get_all_objects()</code></strong>, sets <strong><code>track_damage</code></strong>, invokes <strong><code>set_damageable_links_and_params()</code></strong>, <strong><code>initialize_health()</code></strong>, and evaluator setup according to allowlist/denylist rules below.</td>
+</tr>
+<tr>
+<td><strong><code>_reset_damage_tracking()</code></strong></td>
+<td>On reset: evaluator <strong><code>reset_tracking</code></strong>, re-initialize health, rebuild <strong><code>health_list_link_names</code></strong> (<strong><code>_build_health_list</code></strong>).</td>
+</tr>
+<tr>
+<td><strong><code>_initialize_all_evaluators()</code></strong></td>
+<td>Lazily constructs evaluators on first step if needed.</td>
+</tr>
+<tr>
+<td><strong><code>_update_all_health()</code></strong></td>
+<td>Runs <strong><code>update_health()</code></strong> on every tracked mixin; returns <strong><code>{ object_name: object.damage_info }</code></strong> (used as <strong><code>info["damage_info"]</code></strong> in typical subclasses).</td>
+</tr>
+<tr>
+<td><strong><code>_append_health_to_obs(obs)</code></strong></td>
+<td>Concatenates per-link health values into <strong><code>obs["health"]</code></strong>.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Discovery / class replacement</strong> (swapping primitive objects for damageable subclasses, attaching default <strong><code>damage_params</code></strong>, etc.) is <strong>not</strong> in core—it lives in simulator packages that subclass <strong><code>DamageableEnvironment</code></strong>.</p>
+<h3 id="who-gets-tracked">Who gets tracked?</h3>
+<p><strong><code>initialize_damageable_objects</code></strong> interprets <strong><code>damage_trackable_objects_config</code></strong> using <strong><code>task_name</code></strong> (from <strong><code>self.task_name</code></strong> or <strong><code>self._task_name</code></strong>):</p>
+<ol>
+<li><strong>Task-specific key (allowlist)</strong> — For any key other than <strong><code>"default"</code></strong> that matches <strong><code>task_name</code></strong>, an object is tracked if its <strong><code>category</code></strong> or <strong><code>name</code></strong> appears in configured sets (with substring matching between names and categories). The sentinel category <strong><code>"agent"</code></strong> can mark the controlling robot (<strong><code>_is_robot</code></strong> heuristic in core).</li>
+<li><strong><code>"default"</code> (denylist)</strong> — Under the <strong><code>default</code></strong> entry, every <strong><code>DamageableMixin</code></strong> is tracked <strong>except</strong> categories listed in <strong><code>skip_categories</code></strong>.</li>
+</ol>
+<p>If the config dict is empty or missing keys, nothing in core invents new rules: the subclass decides what <strong><code>task_name</code></strong> and merged config are before <strong><code>initialize_damageable_objects()</code></strong> runs.</p>
+<hr>
+<h2 id="2-damageablemixin">2. <strong><code>DamageableMixin</code></strong></h2>
+<p><a href="https://github.com/UT-Austin-RobIn/oopsieverse/blob/main/damagesim/core/damageable_mixin.py"><strong><code>DamageableMixin</code></strong></a> adds <strong>per-entity</strong> health and evaluator state. It is meant to be composed with a simulator’s native object/robot class via multiple inheritance; the mixin should appear <strong>before</strong> that base in the MRO so cooperative <strong><code>__init__</code></strong> chains stay valid (see the docstring on the class).</p>
+<h3 id="terminology">Terminology</h3>
+<ul>
+<li><strong>Link</strong> — Core’s name for the <strong>atomic part</strong> (one string key) whose health is tracked. A backend maps this to whatever the simulator calls a link, body, or geom group.</li>
+<li><strong><code>damageable_links</code></strong> — Ordered list of part names with health.</li>
+<li><strong><code>link_healths</code></strong> — <strong><code>part_name →</code></strong> scalar health (full = <strong>100</strong>).</li>
+</ul>
+<p><strong><code>health</code></strong> (property) is the <strong>minimum</strong> over <strong><code>link_healths</code></strong>, a single scalar summary.</p>
+<h3 id="configuration">Configuration</h3>
+<p><strong><code>damage_params</code></strong> is a plain dict (populated by the subclass or factory). Important keys:</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><code>damage_evaluators</code></strong></td>
+<td>Names (strings) passed to <strong><code>_get_evaluator_registry()</code></strong> to instantiate evaluators.</td>
+</tr>
+<tr>
+<td>Nested dicts per evaluator name</td>
+<td>Keyword arguments for that evaluator class.</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>set_damageable_links_and_params()</code></strong> is implemented above core (or in a thin backend mixin) to fill <strong><code>damageable_links</code></strong> and <strong><code>damage_params</code></strong> from categories, YAML, or overrides.</p>
+<h3 id="evaluator-lifecycle">Evaluator lifecycle</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><code>_get_evaluator_registry()</code></strong></td>
+<td>Must be implemented on the mixin subclass: returns <strong><code>name → EvaluatorClass</code></strong>.</td>
+</tr>
+<tr>
+<td><strong><code>_initialize_damage_evaluators()</code></strong></td>
+<td>Clears and rebuilds <strong><code>self.damage_evaluators</code></strong> from <strong><code>damage_params["damage_evaluators"]</code></strong>.</td>
+</tr>
+<tr>
+<td><strong><code>reset_damage_evaluators()</code></strong></td>
+<td><strong><code>reset_tracking()</code></strong> on each evaluator (e.g. on env reset).</td>
+</tr>
+<tr>
+<td><strong><code>update_health()</code></strong></td>
+<td>Calls <strong><code>generate_damage()</code></strong> on each evaluator, subtracts damage from <strong><code>link_healths</code></strong>, fills <strong><code>damage_info</code></strong>.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="3-damageevaluator">3. <strong><code>DamageEvaluator</code></strong></h2>
+<p><a href="https://github.com/UT-Austin-RobIn/oopsieverse/blob/main/damagesim/core/evaluators/base.py"><strong><code>DamageEvaluator</code></strong></a> binds to <strong><code>entity</code></strong> (the <strong><code>DamageableMixin</code></strong> instance). Subclasses implement:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">generate_damage</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="o">...</span>
+</code></pre></div>
+<p>returning nonnegative <strong>damage per part name</strong> for the current step. The base constructor exposes <strong><code>damage_threshold</code></strong> and <strong><code>scale</code></strong> (concrete evaluators may add aliases such as mechanical <strong><code>damage_scale</code></strong>).</p>
+<h3 id="families-in-core">Families in core</h3>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><code>mechanical.py</code></strong></td>
+<td>Shared impact + quasistatic contact model; abstract <strong><code>_get_*</code></strong> hooks supply velocities, contacts, masses, and dt from the simulator.</td>
+</tr>
+<tr>
+<td><strong><code>thermal.py</code></strong></td>
+<td>Temperature-based damage when thresholds are exceeded.</td>
+</tr>
+<tr>
+<td><strong><code>electrical.py</code></strong></td>
+<td>Contact / particle-style exposure for electrical damage.</td>
+</tr>
+</tbody>
+</table>
+<p>Core evaluators <strong>do not</strong> import a physics engine. Subclasses in <strong><code>damagesim/&lt;backend&gt;/evaluators/</code></strong> implement the hooks and register concrete classes in the registry returned by <strong><code>DamageableMixin._get_evaluator_registry()</code></strong>.</p>
+<hr>
+<h2 id="4-augmented-step-health-health_list_link_names-damage_info">4. Augmented <strong><code>step</code></strong>, <strong><code>health</code></strong>, <strong><code>health_list_link_names</code></strong>, <strong><code>damage_info</code></strong></h2>
+<h3 id="intended-order-of-operations">Intended order of operations</h3>
+<p>The core type does not override <strong><code>step</code></strong> itself; the pattern it enables is:</p>
+<ol>
+<li>Run the <strong>simulator</strong> <strong><code>step</code></strong> (physics, rewards, termination flags—defined by the base env).</li>
+<li>Optionally, a subclass may <strong>skip</strong> <strong><code>_update_all_health()</code></strong> for a bounded warm-up (e.g. loading scripted states) so the first frames do not apply damage.</li>
+<li>If <strong><code>lock_health</code></strong> is false, call <strong><code>_update_all_health()</code></strong> so every tracked <strong><code>DamageableMixin</code></strong> runs <strong><code>update_health()</code></strong>.</li>
+<li>Put the returned mapping into <strong><code>info["damage_info"]</code></strong> (convention used by shipped integrations).</li>
+<li>Call <strong><code>_process_obs(obs)</code></strong>; at minimum, core’s <strong><code>_append_health_to_obs</code></strong> adds <strong><code>obs["health"]</code></strong>. Further keys (proprio, cameras, etc.) are entirely subclass-defined.</li>
+</ol>
+<p><strong>Gym-style return tuples</strong> (e.g. terminated vs truncated vs done) depend on the <strong>simulator base</strong>, not on <strong><code>damagesim/core</code></strong>.</p>
+<h3 id="obshealth"><strong><code>obs["health"]</code></strong></h3>
+<p><strong><code>_append_health_to_obs</code></strong> walks <strong><code>_get_all_objects()</code></strong> in order; for each entity with <strong><code>track_damage</code></strong>, it appends <strong><code>link_healths[link]</code></strong> for each <strong><code>link</code></strong> in <strong><code>damageable_links</code></strong>, producing a <strong><code>numpy.float32</code></strong> 1‑D array. A subclass may cast or copy that array for framework consistency.</p>
+<p><strong><code>health[i]</code></strong> only lines up with a part if you also read <strong><code>health_list_link_names[i]</code></strong>.</p>
+<h3 id="health_list_link_names"><strong><code>health_list_link_names</code></strong></h3>
+<p>Rebuilt in <strong><code>_reset_damage_tracking</code></strong> via <strong><code>_build_health_list</code></strong>: strings <strong><code>"{object_name}@{link_name}"</code></strong>, in the <strong>same</strong> order as <strong><code>obs["health"]</code></strong> (same object iteration order, same <strong><code>damageable_links</code></strong> order per object). The attribute <strong><code>DamageableEnvironment.health_list_link_names</code></strong> holds the list for the current episode after reset.</p>
+<h3 id="damage_info"><strong><code>damage_info</code></strong></h3>
+<p>Per object, <strong><code>DamageableMixin.update_health</code></strong> structures diagnostics as:</p>
+<div class="highlight"><pre><span></span><code>damage_info[part_name][evaluator_name] = { ... }
+</code></pre></div>
+<p>Each leaf dict includes at least <strong><code>damage</code></strong> (amount applied this step). <strong><code>_record_evaluator_info</code></strong> in core adds evaluator-specific keys (e.g. mechanical forces and contacts, thermal temperature, electrical particle counts) so logging stays consistent across backends.</p>
+<p><strong><code>info["damage_info"]</code></strong> in <strong><code>step</code>/<code>reset</code></strong> is the dict <strong><code>{ object_name: that_object’s damage_info }</code></strong> assembled by the environment subclass—core’s <strong><code>_update_all_health</code></strong> returns exactly that mapping for convenience.</p>
+<p>Use <strong><code>damage_info</code></strong> when you need interpretability; use <strong><code>health</code></strong> + <strong><code>health_list_link_names</code></strong> for a fixed-size vector observation.</p>
+<hr>
+<h2 id="packages-outside-this-pages-contract">Packages outside this page’s contract</h2>
+<p>The <strong><code>damagesim/core</code></strong> module is authoritative for the abstraction; <strong>other top-level directories under <a href="https://github.com/UT-Austin-RobIn/oopsieverse/tree/main/damagesim"><code>damagesim/</code></a></strong> ship concrete integrations (environment subclasses, mixins, parameters, evaluator hooks tied to particular engines). They follow the contracts on this page and add replacement factories, default configs, observation shaping, I/O metadata, and API details specific to each simulator.</p>
+<p>When implementing a <strong>new</strong> backend, mirror <strong><code>DamageableEnvironment</code></strong> and <strong><code>DamageableMixin</code></strong> hook patterns from core rather than duplicating health math—then place the glue code in its own subdirectory next to <strong><code>core</code></strong>.</p>
 
 
 
@@ -746,7 +1239,7 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
       <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
