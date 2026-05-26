@@ -17,6 +17,7 @@ build/
 demos/
 tmp/
 MUJOCO_LOG.TXT
+oopsieverse.code-workspace
 
 # MkDocs local build output
 site/

@@ -13,6 +13,7 @@ import omnigibson as og
 from omnigibson.utils import transform_utils as T
 from omnigibson.controllers.controller_base import IsGraspingState
 from oopsiebench.envs.behavior1k.base import TaskConfig
+from oopsiebench.envs.behavior1k.spatial_checks import gripper_far_from_object
 
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaPanda"
@@ -232,5 +233,6 @@ def task_completion_check(env):
     
     log_within_tolerance = distance_xy < tolerance_xy
     gripper_open = robot.is_grasping(candidate_obj=target_object).value == IsGraspingState.FALSE
+    gripper_far = gripper_far_from_object(robot, target_object)
 
-    return log_within_tolerance and gripper_open
+    return log_within_tolerance and gripper_open and gripper_far

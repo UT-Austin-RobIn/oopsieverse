@@ -4,7 +4,7 @@ Visualization helpers for DamageSim.
 Contains:
 * **Live health bars** — real-time matplotlib display during teleoperation.
 * **Video saving** — ``save_rgb_camera_video`` and
-  ``save_rgb_health_video_with_overlay`` used by the unified playback script.
+  ``save_rgb_health_video_with_overlay`` (side-panel health column by default).
 """
 
 from __future__ import annotations
@@ -54,9 +54,7 @@ def setup_live_health_bars(
 
     plt.ion()
 
-    display_map = dict(OBJ_NAME_DISPLAY_NAME_MAPPING)
-    if obj_display_names:
-        display_map.update(obj_display_names)
+    display_overrides = _merge_display_name_overrides(obj_display_names)
 
     n_objects = len(object_names)
     bar_height = 30.0
@@ -145,7 +143,7 @@ def setup_live_health_bars(
         )
         ax.add_patch(fg_bar)
 
-        display_name = display_map.get(obj_name, obj_name)
+        display_name = resolve_object_display_name(obj_name, display_overrides)
         if len(display_name) > 20:
             display_name = display_name[:17] + "..."
 
@@ -250,16 +248,46 @@ def update_live_health_bars(
 # Video saving utilities
 # ═══════════════════════════════════════════════════════════════════════
 
-# Display-name mapping shared across tasks
-OBJ_NAME_DISPLAY_NAME_MAPPING: Dict[str, str] = {
-    "box_of_crackers": "Crackers Box",
-    "book": "Paper Bag",
-    "bottle_of_wine": "Wine Bottle",
-    "wineglass": "Wine Glass",
-    "bottle_of_beer": "Beer Bottle",
-    "franka0": "Robot",
-    "laptop": "Laptop",
-}
+# Optional per-object display overrides (empty by default; auto-formatting is used instead).
+OBJ_NAME_DISPLAY_NAME_MAPPING: Dict[str, str] = {}
+
+
+def format_object_display_name(obj_name: str) -> str:
+    """
+    Format a raw object / link name for display.
+
+    Examples:
+        ``franka0`` → ``Franka0``
+        ``bottle_of_wine`` → ``Bottle Of Wine``
+        ``microwave@base_link`` → ``Microwave (Base Link)``
+    """
+    if "@" in obj_name:
+        object_part, link_part = obj_name.split("@", 1)
+        return f"{format_object_display_name(object_part)} ({format_object_display_name(link_part)})"
+
+    label = obj_name.replace("_", " ").strip()
+    if not label:
+        return obj_name
+    return " ".join(word.capitalize() for word in label.split())
+
+
+def resolve_object_display_name(
+    obj_name: str,
+    overrides: Optional[Dict[str, str]] = None,
+) -> str:
+    """Return an override when present, otherwise :func:`format_object_display_name`."""
+    if overrides and obj_name in overrides:
+        return overrides[obj_name]
+    return format_object_display_name(obj_name)
+
+
+def _merge_display_name_overrides(
+    obj_display_names: Optional[Dict[str, str]] = None,
+) -> Dict[str, str]:
+    merged = dict(OBJ_NAME_DISPLAY_NAME_MAPPING)
+    if obj_display_names:
+        merged.update(obj_display_names)
+    return merged
 
 
 def save_rgb_camera_video(
@@ -328,6 +356,7 @@ _COLORS = {
     "border": _hex_to_bgr("#2A2A2A"),
     "glow": _hex_to_bgr("#333333"),
     "green": _hex_to_bgr("#4CAF50"),
+    "green_accent": _hex_to_bgr("#4CAF50"),
     "amber": _hex_to_bgr("#FFC107"),
     "orange": _hex_to_bgr("#FF9800"),
     "red": _hex_to_bgr("#F44336"),
@@ -337,6 +366,255 @@ _COLORS = {
     "text_gray": _hex_to_bgr("#888888"),
     "text_dark_gray": _hex_to_bgr("#666666"),
 }
+
+
+def _health_bar_style(current_health: float) -> Tuple[Optional[Tuple[int, int, int]], Tuple[int, int, int]]:
+    """Return ``(bar_color_bgr | None, value_text_color_bgr)`` for a health value."""
+    if current_health == 0:
+        return None, _COLORS["text_dark_gray"]
+    if current_health >= 80:
+        return _COLORS["green"], _COLORS["text_white"]
+    if current_health >= 60:
+        return _COLORS["amber"], _COLORS["text_white"]
+    if current_health >= 40:
+        return _COLORS["orange"], _COLORS["text_white"]
+    if current_health >= 20:
+        return _COLORS["red"], _COLORS["text_white"]
+    return _COLORS["dark_red"], _COLORS["text_white"]
+
+
+def _wrap_text_lines(text: str, font_size: float, max_width: int) -> List[str]:
+    """Wrap *text* onto multiple lines that fit within *max_width* pixels."""
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    thickness = 1
+
+    def _text_width(s: str) -> int:
+        return cv2.getTextSize(s, font, font_size, thickness)[0][0]
+
+    def _break_word(word: str) -> List[str]:
+        parts: List[str] = []
+        chunk = ""
+        for ch in word:
+            candidate = chunk + ch
+            if _text_width(candidate) <= max_width:
+                chunk = candidate
+            else:
+                if chunk:
+                    parts.append(chunk)
+                chunk = ch
+        if chunk:
+            parts.append(chunk)
+        return parts or [word]
+
+    words = text.replace("_", " ").split()
+    if not words:
+        return [text]
+
+    lines: List[str] = []
+    current = ""
+    for word in words:
+        word_parts = [word] if _text_width(word) <= max_width else _break_word(word)
+        for piece in word_parts:
+            candidate = piece if not current else f"{current} {piece}"
+            if _text_width(candidate) <= max_width:
+                current = candidate
+            else:
+                if current:
+                    lines.append(current)
+                current = piece
+    if current:
+        lines.append(current)
+    return lines if lines else [text]
+
+
+def _draw_health_bar_only(
+    img_bgr: np.ndarray,
+    *,
+    bar_x_start: int,
+    bar_y: int,
+    bar_width: int,
+    bar_height: int,
+    value_x: int,
+    current_health: float,
+    font_size: float,
+) -> None:
+    """Draw the health bar fill and numeric value (no label)."""
+    cv2.rectangle(
+        img_bgr,
+        (bar_x_start, bar_y),
+        (bar_x_start + bar_width, bar_y + bar_height),
+        _COLORS["bg_bar"],
+        -1,
+    )
+    cv2.rectangle(
+        img_bgr,
+        (bar_x_start, bar_y),
+        (bar_x_start + bar_width, bar_y + bar_height),
+        _COLORS["border"],
+        2,
+    )
+
+    glow_height = 3
+    cv2.rectangle(
+        img_bgr,
+        (bar_x_start, bar_y + bar_height - glow_height),
+        (bar_x_start + bar_width, bar_y + bar_height),
+        _COLORS["glow"],
+        -1,
+    )
+
+    bar_color, value_color = _health_bar_style(current_health)
+    health_width = int((current_health / 100.0) * (bar_width - 6))
+    bar_inset = 3
+    if bar_color is not None and health_width > 0:
+        cv2.rectangle(
+            img_bgr,
+            (bar_x_start + bar_inset, bar_y + bar_inset),
+            (bar_x_start + bar_inset + health_width, bar_y + bar_height - bar_inset),
+            bar_color,
+            -1,
+        )
+
+    cv2.putText(
+        img_bgr,
+        f"{current_health:.1f}",
+        (value_x, bar_y + bar_height // 2 + 4),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        font_size,
+        value_color,
+        1,
+        cv2.LINE_AA,
+    )
+
+
+def _draw_health_bar_entry(
+    img_bgr: np.ndarray,
+    *,
+    label_x: int,
+    bar_x_start: int,
+    bar_y: int,
+    bar_width: int,
+    bar_height: int,
+    value_x: int,
+    current_health: float,
+    display_name: str,
+    font_size: float,
+) -> None:
+    """Draw one labelled health bar row onto *img_bgr* (horizontal label layout)."""
+    _draw_health_bar_only(
+        img_bgr,
+        bar_x_start=bar_x_start,
+        bar_y=bar_y,
+        bar_width=bar_width,
+        bar_height=bar_height,
+        value_x=value_x,
+        current_health=current_health,
+        font_size=font_size,
+    )
+
+    label_color = _COLORS["text_gray"] if current_health == 0 else _COLORS["text_light"]
+    cv2.putText(
+        img_bgr,
+        display_name,
+        (label_x, bar_y + bar_height // 2 + 4),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        font_size,
+        label_color,
+        1,
+        cv2.LINE_AA,
+    )
+
+
+def _render_health_side_panel(
+    panel_height: int,
+    panel_width: int,
+    target_objects: List[str],
+    health_values: Dict[str, float],
+    display_overrides: Optional[Dict[str, str]] = None,
+    title: str = "Healths",
+) -> np.ndarray:
+    """Render a full-height health panel for side-by-side video output."""
+    panel = np.full((panel_height, panel_width, 3), _COLORS["bg"], dtype=np.uint8)
+
+    padding = max(12, int(panel_width * 0.06))
+    header_height = max(48, int(panel_height * 0.08))
+    title_font = max(0.48, min(1.15, panel_width / 360.0))
+    title_size, _ = cv2.getTextSize(title, cv2.FONT_HERSHEY_SIMPLEX, title_font, 2)
+    title_x = max(padding, (panel_width - title_size[0]) // 2)
+    title_y = padding + title_size[1]
+    cv2.putText(
+        panel,
+        title,
+        (title_x, title_y),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        title_font,
+        _COLORS["text_white"],
+        2,
+        cv2.LINE_AA,
+    )
+    accent_y = title_y + max(8, int(panel_height * 0.012))
+    accent_w = min(panel_width - 2 * padding, max(title_size[0] + 20, int(panel_width * 0.35)))
+    accent_x = (panel_width - accent_w) // 2
+    cv2.rectangle(
+        panel,
+        (accent_x, accent_y),
+        (accent_x + accent_w, accent_y + 2),
+        _COLORS["green_accent"],
+        -1,
+    )
+
+    content_top = header_height + padding
+    content_width = panel_width - 2 * padding
+    label_font = max(0.30, min(0.62, panel_width / 520.0))
+    value_font = max(0.28, min(0.58, panel_width / 540.0))
+    label_line_height = max(13, int(label_font * 22))
+    label_to_bar_gap = max(4, int(label_font * 8))
+    entry_gap = max(10, int(panel_height * 0.014))
+
+    n_objects = max(1, len(target_objects))
+    content_height = panel_height - content_top - padding
+    bar_height = max(20, min(int(content_height / n_objects * 0.35), int(panel_height * 0.06)))
+
+    value_width = max(36, int(panel_width * 0.11))
+    gap_after_bar = max(6, int(panel_width * 0.025))
+    bar_width = max(70, content_width - value_width - gap_after_bar)
+    bar_x_start = padding
+    value_x = bar_x_start + bar_width + gap_after_bar
+
+    y = content_top
+    for obj_name in target_objects:
+        current_health = max(0.0, min(100.0, health_values.get(obj_name, 100.0)))
+        display_name = resolve_object_display_name(obj_name, display_overrides)
+        label_color = _COLORS["text_gray"] if current_health == 0 else _COLORS["text_light"]
+
+        label_lines = _wrap_text_lines(display_name, label_font, content_width)
+        for line_idx, line in enumerate(label_lines):
+            line_y = y + (line_idx + 1) * label_line_height
+            cv2.putText(
+                panel,
+                line,
+                (padding, line_y),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                label_font,
+                label_color,
+                1,
+                cv2.LINE_AA,
+            )
+        y += len(label_lines) * label_line_height + label_to_bar_gap
+
+        _draw_health_bar_only(
+            panel,
+            bar_x_start=bar_x_start,
+            bar_y=y,
+            bar_width=bar_width,
+            bar_height=bar_height,
+            value_x=value_x,
+            current_health=current_health,
+            font_size=value_font,
+        )
+        y += bar_height + entry_gap
+
+    return panel
 
 
 def save_rgb_health_video_with_overlay(
@@ -349,25 +627,33 @@ def save_rgb_health_video_with_overlay(
     fps: int = 30,
     obj_display_names: Optional[Dict[str, str]] = None,
     layout: str = "column",
+    panel_mode: str = "side",
+    panel_title: str = "Healths",
+    side_panel_width: Optional[int] = None,
 ) -> None:
     """
-    Save video with health bars overlaid directly on the RGB frames.
+    Save video with health bars next to the RGB frames.
+
+    By default (``panel_mode="side"``), the original video is kept intact and a
+    dedicated health panel is appended as a column on the right with a
+  ``panel_title`` heading and one bar per object.
+
+    Set ``panel_mode="overlay"`` to restore the legacy behaviour of drawing
+    semi-transparent health bars on top of the video frames.
 
     Args:
         output_video_path: Destination path (appended with ``.mp4``).
         imgs: ``(T, H, W, 3)`` uint8 array in **RGB** order.
         target_objects: Object names whose health to display.
         health: Mapping ``obj_name → 1-D array of health values (0–100)``.
-        position: Where to place the panel. Horizontal: ``"*_left"``, ``"*_right"``,
-            ``"*_center"`` or ``"center"``. Vertical: ``"bottom_*"``, ``"top_*"``, or
-            ``"center"`` (vertical+horizontal center). Examples: ``"bottom_left"``,
-            ``"bottom_right"``, ``"bottom_center"``, ``"top_left"``, ``"top_right"``,
-            ``"top_center"``, ``"center"``.
-        n_columns: Number of columns for laying out health bars (1–3); used only when layout="column".
+        position: Overlay placement when ``panel_mode="overlay"``.
+        n_columns: Overlay column count when ``panel_mode="overlay"``.
         fps: Frames per second.
         obj_display_names: Optional override for display names.
-        layout: ``"column"`` = bars stacked in columns (default). ``"row"`` = all bars in one
-            horizontal row, centered on the frame.
+        layout: Overlay layout when ``panel_mode="overlay"`` (``"column"`` or ``"row"``).
+        panel_mode: ``"side"`` (default) or ``"overlay"``.
+        panel_title: Heading shown at the top of the side panel.
+        side_panel_width: Optional fixed width for the side panel in pixels.
     """
     # Pick the first non-None health array to get the number of frames
     T = 0
@@ -379,14 +665,51 @@ def save_rgb_health_video_with_overlay(
     if T == 0 or len(imgs) == 0:
         return
 
-    display_map = dict(OBJ_NAME_DISPLAY_NAME_MAPPING)
-    if obj_display_names:
-        display_map.update(obj_display_names)
+    display_map = _merge_display_name_overrides(obj_display_names)
+
+    img_height, img_width = imgs[0].shape[:2]
+
+    if panel_mode == "side":
+        panel_width = side_panel_width or max(320, int(img_width * 0.32))
+        processed_imgs = []
+        for frame_idx in range(T):
+            if frame_idx >= len(imgs):
+                break
+
+            img = imgs[frame_idx].copy()
+            if img.dtype != np.uint8:
+                img = (
+                    (img * 255).astype(np.uint8) if img.max() <= 1.0 else img.astype(np.uint8)
+                )
+
+            health_values = {}
+            for obj_name in target_objects:
+                h_arr = health.get(obj_name)
+                if h_arr is None:
+                    current_health = 100.0
+                elif frame_idx < len(h_arr):
+                    current_health = float(h_arr[frame_idx])
+                else:
+                    current_health = 100.0
+                health_values[obj_name] = max(0.0, min(100.0, current_health))
+
+            video_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            panel_bgr = _render_health_side_panel(
+                panel_height=img_height,
+                panel_width=panel_width,
+                target_objects=target_objects,
+                health_values=health_values,
+                display_overrides=display_map,
+                title=panel_title,
+            )
+            combined_bgr = np.hstack([video_bgr, panel_bgr])
+            processed_imgs.append(cv2.cvtColor(combined_bgr, cv2.COLOR_BGR2RGB))
+
+        save_rgb_camera_video(output_video_path, np.array(processed_imgs), fps=fps)
+        return
 
     n_columns = max(1, min(3, int(n_columns)))
     n_objects = len(target_objects)
-
-    img_height, img_width = imgs[0].shape[:2]
 
     # ── Bar dimensions (scale with image size) ────────────────────────
     bar_height = max(25, int(img_height * 0.05))
@@ -508,94 +831,21 @@ def save_rgb_health_video_with_overlay(
 
             # (label_x, bar_x_start, value_x, bar_y set above for both layouts)
 
-            # Background bar container
-            cv2.rectangle(
-                img_bgr,
-                (bar_x_start, bar_y),
-                (bar_x_start + bar_width, bar_y + bar_height),
-                _COLORS["bg_bar"],
-                -1,
-            )
-            cv2.rectangle(
-                img_bgr,
-                (bar_x_start, bar_y),
-                (bar_x_start + bar_width, bar_y + bar_height),
-                _COLORS["border"],
-                2,
-            )
-
-            # Glow at bottom edge
-            glow_height = 3
-            cv2.rectangle(
-                img_bgr,
-                (bar_x_start, bar_y + bar_height - glow_height),
-                (bar_x_start + bar_width, bar_y + bar_height),
-                _COLORS["glow"],
-                -1,
-            )
-
-            # Health bar colour
-            health_width = int((current_health / 100.0) * (bar_width - 6))
-            bar_inset = 3
-
-            if current_health == 0:
-                bar_color = None
-                value_color = _COLORS["text_dark_gray"]
-            elif current_health >= 80:
-                bar_color = _COLORS["green"]
-                value_color = _COLORS["text_white"]
-            elif current_health >= 60:
-                bar_color = _COLORS["amber"]
-                value_color = _COLORS["text_white"]
-            elif current_health >= 40:
-                bar_color = _COLORS["orange"]
-                value_color = _COLORS["text_white"]
-            elif current_health >= 20:
-                bar_color = _COLORS["red"]
-                value_color = _COLORS["text_white"]
-            else:
-                bar_color = _COLORS["dark_red"]
-                value_color = _COLORS["text_white"]
-
-            # Foreground bar
-            if bar_color is not None and health_width > 0:
-                cv2.rectangle(
-                    img_bgr,
-                    (bar_x_start + bar_inset, bar_y + bar_inset),
-                    (bar_x_start + bar_inset + health_width, bar_y + bar_height - bar_inset),
-                    bar_color,
-                    -1,
-                )
-
-            # Label
-            display_name = display_map.get(obj_name, obj_name)
+            display_name = resolve_object_display_name(obj_name, display_map)
             if len(display_name) > 20:
                 display_name = display_name[:17] + "..."
-            label_color = (
-                _COLORS["text_gray"] if current_health == 0 else _COLORS["text_light"]
-            )
-            cv2.putText(
-                img_bgr,
-                display_name,
-                (label_x, bar_y + bar_height // 2 + 5),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                font_size,
-                label_color,
-                1,
-                cv2.LINE_AA,
-            )
 
-            # Health value text
-            health_text = f"{current_health:.1f}"
-            cv2.putText(
+            _draw_health_bar_entry(
                 img_bgr,
-                health_text,
-                (value_x, bar_y + bar_height // 2 + 5),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                font_size,
-                value_color,
-                1,
-                cv2.LINE_AA,
+                label_x=label_x,
+                bar_x_start=bar_x_start,
+                bar_y=bar_y,
+                bar_width=bar_width,
+                bar_height=bar_height,
+                value_x=value_x,
+                current_health=current_health,
+                display_name=display_name,
+                font_size=font_size,
             )
 
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
@@ -788,28 +1038,115 @@ def save_rgb_force_video(
     ani.save(output_video_path, writer=writer)
     plt.close(fig)
 
-def _hex_to_bgr(hex_color: str) -> Tuple[int, int, int]:
-    hex_color = hex_color.lstrip("#")
-    r, g, b = (int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
-    return (b, g, r)
 
+def save_rgb_temperature_video(
+    output_video_path,
+    imgs,
+    target_objects,
+    data,
+    temperature_keys=("temperature",),
+    fps=30,
+    y_unit: str = "°C",
+):
+    """
+    Save video with RGB frames alongside robot / link temperature histories.
 
-# Colour palette used by the health-bar overlay
-_COLORS = {
-    "bg": _hex_to_bgr("#1A1A1A"),
-    "bg_bar": _hex_to_bgr("#0D0D0D"),
-    "border": _hex_to_bgr("#2A2A2A"),
-    "glow": _hex_to_bgr("#333333"),
-    "green": _hex_to_bgr("#4CAF50"),
-    "amber": _hex_to_bgr("#FFC107"),
-    "orange": _hex_to_bgr("#FF9800"),
-    "red": _hex_to_bgr("#F44336"),
-    "dark_red": _hex_to_bgr("#D32F2F"),
-    "text_white": _hex_to_bgr("#FFFFFF"),
-    "text_light": _hex_to_bgr("#E8E8E8"),
-    "text_gray": _hex_to_bgr("#888888"),
-    "text_dark_gray": _hex_to_bgr("#666666"),
-}
+    Same nested ``data`` layout as :func:`save_rgb_force_video`:
+    ``data[qualified_link_name][metric_key][frame_idx]``.
+    Values come from ``damage_info[obj][part]["thermal"][key]``.
+    """
+    if not target_objects:
+        raise ValueError("target_objects must be non-empty")
+
+    first_key = temperature_keys[0]
+    T = len(data[target_objects[0]][first_key])
+
+    ymin = np.inf
+    ymax = -np.inf
+    for obj_name in target_objects:
+        for tk in temperature_keys:
+            serie = np.asarray(data[obj_name][tk], dtype=float)
+            fin = serie[np.isfinite(serie)]
+            if fin.size:
+                ymin = min(ymin, float(fin.min()))
+                ymax = max(ymax, float(fin.max()))
+
+    if not np.isfinite(ymin) or not np.isfinite(ymax):
+        ymin, ymax = 0.0, 120.0
+    elif ymax <= ymin + 1e-6:
+        ymax = ymin + max(120.0, abs(ymin) * 0.1 + 1.0)
+    else:
+        span = ymax - ymin
+        pad = max(5.0, 0.08 * span)
+        ymin = max(0.0, ymin - pad)
+        ymax = ymax + pad * 2.0
+
+    fig = plt.figure(figsize=(14, 6))
+    gs = fig.add_gridspec(1, 2, width_ratios=[1, 1.2])
+
+    ax_video = fig.add_subplot(gs[0, 0])
+    ax_video.axis("off")
+    video_im = ax_video.imshow(imgs[0][:, :, :3])
+
+    ax_temp = fig.add_subplot(gs[0, 1])
+    ax_temp.set_title("Temperature History")
+    ax_temp.set_xlabel("Time (s)")
+    ax_temp.set_ylabel(f"Temperature ({y_unit})")
+    ax_temp.set_xlim(0, T / fps)
+    ax_temp.set_ylim(ymin, ymax)
+    ax_temp.grid(True)
+
+    temp_lines = {}
+    for obj_name in target_objects:
+        for tk in temperature_keys:
+            temp_lines[f"{obj_name}_{tk}"], = ax_temp.plot(
+                [], [], lw=2, label=f"{obj_name} {tk}",
+            )
+
+    ax_temp.legend(loc="upper right", fontsize=9)
+    fig.subplots_adjust(left=0.05, right=0.97, wspace=0.25)
+    time = [i / fps for i in range(T)]
+
+    def init():
+        video_im.set_data(imgs[0][:, :, :3])
+        for line in temp_lines.values():
+            line.set_data([], [])
+        return [video_im] + list(temp_lines.values())
+
+    def animate(i):
+        video_im.set_data(imgs[i][:, :, :3])
+        for obj_name in target_objects:
+            for tk in temperature_keys:
+                temp_lines[f"{obj_name}_{tk}"].set_data(
+                    time[: i + 1],
+                    data[obj_name][tk][: i + 1],
+                )
+        return [video_im] + list(temp_lines.values())
+
+    ani = animation.FuncAnimation(
+        fig,
+        animate,
+        init_func=init,
+        frames=T,
+        interval=1000 / fps,
+        blit=True,
+    )
+
+    writer = animation.FFMpegWriter(
+        fps=fps,
+        codec="libx264",
+        extra_args=[
+            "-pix_fmt", "yuv420p",
+            "-movflags", "+faststart",
+            "-loglevel", "error",
+            "-hide_banner",
+            "-nostats",
+        ],
+    )
+
+    ani.save(output_video_path, writer=writer)
+    plt.close(fig)
+
 
 def render_health_bar_overlay(
     frame_rgb: np.ndarray,
@@ -841,9 +1178,7 @@ def render_health_bar_overlay(
     if not target_objects:
         return frame_rgb
 
-    display_map = dict(OBJ_NAME_DISPLAY_NAME_MAPPING)
-    if obj_display_names:
-        display_map.update(obj_display_names)
+    display_map = _merge_display_name_overrides(obj_display_names)
 
     n_columns = max(1, min(3, int(n_columns)))
     n_objects = len(target_objects)
@@ -975,7 +1310,7 @@ def render_health_bar_overlay(
             )
 
         # Label
-        display_name = display_map.get(obj_name, obj_name)
+        display_name = resolve_object_display_name(obj_name, display_map)
         if len(display_name) > 13:
             display_name = display_name[:11] + "..."
         label_color = (

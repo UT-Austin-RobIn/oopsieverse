@@ -13,6 +13,7 @@ import omnigibson as og
 from omnigibson.utils import transform_utils as T
 from omnigibson.controllers.controller_base import IsGraspingState
 from oopsiebench.envs.behavior1k.base import TaskConfig
+from oopsiebench.envs.behavior1k.spatial_checks import gripper_far_from_object
 from omnigibson import object_states
     
 ROBOT_NAME = "franka0"
@@ -49,8 +50,8 @@ TASK_OBJECTS = {
 
 # ── Cameras ─────────────────────────────────────────────────────────────
 
-VIEWER_CAMERA_POS = [-0.37351322174072266, -0.9105080366134644, 0.9984497427940369]
-VIEWER_CAMERA_ORN = [0.1866627037525177, 0.5293360948562622, 0.7805155515670776, 0.2752378284931183]
+VIEWER_CAMERA_POS = [-0.4424, -2.7844,  0.8241]
+VIEWER_CAMERA_ORN = [0.4738, 0.1599, 0.2769, 0.8206]
 
 EXTERNAL_CAMERA_CONFIGS = {
     "external_sensor_0": {
@@ -65,7 +66,7 @@ EXTERNAL_CAMERA_CONFIGS = {
     },
 }
 
-INIT_STATE_PATH = "demos/behavior1k/init_state/food_in_microwave.pkl"
+INIT_STATE_PATH = "resources/init_states/food_in_microwave.pkl"
 # ── Public entry point ──────────────────────────────────────────────────
 
 def get_task_config() -> TaskConfig:
@@ -201,8 +202,10 @@ def task_completion_check(env):
     microwave = env.scene.object_registry("name", "microwave")
     cupcake = env.scene.object_registry("name", "cupcake")
     bowl = env.scene.object_registry("name", "bowl")
+    robot = env.robots[0]
     microwave_open = microwave.states[object_states.Open].get_value()
     bowl_inside = bowl.states[object_states.Inside].get_value(other=microwave)
     cupcake_inside = cupcake.states[object_states.Inside].get_value(other=microwave)
     cupcake_on_top_bowl = cupcake.states[object_states.OnTop].get_value(other=bowl)
-    return not microwave_open and cupcake_inside and bowl_inside and cupcake_on_top_bowl
+    layout_ok = not microwave_open and cupcake_inside and bowl_inside and cupcake_on_top_bowl
+    return layout_ok and gripper_far_from_object(robot, cupcake)

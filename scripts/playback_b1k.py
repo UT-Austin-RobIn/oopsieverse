@@ -4,19 +4,19 @@ Unified playback & visualisation script for OmniGibson damage-tracking tasks.
 
 Usage examples
 --------------
-python scripts/playback_b1k.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
+python scripts/playback_b1k.py --task_name shelve_item --source_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
      --playback_hdf5_path demos/behavior1k/playback_data/shelve_item_safe.hdf5 
 
 # Playback shelve_item demos and save observations + health to a new HDF5
-python scripts/playback_b1k.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
+python scripts/playback_b1k.py --task_name shelve_item --source_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
      --playback_hdf5_path demos/behavior1k/playback_data/shelve_item_safe.hdf5 --playback
 
 # Visualise health-overlay videos from an already-played-back HDF5
-python scripts/playback_b1k.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
+python scripts/playback_b1k.py --task_name shelve_item --source_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
      --playback_hdf5_path demos/behavior1k/playback_data/shelve_item_safe.hdf5 --visualize
 
 # Compute per-object health metrics
-python scripts/playback_b1k.py --task_name shelve_item --collect_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
+python scripts/playback_b1k.py --task_name shelve_item --source_hdf5_path tests/data/teleop_data/behavior1k/shelve_item_safe.hdf5 \
      --playback_hdf5_path demos/behavior1k/playback_data/shelve_item_safe.hdf5 --compute_metrics
 
 You can also use the 3 flags at the same time
@@ -62,6 +62,8 @@ TASK_REGISTRY: Dict[str, str] = {
     "add_firewood": "oopsiebench.envs.behavior1k.add_firewood",
     "firewood": "oopsiebench.envs.behavior1k.add_firewood",  # alias
     "pour_water": "oopsiebench.envs.behavior1k.pour_water",
+    "turn_on_stove": "oopsiebench.envs.behavior1k.turn_on_stove",
+    "open_single_door": "oopsiebench.envs.behavior1k.open_single_door",
 }
 
 
@@ -257,7 +259,7 @@ def run_playback(args, task_cfg):
     robot_sensor_config, external_sensors_config = None, None
     if not args.skip_save_images:
         if not args.low_resolution:
-            image_h, image_w = 1280, 1280
+            image_h, image_w = 720, 720
         else:
             image_h, image_w = 256, 256
 
@@ -283,14 +285,14 @@ def run_playback(args, task_cfg):
     else:
         robot_obs_modalities = ["proprio"]
     env = wrapper_cls.create_from_hdf5(
-        input_path=args.collect_hdf5_path,
+        input_path=args.source_hdf5_path,
         output_path=args.playback_hdf5_path,
         robot_obs_modalities=robot_obs_modalities,
         robot_sensor_config=robot_sensor_config,
         external_sensors_config=external_sensors_config,
         n_render_iterations=1,
         only_successes=False,
-        activity_name=args.activity_name,
+        activity_name=args.task_name,
     )
 
     # Viewer camera
@@ -374,10 +376,8 @@ def run_visualize(args, task_cfg):
             imgs=imgs,
             target_objects=task_cfg.target_objects_health,
             health=health,
-            position="bottom_center",
-            n_columns=3,
             fps=30,
-            layout="row",
+            panel_title="Healths",
         )
 
         # Save videos for forces plot
@@ -463,12 +463,7 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument(
-        "--task_name",
-        type=str,
-        required=True,
-        help="Task name (e.g. shelve_item, add_firewood, pour_water).",
-    )
+    parser.add_argument("--task_name", type=str, required=True, help="Task name (e.g. shelve_item, add_firewood, pour_water).")
 
     # Mode flags
     parser.add_argument("--playback", action="store_true", help="Replay recorded HDF5.")
@@ -476,12 +471,11 @@ def parse_args():
     parser.add_argument("--compute_metrics", action="store_true", help="Compute per-object health metrics.")
 
     # Paths
-    parser.add_argument("--collect_hdf5_path", type=str, default=None, help="Input (teleop) HDF5 path.")
+    parser.add_argument("--source_hdf5_path", type=str, default=None, help="Input (teleop) HDF5 path.")
     parser.add_argument("--playback_hdf5_path", type=str, default=None, help="Output (playback) HDF5 path.")
     parser.add_argument("--video_dir", type=str, default=None, help="Directory for saved videos.")
 
     # Playback options
-    parser.add_argument("--activity_name", type=str, default="shelve_item", help="Activity name.", choices=["shelve_item", "add_firewood", "pour_water"])
     parser.add_argument("--demo_ids", nargs="*", type=int, default=None, help="Specific demo IDs to playback.")
     parser.add_argument("--low_resolution", action="store_true", help="Use 256×256 images.")
     parser.add_argument("--camera_name", type=str, default="external_sensor0", help="Camera for visualisation.")
@@ -497,8 +491,8 @@ def main():
     task_cfg = load_task_config(args.task_name)
 
     # Fill in default paths from task config when not provided on CLI
-    if args.collect_hdf5_path is None:
-        args.collect_hdf5_path = task_cfg.default_collect_hdf5
+    if args.source_hdf5_path is None:
+        args.source_hdf5_path = task_cfg.default_collect_hdf5
     if args.playback_hdf5_path is None:
         args.playback_hdf5_path = task_cfg.default_playback_hdf5
 

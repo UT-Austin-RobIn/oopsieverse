@@ -53,6 +53,9 @@ class TaskConfig:
     target_objects_water_contacts: List[str] = field(default_factory=list)
     # For thermal tasks
     target_objects_temperature: List[str] = field(default_factory=list)
+    #: Keys inside ``damage_info[obj][link]["thermal"]`` for teleop *_temperature.mp4
+    #: (defaults to ``temperature`` only; optionally add threshold keys).
+    temperature_plot_keys: List[str] = field(default_factory=lambda: ["temperature"])
 
     # ── Default HDF5 paths ──────────────────────────────────────────────
     default_collect_hdf5: str = ""

@@ -87,40 +87,40 @@ PARAMS = {
         "mechanical": {
             "impact_damage_sensitivity": 0.01,
             "qs_damage_sensitivity": 1.0,
-            "damage_threshold": 100.0,
-            "damage_scale": 0.2,
+            "damage_threshold": 150.0,
+            "damage_scale": 0.1,
             "part_config_overrides": {
                 "gripper": {
                     "impact_damage_sensitivity": 0.01,
                     "qs_damage_sensitivity": 1.0,
-                    "damage_threshold": 100.0,
-                    "damage_scale": 0.2,
+                    "damage_threshold": 150.0,
+                    "damage_scale": 0.1,
                 },
                 "base": {
                     "impact_damage_sensitivity": 0.01,
                     "qs_damage_sensitivity": 1.0,
                     "damage_threshold": 200.0,
-                    "damage_scale": 0.2,
+                    "damage_scale": 0.1,
                 },
                 "arm": {
                     "impact_damage_sensitivity": 0.01,
                     "qs_damage_sensitivity": 1.0,
-                    "damage_threshold": 100.0,
-                    "damage_scale": 0.2,
+                    "damage_threshold": 150.0,
+                    "damage_scale": 0.1,
                 },
             },
         },
         "thermal": {
             "heating_threshold": 45.0,
             "cooling_threshold": -20.0,
-            "scale": 1.0,
+            "scale": 0.1,
         },
     },
 
     # ── Used in OopsieVerse paper experiments ───────────────────────────────────────────────
     "microwave": {
         "damage_evaluators": ["mechanical"],
-        "damageable_links": ["base_link", "link_0", "glass"],
+        "damageable_links": ["base_link", "leaf"],
         "mechanical": {
             "impact_damage_sensitivity": 1.0,
             "qs_damage_sensitivity": 1.0,
@@ -129,6 +129,12 @@ PARAMS = {
         },
         "part_config_overrides": {
             "link_0": {
+                "impact_damage_sensitivity": 1.0,
+                "qs_damage_sensitivity": 1.0,
+                "damage_threshold": 200.0,
+                "damage_scale": 1.0,
+            },
+            "leaf": {
                 "impact_damage_sensitivity": 1.0,
                 "qs_damage_sensitivity": 1.0,
                 "damage_threshold": 200.0,
