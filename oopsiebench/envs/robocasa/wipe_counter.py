@@ -45,6 +45,7 @@ class WipeCounter(Kitchen):
         self.markers = []
         self.wiped_markers = []
         self._marker_direction = None
+        self._marker_positions = None
 
         self.ee_force_bias = {}
         self._dirt_bounds = None
@@ -59,6 +60,10 @@ class WipeCounter(Kitchen):
     def get_ep_meta(self):
         ep_meta = super().get_ep_meta()
         ep_meta["lang"] = "Wipe the dirt on the counter with the sponge"
+        if self._marker_positions is not None:
+            ep_meta["dirt_marker_positions"] = [
+                [float(p[0]), float(p[1])] for p in self._marker_positions
+            ]
         return ep_meta
 
     def _setup_kitchen_references(self):
@@ -197,10 +202,19 @@ class WipeCounter(Kitchen):
         if not self.markers or self.sim is None:
             return
 
-        pos = self._sample_start_pos()
-
         counter_body_id = self.sim.model.body_name2id(self.counter.root_body)
         z_pos = self.sim.data.body_xpos[counter_body_id][2] + 0.46
+
+        stored = (self._ep_meta or {}).get("dirt_marker_positions")
+        if stored and len(stored) == len(self.markers):
+            positions = [np.array(p, dtype=float) for p in stored]
+        else:
+            positions = []
+            pos = self._sample_start_pos()
+            for _ in range(len(self.markers)):
+                positions.append(pos.copy())
+                pos = self._sample_path_pos(pos)
+        self._marker_positions = positions
 
         for i, marker in enumerate(self.markers):
             try:
@@ -208,12 +222,9 @@ class WipeCounter(Kitchen):
                 self.sim.model.geom_rgba[geom_id][3] = 1.0
 
                 body_id = self.sim.model.body_name2id(marker.root_body)
-                position = np.array([pos[0], pos[1], z_pos])
-                self.sim.model.body_pos[body_id] = position
+                self.sim.model.body_pos[body_id] = np.array([positions[i][0], positions[i][1], z_pos])
             except Exception:
                 pass
-
-            pos = self._sample_path_pos(pos)
 
     # ── Task checks ────────────────────────────────────────────────────
 
