@@ -1,7 +1,5 @@
 # Install
 
-Follow these steps to set up the OopsieVerse conda environment and optional simulators.
-
 ## 1. Clone the repository
 
 === "Linux / macOS"
@@ -29,7 +27,7 @@ python install.py --new_env --robocasa   # and/or --behavior1k
 Activate the environment:
 
 ```bash
-conda activate oopsieverse
+conda activate oopsieverse_robocasa     # or --oopsieverse_b1k
 ```
 
 ## 3. Install the Python package
@@ -53,7 +51,7 @@ python -m omnigibson.examples.robots.all_robots_visualizer
 ```bash
 python -m robocasa.demos.demo_kitchen_scenes
 ```
-
+<!-- 
 !!! tip "Docs-only dependencies"
 
     To build this documentation locally:
@@ -61,4 +59,4 @@ python -m robocasa.demos.demo_kitchen_scenes
     ```bash
     pip install -e ".[docs]"
     mkdocs serve
-    ```
+    ``` -->

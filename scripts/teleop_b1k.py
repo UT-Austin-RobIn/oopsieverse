@@ -55,8 +55,9 @@ from damagesim.utils.visualization import (
     save_rgb_camera_video,
     save_rgb_health_video_with_overlay,
     save_rgb_force_video,
+    save_rgb_temperature_video,
 )
-from utils.misc_utils import setup_viewport_layout
+from utils.misc_utils import setup_viewport_layout, setup_panda_eef_visualization
 
 
 # --task_name picks which module to import from this package
@@ -200,9 +201,9 @@ def capture_viewer_rgb():
 
 def save_video(teleop_frames, teleop_health_records, target_objects_for_overlay,
                 task_cfg, fps=30, overlay_position="bottom_center", overlay_layout="column",
-                teleop_force_records=None):
+                teleop_force_records=None, teleop_temperature_records=None):
     """Save the collected frames as an MP4 (with health overlay if available).
-    Also saves force plot video when target_objects_forces is set and force data exists."""
+    Also saves force / temperature side-by-side plots when configured and data exists."""
     if not teleop_frames:
         return
     video_dir = os.path.join(
@@ -273,6 +274,37 @@ def save_video(teleop_frames, teleop_health_records, target_objects_for_overlay,
             )
             print(f"[teleop] Saved force plot video to {forces_path}")
 
+    # Temperature plot (thermal evaluator outputs on robot links)
+    target_objects_temperature = getattr(task_cfg, "target_objects_temperature", None) or []
+    temperature_plot_keys = getattr(task_cfg, "temperature_plot_keys", None) or ["temperature"]
+    if target_objects_temperature and teleop_temperature_records:
+        temps = {}
+        for obj_name in target_objects_temperature:
+            obj_data = teleop_temperature_records.get(obj_name, {})
+            temps[obj_name] = {k: list(obj_data.get(k, [])) for k in temperature_plot_keys}
+        n_frames = len(teleop_frames)
+        has_temp = False
+        for obj_name in target_objects_temperature:
+            for k in temperature_plot_keys:
+                arr = temps.get(obj_name, {}).get(k, [])
+                if len(arr) > n_frames:
+                    temps[obj_name][k] = arr[:n_frames]
+                elif len(arr) < n_frames:
+                    temps[obj_name][k] = arr + [0.0] * (n_frames - len(arr))
+                if len(temps[obj_name][k]) == n_frames:
+                    has_temp = True
+        if has_temp and temps:
+            temp_path = output_path + "_temperature.mp4"
+            save_rgb_temperature_video(
+                output_video_path=temp_path,
+                imgs=imgs,
+                target_objects=target_objects_temperature,
+                data=temps,
+                temperature_keys=tuple(temperature_plot_keys),
+                fps=fps,
+            )
+            print(f"[teleop] Saved temperature plot video to {temp_path}")
+
 
 def parse_args():
     p = argparse.ArgumentParser(description="Keyboard teleop for Behavior1k tasks.")
@@ -286,7 +318,7 @@ def parse_args():
                    help="Save an MP4 of the viewer at exit (default: False). If not set, sim optimization is used and no video is saved.")
     p.add_argument("--save_obs_to_hdf5", action="store_true",
                    help="Typically images are saved only during playback. But, use this if you want to save images during teleop.")
-    p.add_argument("--n_episodes", type=int, default=1,
+    p.add_argument("--n_episodes", type=int, default=3,
                    help="Number of teleop episodes to run (default: 1).")
     p.add_argument("--skip_hdf5_save", action="store_true",
                    help="Skip saving the HDF5 file (default: False).")
@@ -354,11 +386,14 @@ class TeleopWrapper:
         self.teleop_frames = []
         self.teleop_health_records = {}
         self.teleop_force_records = {}
+        self.teleop_temperature_records = {}
         self.overlay_links = kwargs["overlay_links"]
         self.overlay_position = kwargs["overlay_position"]
         self.overlay_layout = kwargs["overlay_layout"]
         self.target_objects_forces = getattr(self.task_cfg, "target_objects_forces", None) or []
         self.force_keys = getattr(self.task_cfg, "force_keys", None) or ["filtered_qs_forces"]
+        self.target_objects_temperature = getattr(self.task_cfg, "target_objects_temperature", None) or []
+        self.temperature_plot_keys = getattr(self.task_cfg, "temperature_plot_keys", None) or ["temperature"]
         self.setup_video_saving()
 
         # setup teleop interface
@@ -380,7 +415,7 @@ class TeleopWrapper:
             teleop_config.arm_left_controller = arm_teleop_method
             teleop_config.arm_right_controller = arm_teleop_method
             teleop_config.base_controller = base_teleop_method
-            teleop_config.interface_kwargs["spacemouse"] = {"arm_speed_scaledown": 0.01}
+            teleop_config.interface_kwargs["spacemouse"] = {"arm_speed_scaledown": 0.01, "base_speed_scaledown": 0.01}
             teleop_interface = TeleopSystem(config=teleop_config, robot=self.robot, show_control_marker=False)
             teleop_interface.start()
         else:
@@ -402,6 +437,7 @@ class TeleopWrapper:
         self.teleop_frames = []
         self.teleop_health_records = {}
         self.teleop_force_records = {}
+        self.teleop_temperature_records = {}
 
         if self.save_to_hdf5 and hasattr(self.env, "current_traj_history"):
             self.env.current_traj_history = []
@@ -511,7 +547,29 @@ class TeleopWrapper:
             for fk in self.force_keys:
                 val = mechanical.get(fk, 0.0)
                 self.teleop_force_records.setdefault(obj_name, {}).setdefault(fk, []).append(val)
-    
+
+    def record_temperature_step(self, damage_info):
+        """Append thermal evaluator fields per step (temperature, thresholds, …)."""
+        if not self.target_objects_temperature or not self.temperature_plot_keys or not damage_info:
+            return
+        for qual in self.target_objects_temperature:
+            parts = qual.split("@", 1)
+            if len(parts) != 2:
+                for tk in self.temperature_plot_keys:
+                    self.teleop_temperature_records.setdefault(qual, {}).setdefault(tk, []).append(0.0)
+                continue
+            obj_key, link_key = parts
+            obj_info = damage_info.get(obj_key, {})
+            link_info = obj_info.get(link_key, {})
+            thermal = link_info.get("thermal", {})
+            for tk in self.temperature_plot_keys:
+                raw = thermal.get(tk)
+                try:
+                    val = float(raw) if raw is not None else 0.0
+                except (TypeError, ValueError):
+                    val = 0.0
+                self.teleop_temperature_records.setdefault(qual, {}).setdefault(tk, []).append(val)
+
     def record_step(self, obs, info):
         health_list_link_names = getattr(self.env, "health_list_link_names", None) or []
         health_arr = obs.get("health")
@@ -521,6 +579,7 @@ class TeleopWrapper:
         )
         damage_info = info.get("damage_info", {})
         self.record_forces_step(damage_info)
+        self.record_temperature_step(damage_info)
         frame = capture_viewer_rgb()
         self.teleop_frames.append(frame)
 
@@ -534,6 +593,7 @@ class TeleopWrapper:
                 overlay_position=self.overlay_position,
                 overlay_layout=self.overlay_layout,
                 teleop_force_records=self.teleop_force_records,
+                teleop_temperature_records=self.teleop_temperature_records,
             )
 
 
@@ -579,6 +639,9 @@ def main():
 
     # Reset the environment to the initial state
     reset_env(env, task_cfg, task_mod)
+
+    setup_viewport_layout()
+    setup_panda_eef_visualization(robot, env.scene)
 
     # Setup teleop wrapper
     init_grasp = robot.is_grasping().value == IsGraspingState.TRUE

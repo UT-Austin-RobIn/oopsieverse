@@ -1,45 +1,39 @@
 # OopsieBench
 
-OopsieBench groups **damage-aware** task environments across simulators. Below, **OmniGibson / Behavior-1K** tasks correspond to the Python modules under `oopsiebench/envs/behavior1k/`. **RoboCasa (Robosuite)** tasks are registered in `oopsiebench/envs/registry.py`.
+OopsieBench is a benchmark suite spanning two simulators: OmniGibson (NVIDIA Omniverse) and Robosuite (MuJoCo). It is designed to expose robot policies to realistic physically damaging failure modes in household manipulation, while measuring the tradeoff between risky shortcut strategies and safer, more careful interactions.
 
-!!! tip "Videos and Git LFS"
+## OmniGibson (NVIDIA Omniverse)
 
-    **RoboCasa:** each **Play** control opens an MP4 in a **GLightbox** overlay. Add clips under `docs/assets/videos/robocasa/<task_id>.mp4` (tracked with **Git LFS**; see repo `.gitattributes` and `docs/assets/videos/robocasa/VIDEOS.txt`). Until a file exists, the button still appears; fix broken links by adding the matching MP4.
+| **Task name** | **Description** | **Unsafe execution** | **Safe execution** |
+| :------------ | :-------------- | :--------------------: | :-----------------: |
+| `shelve_item` | Shelve an item (mechanical) | <a href="../assets/videos/behavior1k/shelve_item_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/behavior1k/shelve_item_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `open_single_door` | Open a single hinged door (mechanical) | <a href="../assets/videos/behavior1k/open_single_door_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/behavior1k/open_single_door_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `turn_on_stove` | Turn on the stove (mechanical + thermal) | <a href="../assets/videos/behavior1k/turn_on_stove_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/behavior1k/turn_on_stove_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `add_firewood` | Add firewood to the fireplace (mechanical + thermal damage) | <a href="../assets/videos/behavior1k/add_firewood_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/behavior1k/add_firewood_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `food_in_microwave` | Place / heat food with the microwave (mechanical) | <a href="../assets/videos/behavior1k/food_in_microwave_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/behavior1k/food_in_microwave_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `open_drawer` | Open a kitchen drawer (mechanical) | <a href="../assets/videos/behavior1k/open_drawer_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/behavior1k/open_drawer_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `pour_water` | Pour water (mechanical + fluid) | <a href="../assets/videos/behavior1k/pour_water_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/behavior1k/pour_water_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
 
-    **Behavior-1K:** placeholders for now; you can mirror the same pattern under `docs/assets/videos/behavior1k/` later (add a matching LFS line in `.gitattributes` if you do).
 
-## OmniGibson — Behavior-1K tasks
+## Robosuite (MuJoCo)
 
-| Task ID | Video | Notes |
-|---------|-------|-------|
-| `add_firewood` | — | |
-| `default` | — | Default B1K teleop scene (**Rs_int**) with broad damage tracking |
-| `food_in_microwave` | — | |
-| `open_drawer` | — | |
-| `open_single_door` | — | |
-| `pour_water` | — | |
-| `shelve_item` | — | |
-| `turn_on_stove` | — | |
+| **Task name** | **Description** | **Unsafe execution** | **Safe execution** |
+| :------------ | :-------------- | :--------------------: | :-----------------: |
+| `pick_egg` | Pick up the egg gently without crushing it | <a href="../assets/videos/robocasa/pick_egg_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/robocasa/pick_egg_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `serve_pastry` | Place the pastry on the plate, then move the plate to the table mat | <a href="../assets/videos/robocasa/serve_pastry_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/robocasa/serve_pastry_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `open_single_door` | Open the microwave door | <a href="../assets/videos/robocasa/open_single_door_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/robocasa/open_single_door_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `turn_on_faucet` | Turn on the sink faucet | <a href="../assets/videos/robocasa/turn_on_faucet_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/robocasa/turn_on_faucet_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `turn_on_microwave` | Press the start button on the microwave | <a href="../assets/videos/robocasa/turn_on_microwave_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/robocasa/turn_on_microwave_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `turn_on_stove` | Turn on a stove burner knob | <a href="../assets/videos/robocasa/turn_on_stove_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/robocasa/turn_on_stove_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `open_drawer` | Open the drawer | <a href="../assets/videos/robocasa/open_drawer_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/robocasa/open_drawer_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `close_drawer` | Close the drawer (episode starts open) | <a href="../assets/videos/robocasa/close_drawer_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/robocasa/close_drawer_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `place_plate` | Pick up the plate and place it into the sink | <a href="../assets/videos/robocasa/place_plate_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/robocasa/place_plate_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `counter_to_microwave` | Pick the coffee cup from the counter and place it in the microwave | <a href="../assets/videos/robocasa/counter_to_microwave_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/robocasa/counter_to_microwave_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `prepare_coffee` | Pick the mug from the cabinet, place under the coffee dispenser, turn machine on, release mug | <a href="../assets/videos/robocasa/prepare_coffee_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/robocasa/prepare_coffee_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `shelve_item` | Pick the cereal box and place it on the table mat | <a href="../assets/videos/robocasa/shelve_item_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/robocasa/shelve_item_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `prepare_breakfast` | Place the mug and egg onto the counter tray, then move the tray to the dining table | <a href="../assets/videos/robocasa/prepare_breakfast_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/robocasa/prepare_breakfast_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `dishes_to_sink` | Place the bowl, cup, and plate into the sink, then turn on the faucet | <a href="../assets/videos/robocasa/dishes_to_sink_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/robocasa/dishes_to_sink_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `nav_lift_bowl` | Move around the stool and lift the bowl next to the stove | <a href="../assets/videos/robocasa/nav_lift_bowl_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/robocasa/nav_lift_bowl_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
+| `wipe_counter` | Wipe the dirt on the counter with the sponge | <a href="../assets/videos/robocasa/wipe_counter_unsafe.mp4" class="glightbox md-button" data-type="video">Unsafe</a> | <a href="../assets/videos/robocasa/wipe_counter_safe.mp4" class="glightbox md-button" data-type="video">Safe</a> |
 
-## RoboCasa (Robosuite) — registered tasks
-
-| Task ID | Video | Notes |
-|---------|-------|-------|
-| `pick_egg` | <a href="../assets/videos/robocasa/pick_egg.mp4" class="glightbox md-button" data-type="video">Play</a> | |
-| `serve_pastry` | <a href="../assets/videos/robocasa/serve_pastry.mp4" class="glightbox md-button" data-type="video">Play</a> | |
-| `open_single_door` | <a href="../assets/videos/robocasa/open_single_door.mp4" class="glightbox md-button" data-type="video">Play</a> | |
-| `turn_on_faucet` | <a href="../assets/videos/robocasa/turn_on_faucet.mp4" class="glightbox md-button" data-type="video">Play</a> | |
-| `turn_on_microwave` | <a href="../assets/videos/robocasa/turn_on_microwave.mp4" class="glightbox md-button" data-type="video">Play</a> | |
-| `turn_on_stove` | <a href="../assets/videos/robocasa/turn_on_stove.mp4" class="glightbox md-button" data-type="video">Play</a> | |
-| `open_drawer` | <a href="../assets/videos/robocasa/open_drawer.mp4" class="glightbox md-button" data-type="video">Play</a> | |
-| `close_drawer` | <a href="../assets/videos/robocasa/close_drawer.mp4" class="glightbox md-button" data-type="video">Play</a> | |
-| `place_plate` | <a href="../assets/videos/robocasa/place_plate.mp4" class="glightbox md-button" data-type="video">Play</a> | |
-| `counter_to_microwave` | <a href="../assets/videos/robocasa/counter_to_microwave.mp4" class="glightbox md-button" data-type="video">Play</a> | |
-| `prepare_coffee` | <a href="../assets/videos/robocasa/prepare_coffee.mp4" class="glightbox md-button" data-type="video">Play</a> | |
-| `shelve_item` | <a href="../assets/videos/robocasa/shelve_item.mp4" class="glightbox md-button" data-type="video">Play</a> | |
-| `prepare_breakfast` | <a href="../assets/videos/robocasa/prepare_breakfast.mp4" class="glightbox md-button" data-type="video">Play</a> | |
-| `dishes_to_sink` | <a href="../assets/videos/robocasa/dishes_to_sink.mp4" class="glightbox md-button" data-type="video">Play</a> | |
-| `nav_lift_bowl` | <a href="../assets/videos/robocasa/nav_lift_bowl.mp4" class="glightbox md-button" data-type="video">Play</a> | |
-| `wipe_counter` | <a href="../assets/videos/robocasa/wipe_counter.mp4" class="glightbox md-button" data-type="video">Play</a> | |
-
-Source for RoboCasa IDs: [`oopsiebench/envs/registry.py`](https://github.com/UT-Austin-RobIn/oopsieverse/blob/main/oopsiebench/envs/registry.py).
+RoboCasa task ids match [`oopsiebench/envs/registry.py`](https://github.com/UT-Austin-RobIn/oopsieverse/blob/main/oopsiebench/envs/registry.py).

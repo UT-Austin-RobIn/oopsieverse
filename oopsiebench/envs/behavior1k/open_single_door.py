@@ -13,6 +13,7 @@ import omnigibson as og
 from omnigibson.utils import transform_utils as T
 from omnigibson.controllers.controller_base import IsGraspingState
 from oopsiebench.envs.behavior1k.base import TaskConfig
+from oopsiebench.envs.behavior1k.spatial_checks import gripper_far_from_object
 from omnigibson import object_states
     
 ROBOT_NAME = "franka0"
@@ -25,9 +26,10 @@ TASK_OBJECTS = {
         "type": "DatasetObject",
         "name": "microwave",
         "category": "microwave",
-        "model": "abzvij",
-        "position": [-1.5, -2.0, 0.5],
+        "model": "ihxrvr",
+        "position": [-1.5, -2.0, 0.16],
         "orientation": [0, 0, 0, 1],
+        "fixed_base": True,
     }
 }
 
@@ -40,16 +42,17 @@ EXTERNAL_CAMERA_CONFIGS = {
     "external_sensor_0": {
         "position": VIEWER_CAMERA_POS,
         "orientation": VIEWER_CAMERA_ORN,
-        "horizontal_aperture": 30.0,
+        "horizontal_aperture": 20.0,
     },
     "external_sensor_1": {
         "position": [-0.5087745785713196, -3.052588701248169, 0.9984493851661682],
         "orientation": [0.5276271104812622, 0.19144046306610107, 0.2822819948196411, 0.7779955267906189],
-        "horizontal_aperture": 30.0,
+        "horizontal_aperture": 20.0,
     },
 }
 
-INIT_STATE_PATH = "resources/init_states/open_single_door.pkl"
+# INIT_STATE_PATH = "resources/init_states/open_single_door.pkl"
+INIT_STATE_PATH = None
 # ── Public entry point ──────────────────────────────────────────────────
 
 def get_task_config() -> TaskConfig:
@@ -74,8 +77,8 @@ def get_task_config() -> TaskConfig:
         robot_config={
             "type": ROBOT_TYPE,
             "name": ROBOT_NAME,
-            "position": [-0.6, -1.4, 0.0],
-            "orientation": [0.0, 0.0, 1.0, 0.0],
+            "position": [-0.8088, -1.4, -0.0001],
+            "orientation": [-0.0000, 0.0002, 0.9984, 0.0564],
             "grasping_mode": "assisted",
             "obs_modalities": ["rgb", "depth"],
             "action_normalize": False,
@@ -108,10 +111,10 @@ def get_task_config() -> TaskConfig:
             f"{ROBOT_NAME}@panda_leftfinger",
             f"{ROBOT_NAME}@panda_rightfinger",
             f"microwave@base_link",
-            f"microwave@link_0",
-            f"microwave@glass",
+            f"microwave@leaf",
+            # f"microwave@glass",
         ],
-        target_objects_health=[ROBOT_NAME],
+        target_objects_health=[ROBOT_NAME, "microwave"],
         target_objects_temperature=[
             f"{ROBOT_NAME}@eef_link",
             f"{ROBOT_NAME}@panda_hand",
@@ -124,8 +127,8 @@ def get_task_config() -> TaskConfig:
             f"{ROBOT_NAME}@panda_leftfinger",
             f"{ROBOT_NAME}@panda_rightfinger",
             f"microwave@base_link",
-            f"microwave@link_0",
-            f"microwave@glass",
+            f"microwave@leaf",
+            # f"microwave@glass",
         ],
         force_keys=["filtered_qs_forces"],
 
@@ -135,7 +138,7 @@ def get_task_config() -> TaskConfig:
         default_video_dir="demos/behavior1k/playback_videos/open_single_door",
     )
 
-_U_XY = 0.03
+_U_XY = 0.05
 _U_YAW = 0.12
 _U_ARM = 0.07
 
@@ -148,12 +151,15 @@ def reset(env):
         og.sim.load_state(state_flat_array, serialized=True)
 
     microwave = env.scene.object_registry("name", "microwave")
-    microwave.root_link.mass = 100.0
-    
+    # microwave.root_link.mass = 100.0
+
     # Reset the robot's position and orientation
     if not getattr(env, "robots", None):
         return
     robot = env.robots[0]
+    RESET_JOINT_POSITIONS = th.tensor([0.0606, -1.7628, 1.5638, -2.4855, 0.1761, 2.4263, 2.1347, 0.0400, 0.0400])
+    robot.set_joint_positions(RESET_JOINT_POSITIONS)
+
     pos, orn = robot.get_position_orientation()
     pos = pos.clone()
     pos[0] += float(np.random.uniform(-_U_XY, _U_XY))
@@ -179,7 +185,7 @@ def task_completion_check(env):
     # Check if any of the drawers are fully open
     microwave = env.scene.object_registry("name", "microwave")
     microwave_open = False
-    joint = microwave.joints["j_link_0"]
+    joint = microwave.joints["j_leaf"]
     if (joint.get_state()[0] - joint.lower_limit) / (joint.upper_limit - joint.lower_limit) > 0.95:
         microwave_open = True
     
@@ -187,4 +193,5 @@ def task_completion_check(env):
     robot = env.robots[0]
     robot_grasping = robot.is_grasping(candidate_obj=microwave).value == IsGraspingState.TRUE
     
-    return microwave_open and not robot_grasping
+    gripper_far = gripper_far_from_object(robot, microwave, threshold=0.5)
+    return microwave_open and not robot_grasping and gripper_far

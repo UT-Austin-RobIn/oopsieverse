@@ -71,6 +71,7 @@ class DamageableEnvironment:
         self._health_ax = None
         self._health_bars_dict = None
         self._health_tracked_object_names: Optional[List[str]] = None
+        self._damage_color_manager = None
         self.health_list_link_names: List[str] = []
 
     # ── Config loading ──────────────────────────────────────────────────
@@ -185,7 +186,7 @@ class DamageableEnvironment:
         if hasattr(obj, "robot_type"):
             return True
         name = getattr(obj, "name", "") or ""
-        if "robot" in name.lower():
+        if "robot" in name.lower() and "platform" not in name.lower():
             return True
         # Check if obj is in the robots list (set by sim-specific subclass)
         robots = getattr(self, "robots", [])

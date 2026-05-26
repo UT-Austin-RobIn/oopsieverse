@@ -17,6 +17,7 @@ from omnigibson import object_states
 from omnigibson.object_states import Filled
 
 from oopsiebench.envs.behavior1k.base import TaskConfig
+from oopsiebench.envs.behavior1k.spatial_checks import gripper_far_from_object
 
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaPanda"
@@ -268,10 +269,11 @@ def reset(env):
 
 def task_completion_check(env):
     coffee_cup = env.scene.object_registry("name", "coffee_cup_1")
+    robot = env.robots[0]
     water_system = env.scene.get_system("water", force_init=True)
     particles_in_coffee_cup = coffee_cup.states[object_states.ContainedParticles].get_value(system=water_system).n_in_volume
     if particles_in_coffee_cup > 10:
-        return True
+        return gripper_far_from_object(robot, coffee_cup)
     return False
 
 
