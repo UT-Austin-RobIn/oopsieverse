@@ -109,6 +109,8 @@ OBJECT_PARAMS = {
     "PandaOmron": {
         "damage_evaluators": ["mechanical"],
         "damageable_links": [
+            "mobilebase0_base", "mobilebase0_fixed_support", "mobilebase0_support",
+            "mobilebase0_wheeled_base",
             "robot0_link0", "robot0_link1", "robot0_link2",
             "robot0_link3", "robot0_link4", "robot0_link5",
             "robot0_link6", "robot0_link7", "robot0_right_hand",
@@ -129,6 +131,12 @@ OBJECT_PARAMS = {
                     "damage_scale": 0.2,
                 },
                 "link0": {
+                    "impact_damage_sensitivity": 0.0,
+                    "qs_damage_sensitivity": 1.0,
+                    "damage_threshold": 200.0,
+                    "damage_scale": 0.2,
+                },
+                "mobilebase": {
                     "impact_damage_sensitivity": 0.0,
                     "qs_damage_sensitivity": 1.0,
                     "damage_threshold": 200.0,
