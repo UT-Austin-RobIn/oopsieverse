@@ -7,7 +7,6 @@ Task: pick the cereal box and place it on the table mat.
 import os
 import numpy as np
 import robocasa.utils.env_utils as EnvUtils
-import robocasa.utils.object_utils as OU
 from robocasa.environments.kitchen.kitchen import FixtureType, Kitchen
 from robocasa.models.objects.kitchen_object_utils import OBJ_CATEGORIES
 from robocasa.models.scenes.scene_registry import LayoutType, StyleType
@@ -23,7 +22,7 @@ from damagesim.robosuite.params.damage_params import get_params_for_object
 # Constants
 # ═══════════════════════════════════════════════════════════════════════
 
-TABLE_MAT_SIZE = [0.09, 0.18, 0.001]
+TABLE_MAT_SIZE = [0.185, 0.25, 0.004]
 TABLE_MAT_COLOR = [0.06, 0.10, 0.30, 1.0]
 
 
@@ -39,8 +38,15 @@ class ShelveItem(Kitchen):
         kwargs.pop("style_ids", None)
         kwargs.pop("obj_registries", None)
 
+        # Kitchen defaults render_camera to "robot0_agentview_center", which is
+        # parented to mobilebase0_support — that body doesn't exist on a
+        # fixed-base Panda, so the camera is silently skipped. Fall back to a
+        # camera Panda actually ships with.
+        kwargs.setdefault("render_camera", "robot0_robotview")
+
         self.table_mat = None
         self._table_mat_pos = None
+        self.randomize_scene = False
 
         super().__init__(
             layout_ids=LayoutType.LAYOUT010,
@@ -68,20 +74,55 @@ class ShelveItem(Kitchen):
     def _load_model(self, **kwargs):
         super()._load_model(**kwargs)
         self._add_table_mat()
-        robot_offset = [1.5, 0.6]
+
+        # Centered along the dining counter's length, set slightly back from
+        # the row of objects so the Panda can reach them but isn't on top of them.
+        robot_offset = [0.4, 0.7]
         pos, ori = EnvUtils.compute_robot_base_placement_pose(
             self, ref_fixture=self.dining_table, offset=robot_offset
         )
         self.init_robot_base_pos_anchor = pos
         self.init_robot_base_ori_anchor = ori
 
+        # Panda is fixed-base: kitchen's mobile-base reset path won't move it,
+        # so write the actual base pose into the model XML before sim compile.
+        # Yaw the robot 270° CCW (= 90° CW) from the natural placement so it
+        # faces toward the row of objects.
+        robot_model = self.robots[0].robot_model
+        ori_with_yaw = np.array(ori, dtype=float)
+        ori_with_yaw[2] += 3 * np.pi / 2
+        robot_model.set_base_xpos([pos[0], pos[1], pos[2]])
+        robot_model.set_base_ori(ori_with_yaw)
+        self.init_robot_base_ori_anchor = ori_with_yaw
+
     def _reset_internal(self):
-        super()._reset_internal()
-        # Rotate robot 90 degrees CCW via the mobile base yaw joint.
-        rotation_jnt = "mobilebase0_joint_mobile_yaw"
-        addr = self.sim.model.get_joint_qpos_addr(rotation_jnt)
-        self.sim.data.qpos[addr] += np.pi / 2
-        self.sim.forward()
+        # Kitchen._reset_internal calls EnvUtils.set_robot_base, which assumes
+        # mobile-base joints. Panda is fixed-base, so we skip Kitchen here and
+        # replicate the bits we still need: manipulation-env reset, scene
+        # setup, object placements, and the post-reset settle steps.
+        super(Kitchen, self)._reset_internal()
+
+        self._setup_scene()
+
+        if not self.deterministic_reset and self.placement_initializer is not None:
+            object_placements = self.object_placements
+            self._update_sliding_fxtr_obj_placement()
+            for obj_pos, obj_quat, obj in object_placements.values():
+                self.sim.data.set_joint_qpos(
+                    obj.joints[0],
+                    np.concatenate([np.array(obj_pos), np.array(obj_quat)]),
+                )
+
+        self.init_robot_base_pos = self.init_robot_base_pos_anchor
+        self.init_robot_base_ori = self.init_robot_base_ori_anchor
+
+        action = np.zeros(self.action_spec[0].shape)
+        policy_step = True
+        for _ in range(10 * int(self.control_timestep / self.model_timestep)):
+            self.sim.step1()
+            self._pre_action(action, policy_step)
+            self.sim.step2()
+            policy_step = False
 
     def _add_table_mat(self):
         existing_bodies = [child.get("name") for child in self.model.worldbody]
@@ -113,8 +154,10 @@ class ShelveItem(Kitchen):
         dining_x = self.dining_table.pos[0]
         dining_y = self.dining_table.pos[1]
 
-        mat_x = dining_x - 0.83
-        mat_y = dining_y + 0.28
+        # Place the mat under the row of objects, with its front edge tucked
+        # ≈ 1.5 cm inside the counter's front edge so nothing overhangs.
+        mat_x = dining_x - 0.925
+        mat_y = dining_y + 0.0
         mat_z = dining_surface_z + TABLE_MAT_SIZE[2] + 0.001
 
         self._table_mat_pos = np.array([mat_x, mat_y, mat_z])
@@ -176,6 +219,11 @@ class ShelveItem(Kitchen):
 
         cfgs = []
 
+        # Front edge of the dining counter, in a row spread along its length so
+        # the Panda can swing across them and potentially knock them off.
+        edge_x = 0.95
+        row_ys = [-0.60, -0.20, 0.0, 0.20, 0.40]
+
         cfgs.append(
             dict(
                 name="cereal",
@@ -187,7 +235,7 @@ class ShelveItem(Kitchen):
                         top_size=(0.50, 0.40)
                     ),
                     size=(0.0, 0.0),
-                    pos=(0.94, -0.68),
+                    pos=(edge_x, row_ys[0]),
                     rotation=(1.57, 1.57),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
@@ -206,7 +254,7 @@ class ShelveItem(Kitchen):
                         top_size=(0.50, 0.40)
                     ),
                     size=(0.0, 0.0),
-                    pos=(0.78, -0.92),
+                    pos=(edge_x, row_ys[1]),
                     rotation=(-0.1, 0.1),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
@@ -225,7 +273,7 @@ class ShelveItem(Kitchen):
                         top_size=(0.50, 0.40)
                     ),
                     size=(0.0, 0.0),
-                    pos=(0.78, -0.65),
+                    pos=(edge_x, row_ys[2]),
                     rotation=(-0.1, 0.1),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
@@ -244,7 +292,7 @@ class ShelveItem(Kitchen):
                         top_size=(0.50, 0.40)
                     ),
                     size=(0.0, 0.0),
-                    pos=(0.78, -0.47),
+                    pos=(edge_x, row_ys[3]),
                     rotation=(-0.1, 0.1),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
@@ -263,7 +311,7 @@ class ShelveItem(Kitchen):
                         top_size=(0.50, 0.40)
                     ),
                     size=(0.0, 0.0),
-                    pos=(0.78, -0.30),
+                    pos=(edge_x, row_ys[4]),
                     rotation=(1.57, 1.57),
                     ensure_object_boundary_in_range=False,
                     ensure_valid_placement=False,
@@ -283,7 +331,7 @@ class ShelveItem(Kitchen):
             cereal_pos = np.array(self.sim.data.body_xpos[self.obj_body_id["cereal"]])
 
             try:
-                mat_body_id = self.sim.model.body_name2id("table_mat")
+                mat_body_id = self.sim.model.body_name2id("table_mat_main")
                 mat_pos = np.array(self.sim.data.body_xpos[mat_body_id])
             except Exception:
                 mat_pos = self._table_mat_pos
@@ -292,9 +340,9 @@ class ShelveItem(Kitchen):
             dy = abs(cereal_pos[1] - mat_pos[1])
             dz = cereal_pos[2] - mat_pos[2]
 
-            within_x = dx <= TABLE_MAT_SIZE[0] * 1.5
-            within_y = dy <= TABLE_MAT_SIZE[1] * 1.5
-            above_mat = -0.02 <= dz <= 0.15
+            within_x = dx <= TABLE_MAT_SIZE[0]
+            within_y = dy <= TABLE_MAT_SIZE[1]
+            above_mat = -0.02 <= dz <= 0.2
 
             return within_x and within_y and above_mat
         except Exception:
@@ -308,7 +356,7 @@ class ShelveItem(Kitchen):
             cereal_pos = np.array(self.sim.data.body_xpos[self.obj_body_id["cereal"]])
 
             try:
-                mat_body_id = self.sim.model.body_name2id("table_mat")
+                mat_body_id = self.sim.model.body_name2id("table_mat_main")
                 mat_pos = np.array(self.sim.data.body_xpos[mat_body_id])
             except Exception:
                 mat_pos = self._table_mat_pos
@@ -343,12 +391,7 @@ class ShelveItem(Kitchen):
             return 0.0
 
     def _check_success(self):
-        try:
-            cereal_on_mat = self._check_cereal_on_table_mat()
-            gripper_away = OU.gripper_obj_far(self, "cereal")
-            return cereal_on_mat and gripper_away
-        except Exception:
-            return False
+        return self._check_cereal_on_table_mat()
 
 
 # ═══════════════════════════════════════════════════════════════════════
