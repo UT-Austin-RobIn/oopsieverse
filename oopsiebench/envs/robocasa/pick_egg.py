@@ -5,7 +5,6 @@ Task: pick up the egg gently without crushing it.
 """
 
 import os
-
 import numpy as np
 import robocasa.utils.env_utils as EnvUtils
 from robocasa.environments.kitchen.kitchen import FixtureType, Kitchen
@@ -23,12 +22,13 @@ from damagesim.robosuite.damageable_env import RSDamageableEnvironment
 class PickEgg(Kitchen):
 
     def __init__(self, *args, **kwargs):
-        kwargs.pop("layout_ids", None)
-        kwargs.pop("style_ids", None)
+        self.layout_id = LayoutType.LAYOUT002
+        self.style_id = StyleType.STYLE004
+        self.randomize_scene = False
 
-        super().__init__(
-            layout_ids=LayoutType.LAYOUT002,
-            style_ids=StyleType.STYLE004,
+        super().__init__(   
+            layout_ids=self.layout_id,
+            style_ids=self.style_id,
             *args,
             **kwargs,
         )
@@ -44,17 +44,20 @@ class PickEgg(Kitchen):
         self.counter = self.get_fixture(FixtureType.COUNTER, ref=self.sink)
         self.init_robot_base_ref = self.counter
 
-    def _load_model(self):
-        super()._load_model()
+    def _load_model(self, *args, **kwargs):
+        super()._load_model(*args, **kwargs)
+        robot_offset = [1.0, 0.0]
         pos, ori = EnvUtils.compute_robot_base_placement_pose(
-            self, ref_fixture=self.counter, offset=[1.0, 0.0]
+            self, ref_fixture=self.counter, offset=robot_offset
         )
         self.init_robot_base_pos_anchor = pos
         self.init_robot_base_ori_anchor = ori
 
     def _get_obj_cfgs(self):
-        egg_paths = OBJ_CATEGORIES["egg"]["objaverse"].mjcf_paths
-        egg_0_path = next(p for p in egg_paths if p.endswith("egg_0" + os.sep + "model.xml"))
+        egg_0_path = next(
+            p for p in OBJ_CATEGORIES["egg"]["objaverse"].mjcf_paths
+            if os.path.basename(os.path.dirname(p)) == "egg_0"
+        )
 
         return [
             dict(
@@ -63,9 +66,9 @@ class PickEgg(Kitchen):
                 placement=dict(
                     fixture=self.counter,
                     sample_region_kwargs=dict(ref=self.sink, loc="right"),
-                    size=(0.1, 0.1),
+                    size=(0.2,0.2),
                     offset=(0, -0.50),
-                    rotation=0.0,
+                    rotation=(-0.1, 0.1),
                 ),
             )
         ]

@@ -193,7 +193,7 @@ class DamageableEnvironment:
         if hasattr(obj, "robot_type"):
             return True
         name = getattr(obj, "name", "") or ""
-        if "robot" in name.lower():
+        if "robot" in name.lower() and "platform" not in name.lower():
             return True
         # Check if obj is in the robots list (set by sim-specific subclass)
         robots = getattr(self, "robots", [])

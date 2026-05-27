@@ -214,7 +214,7 @@ def save_rgb_force_video(
     ax_force = fig.add_subplot(gs[0, 1])
     ax_force.set_title("Force History")
     ax_force.set_xlabel("Time (s)")
-    ax_force.set_ylabel("End-effector Force (N)")
+    ax_force.set_ylabel("Force (N)")
     ax_force.set_xlim(0, T / fps)
     ax_force.set_ylim(0, 500.0)
     ax_force.grid(True)
@@ -350,3 +350,107 @@ def setup_viewport_layout(
     vp.height = 890
     vp.width = 1430
     for _ in range(10): og.sim.render()
+
+
+def create_panda_eef_cylinders(
+    robot,
+    scene,
+    width=0.01,
+    lengths=(0.4, 0.4, 0.8),
+    proportion_offsets=(0.0, 0.0, 0.5),
+    colors=(
+        (1.0, 0.0, 0.0),  # X-axis
+        (0.0, 1.0, 0.0),  # Y-axis
+        (0.0, 0.0, 1.0),  # Z-axis
+    ),
+    quat_offsets=None,
+):
+    """
+    Create end-effector cylinder visualizers (X / Y / Z) for a Panda robot.
+
+    Returns:
+        dict: arm_name -> list[VisualGeomPrim] for the three axis cylinders.
+    """
+    _load_og_ui_modules()
+    from omnigibson.prims import VisualGeomPrim
+    from omnigibson.prims.material_prim import OmniPBRMaterialPrim
+    from omnigibson.utils import transform_utils as T
+    from omnigibson.utils.usd_utils import (
+        create_primitive_mesh,
+        absolute_prim_path_to_scene_relative,
+    )
+
+    if quat_offsets is None:
+        quat_offsets = (
+            T.euler2quat(th.tensor([0.0, th.pi / 2, 0.0])),
+            T.euler2quat(th.tensor([-th.pi / 2, 0.0, 0.0])),
+            T.euler2quat(th.tensor([0.0, 0.0, 0.0])),
+        )
+
+    color_tensors = tuple(th.as_tensor(c, dtype=th.float32) for c in colors)
+    vis_geoms = {}
+
+    arm_names = getattr(robot, "arm_names", ["arm"])
+    for arm in arm_names:
+        if arm not in robot.eef_links:
+            continue
+        hand_link = robot.eef_links[arm]
+        arm_geoms = []
+        for axis, length, color, prop_offset, quat_offset in zip(
+            ("x", "y", "z"),
+            lengths,
+            color_tensors,
+            proportion_offsets,
+            quat_offsets,
+        ):
+            mat_prim_path = f"{robot.prim_path}/Looks/panda_eef_vis_{arm}_{axis}_mat"
+            mat = OmniPBRMaterialPrim(
+                relative_prim_path=absolute_prim_path_to_scene_relative(
+                    scene, mat_prim_path
+                ),
+                name=f"{robot.name}:panda_eef_vis_{arm}_{axis}_mat",
+            )
+            mat.load(scene)
+            mat.diffuse_color_constant = color
+
+            vis_prim_path = f"{hand_link.prim_path}/panda_eef_vis_{axis}"
+            create_primitive_mesh(
+                vis_prim_path,
+                "Cylinder",
+                extents=1.0,
+            )
+            vis_geom = VisualGeomPrim(
+                relative_prim_path=absolute_prim_path_to_scene_relative(
+                    scene, vis_prim_path
+                ),
+                name=f"{robot.name}:arm_{arm}:panda_eef_vis_{axis}",
+            )
+            vis_geom.load(scene)
+            vis_geom.material = mat
+            vis_geom.scale = th.tensor([width, width, length], dtype=th.float32)
+            vis_geom.set_position_orientation(
+                position=th.tensor(
+                    [0.0, 0.0, length * prop_offset], dtype=th.float32
+                ),
+                orientation=quat_offset,
+                frame="parent",
+            )
+            arm_geoms.append(vis_geom)
+
+        vis_geoms[arm] = arm_geoms
+
+    return vis_geoms
+
+
+def setup_panda_eef_visualization(robot, scene):
+    """Attach RGB axis cylinders to the Panda EEF and make them visible."""
+    og, _, _ = _load_og_ui_modules()
+    eef_vis = create_panda_eef_cylinders(robot, scene)
+    if "eef_link" in robot.links:
+        robot.links["eef_link"].prim.GetAttribute("visibility").Set("inherited")
+    for geom_list in eef_vis.values():
+        for geom in geom_list:
+            geom.prim.GetAttribute("visibility").Set("inherited")
+    for _ in range(10):
+        og.sim.render()
+    return eef_vis

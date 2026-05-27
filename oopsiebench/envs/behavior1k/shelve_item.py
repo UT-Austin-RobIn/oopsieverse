@@ -15,6 +15,7 @@ from omnigibson import object_states
 from omnigibson.controllers.controller_base import IsGraspingState
 
 from oopsiebench.envs.behavior1k.base import TaskConfig
+from oopsiebench.envs.behavior1k.spatial_checks import gripper_far_from_object
 
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaPanda"
@@ -306,6 +307,10 @@ def task_completion_check(env):
     stand = env.scene.object_registry("name", "stand")
     box_inside_stand = box_of_crackers.states[object_states.Inside].get_value(other=stand)
     robot = env.robots[0]
-    if box_inside_stand and robot.is_grasping(candidate_obj=box_of_crackers).value == IsGraspingState.FALSE:
+    if (
+        box_inside_stand
+        and robot.is_grasping(candidate_obj=box_of_crackers).value == IsGraspingState.FALSE
+        and gripper_far_from_object(robot, stand)
+    ):
         return True
     return False

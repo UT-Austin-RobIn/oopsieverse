@@ -17,6 +17,7 @@ from omnigibson import object_states
 from omnigibson.object_states import Filled
 
 from oopsiebench.envs.behavior1k.base import TaskConfig
+from oopsiebench.envs.behavior1k.spatial_checks import gripper_far_from_object
 
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaPanda"

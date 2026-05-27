@@ -15,6 +15,7 @@ from omnigibson.controllers.controller_base import IsGraspingState
 
 
 from oopsiebench.envs.behavior1k.base import TaskConfig
+from oopsiebench.envs.behavior1k.spatial_checks import gripper_far_from_object
 
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaPanda"
@@ -162,4 +163,5 @@ def task_completion_check(env):
     robot = env.robots[0]
     robot_grasping = robot.is_grasping(candidate_obj=drawer).value == IsGraspingState.TRUE
     
-    return drawer_open and not robot_grasping
+    gripper_far = gripper_far_from_object(robot, drawer)
+    return drawer_open and not robot_grasping and gripper_far
