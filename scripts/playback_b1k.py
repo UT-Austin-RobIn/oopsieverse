@@ -26,7 +26,7 @@ python scripts/playback_b1k.py --task_name shelve_item --playback --low_resoluti
 
 Supported task names
 --------------------
-shelve_item, add_firewood, pour_water   (add more in ``oopsiebench.envs.behavior1k``)
+All tasks in ``TASK_REGISTRY`` (see ``scripts/teleop_b1k.py``).
 """
 
 from __future__ import annotations
@@ -58,10 +58,18 @@ from damagesim.omnigibson.damageable_env import (
 
 # Maps CLI task_name → module path under ``oopsiebench.envs.behavior1k``
 TASK_REGISTRY: Dict[str, str] = {
+    "default": "oopsiebench.envs.behavior1k.default",
     "shelve_item": "oopsiebench.envs.behavior1k.shelve_item",
     "add_firewood": "oopsiebench.envs.behavior1k.add_firewood",
-    "firewood": "oopsiebench.envs.behavior1k.add_firewood",  # alias
+    "firewood": "oopsiebench.envs.behavior1k.add_firewood",
     "pour_water": "oopsiebench.envs.behavior1k.pour_water",
+    "open_drawer": "oopsiebench.envs.behavior1k.open_drawer",
+    "wipe_counter": "oopsiebench.envs.behavior1k.wipe_counter",
+    "nav_to_table": "oopsiebench.envs.behavior1k.nav_to_table",
+    "pick_egg": "oopsiebench.envs.behavior1k.pick_egg",
+    "place_bowl": "oopsiebench.envs.behavior1k.place_bowl",
+    "place_plate": "oopsiebench.envs.behavior1k.place_plate",
+    "turn_on_faucet": "oopsiebench.envs.behavior1k.turn_on_faucet",
     "turn_on_stove": "oopsiebench.envs.behavior1k.turn_on_stove",
     "open_single_door": "oopsiebench.envs.behavior1k.open_single_door",
     "food_in_microwave": "oopsiebench.envs.behavior1k.food_in_microwave",
@@ -252,7 +260,9 @@ def run_playback(args, task_cfg):
 
 
     gm.USE_GPU_DYNAMICS = task_cfg.use_gpu_dynamics
-    gm.ENABLE_TRANSITION_RULES = task_cfg.enable_transition_rules
+    # Playback replays serialized state + HDF5 transitions; OG DataPlaybackWrapper
+    # requires rules off even when teleop used enable_transition_rules=True (e.g. turn_on_faucet).
+    gm.ENABLE_TRANSITION_RULES = False
 
     robot_name = task_cfg.robot_name
     robot_type = task_cfg.robot_type
@@ -488,6 +498,8 @@ def parse_args():
 
 def main():
     args = parse_args()
+    if args.activity_name is None:
+        args.activity_name = args.task_name
 
     # Load per-task config
     task_cfg = load_task_config(args.task_name)

@@ -127,6 +127,13 @@ class DamageableEnvironment:
 
         if task_name != "default":
             # ── Task-specific mode: allowlist ────────────────────────────
+            #
+            # If a non-default task is not present in the config, we default to
+            # tracking only the robot ("agent") so tasks can run without needing
+            # an explicit allowlist entry.
+            if task_cfg is None:
+                task_cfg = {"categories": ["agent"], "names": []}
+
             allowed_categories: Set[str] = set(task_cfg.get("categories", []) or [])
             allowed_names: Set[str] = set(task_cfg.get("names", []) or [])
 
