@@ -342,8 +342,6 @@ def create_damageable_from_fixture(fixture):
     fixture.damage_evaluators = []
     fixture.track_damage = True
     fixture.damageable_links = []
-    thresholds = found.get("health_thresholds", [90.0, 60.0, 30.0])
-    fixture.minor_threshold, fixture.major_threshold, fixture.critical_threshold = thresholds
     fixture.link_healths = {}
     fixture._damage_statuses = {}
     fixture.damage_info = {}
@@ -362,7 +360,7 @@ def create_damageable_from_fixture(fixture):
 
 class DamageableMJCFObject(RSDamageableMixin, _MJCFObject):
     def __init__(self, name, mjcf_path, scale=1.0, solimp=None, solref=None,
-                 density=100, friction=None, margin=None, rgba=None,
+                 density=None, friction=None, margin=None, rgba=None,
                  priority=None, params=None):
         if params is None:
             from damagesim.robosuite.params import get_params_for_object
@@ -374,6 +372,8 @@ class DamageableMJCFObject(RSDamageableMixin, _MJCFObject):
             solref = params.get("solref", OBJECT_PARAMS["default"]["solref"])
         if friction is None:
             friction = params.get("friction", OBJECT_PARAMS["default"]["friction"])
+        if priority is None and params.get("geom_contact_priority") is not None:
+            priority = int(params["geom_contact_priority"])
         super().__init__(name=name, mjcf_path=mjcf_path, scale=scale,
                          solimp=solimp, solref=solref, density=density,
                          friction=friction, margin=margin, rgba=rgba,
