@@ -445,6 +445,18 @@ class OGDamageableDataCollectionWrapper(DataCollectionWrapper):
             step_data["info"] = info
         return step_data
 
+    def discard_current_traj(self):
+        """Drop in-memory episode data without writing to HDF5."""
+        if not self.current_traj_history:
+            return
+        self.step_count -= len(self.current_traj_history)
+        self.current_traj_history = []
+        self.max_state_size = 0
+        self.current_transitions = dict()
+        self.checkpoint_states = []
+        self.checkpoint_step_idxs = []
+        if self.checkpoint_rollback_trajs is not None:
+            self.checkpoint_rollback_trajs = dict()
 
 
 class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):

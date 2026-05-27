@@ -10,6 +10,7 @@ import pickle
 import numpy as np
 import torch as th
 import omnigibson as og
+import omnigibson.lazy as lazy
 from omnigibson.utils import transform_utils as T
 from omnigibson.controllers.controller_base import IsGraspingState
 from oopsiebench.envs.behavior1k.base import TaskConfig
@@ -22,20 +23,30 @@ ROBOT_TYPE = "FrankaPanda"
 # ── Task objects ────────────────────────────────────────────────────────
 
 TASK_OBJECTS = {
+    "coffee_table": {
+        "type": "DatasetObject",
+        "name": "coffee_table",
+        "category": "coffee_table",
+        "model": "xshzms",
+        "position": [-1.5, -2.0, 0.17],
+        "orientation": [0, 0, 0, 1],
+        "fixed_base": True,
+    },
     "microwave": {
         "type": "DatasetObject",
         "name": "microwave",
         "category": "microwave",
-        "model": "abzvij",
-        "position": [-1.5, -2.0, 0.5],
+        "model": "ihxrvr",
+        "position": [-1.5, -2.0, 0.37],
         "orientation": [0, 0, 0, 1],
+        "fixed_base": True,
     },
     "bowl": {
         "type": "DatasetObject",
         "name": "bowl",
         "category": "bowl",
         "model": "oyidja",
-        "position": [-1.0, -2.0, 0.5],
+        "position": [-0.8, -2.3, 0.05],
         "orientation": [0, 0, 0, 1],
     },
     "cupcake": {
@@ -43,15 +54,34 @@ TASK_OBJECTS = {
         "name": "cupcake",
         "category": "cupcake",
         "model": "outske",
-        "position": [-1.0, -2.0, 0.7],
+        "position": [-0.8, -2.3, 0.1],
         "orientation": [0, 0, 0, 1],
     }
 }
 
+# Applied in reset() — not via link_physics_materials in TASK_OBJECTS, which mutates
+# init_info and breaks HDF5 scene JSON serialization (PhysicsMaterial is not JSON-safe).
+_CUPCAKE_FRICTION = {
+    "static_friction": 0.2,
+    "dynamic_friction": 0.15,
+    "restitution": 0.0,
+}
+
+
+def _apply_link_physics_material(obj, link_name: str, mat_name: str, **material_kwargs):
+    """Override collision friction for one link (runtime only; safe for teleop HDF5 save)."""
+    physics_mat = lazy.isaacsim.core.api.materials.physics_material.PhysicsMaterial(
+        prim_path=f"{obj.prim_path}/Looks/{mat_name}",
+        name=mat_name,
+        **material_kwargs,
+    )
+    for msh in obj.links[link_name].collision_meshes.values():
+        msh.apply_physics_material(physics_mat)
+
 # ── Cameras ─────────────────────────────────────────────────────────────
 
-VIEWER_CAMERA_POS = [-0.4424, -2.7844,  0.8241]
-VIEWER_CAMERA_ORN = [0.4738, 0.1599, 0.2769, 0.8206]
+VIEWER_CAMERA_POS = [-0.6055, -1.2913,  1.0425]
+VIEWER_CAMERA_ORN = [0.0772, 0.3844, 0.9019, 0.1811]
 
 EXTERNAL_CAMERA_CONFIGS = {
     "external_sensor_0": {
@@ -59,14 +89,15 @@ EXTERNAL_CAMERA_CONFIGS = {
         "orientation": VIEWER_CAMERA_ORN,
         "horizontal_aperture": 30.0,
     },
-    "external_sensor_1": {
-        "position": [-0.5087745785713196, -3.052588701248169, 0.9984493851661682],
-        "orientation": [0.5276271104812622, 0.19144046306610107, 0.2822819948196411, 0.7779955267906189],
-        "horizontal_aperture": 30.0,
-    },
+    # "external_sensor_1": {
+    #     "position": [-0.5087745785713196, -3.052588701248169, 0.9984493851661682],
+    #     "orientation": [0.5276271104812622, 0.19144046306610107, 0.2822819948196411, 0.7779955267906189],
+    #     "horizontal_aperture": 30.0,
+    # },
 }
 
-INIT_STATE_PATH = "resources/init_states/food_in_microwave.pkl"
+# INIT_STATE_PATH = "resources/init_states/food_in_microwave.pkl"
+INIT_STATE_PATH = None
 # ── Public entry point ──────────────────────────────────────────────────
 
 def get_task_config() -> TaskConfig:
@@ -91,8 +122,8 @@ def get_task_config() -> TaskConfig:
         robot_config={
             "type": ROBOT_TYPE,
             "name": ROBOT_NAME,
-            "position": [-0.75, -1.65, 0.0],
-            "orientation": [0.0, 0.0, 1.0, 0.0],
+            "position": [-0.60, -1.6, -0.0001],
+            "orientation": [-0.0000, 0.0002, 0.9984, 0.0564],
             "grasping_mode": "assisted",
             "obs_modalities": ["rgb", "depth"],
             "action_normalize": False,
@@ -106,6 +137,7 @@ def get_task_config() -> TaskConfig:
                     "name": "MultiFingerGripperController",
                     "command_input_limits": (0.0, 1.0),
                     "mode": "smooth",
+                    "isaac_kp": 1e6,
                 },
             },
         },
@@ -117,6 +149,7 @@ def get_task_config() -> TaskConfig:
         viewer_camera_pos=VIEWER_CAMERA_POS,
         viewer_camera_orn=VIEWER_CAMERA_ORN,
         external_camera_configs=EXTERNAL_CAMERA_CONFIGS,
+        exclude_sensor_names=["eef_link"],
 
         # Visualization
         target_objects_health_with_links=[
@@ -130,7 +163,7 @@ def get_task_config() -> TaskConfig:
             f"bowl@base_link",
             f"cupcake@base_link",
         ],
-        target_objects_health=[ROBOT_NAME],
+        target_objects_health=[ROBOT_NAME, "cupcake", "bowl", "microwave"],
         target_objects_temperature=[
             f"{ROBOT_NAME}@eef_link",
             f"{ROBOT_NAME}@panda_hand",
@@ -148,6 +181,7 @@ def get_task_config() -> TaskConfig:
             f"bowl@base_link",
             f"cupcake@base_link",
         ],
+        # force_keys=["impact_forces"],
         force_keys=["filtered_qs_forces"],
 
         # Default paths
@@ -160,6 +194,53 @@ _U_XY = 0.03
 _U_YAW = 0.12
 _U_ARM = 0.07
 
+_U_BOWL_XY = 0.1
+_U_BOWL_YAW = 0.1
+_U_CUPCAKE_XY = 0.01
+_CUPCAKE_Z_OFFSET = 0.05
+_PLACEMENT_SETTLE_STEPS = 20
+_MAX_PLACEMENT_RETRIES = 10
+
+_BOWL_NOMINAL_POS = [-0.8, -2.3, 0.05]
+_BOWL_NOMINAL_ORN = [0.0, 0.0, 0.0, 1.0]
+
+
+def _place_bowl_and_cupcake(bowl, cupcake, bowl_pos, bowl_orn, *, jitter_cupcake_xy=True):
+    cupcake_pos = bowl_pos.clone()
+    if jitter_cupcake_xy:
+        cupcake_pos[0] += float(np.random.uniform(-_U_CUPCAKE_XY, _U_CUPCAKE_XY))
+        cupcake_pos[1] += float(np.random.uniform(-_U_CUPCAKE_XY, _U_CUPCAKE_XY))
+    cupcake_pos[2] = bowl_pos[2] + _CUPCAKE_Z_OFFSET
+    bowl.set_position_orientation(bowl_pos, bowl_orn)
+    cupcake.set_position_orientation(cupcake_pos, bowl_orn)
+    bowl.keep_still()
+    cupcake.keep_still()
+
+
+def _randomize_bowl_and_cupcake(bowl, cupcake):
+    bowl_pos, bowl_orn = bowl.get_position_orientation()
+    bowl_pos, bowl_orn = bowl_pos.clone(), bowl_orn.clone()
+
+    for _ in range(_MAX_PLACEMENT_RETRIES):
+        new_pos = bowl_pos.clone()
+        new_pos[0] += float(np.random.uniform(-_U_BOWL_XY, _U_BOWL_XY))
+        new_pos[1] += float(np.random.uniform(-_U_BOWL_XY, _U_BOWL_XY))
+        euler = T.quat2euler(bowl_orn).clone()
+        euler[2] += float(np.random.uniform(-_U_BOWL_YAW, _U_BOWL_YAW))
+        _place_bowl_and_cupcake(bowl, cupcake, new_pos, T.euler2quat(euler))
+        for _ in range(_PLACEMENT_SETTLE_STEPS):
+            og.sim.step()
+        if cupcake.states[object_states.OnTop].get_value(bowl):
+            return
+
+    fallback_pos = th.tensor(_BOWL_NOMINAL_POS, dtype=bowl_pos.dtype, device=bowl_pos.device)
+    fallback_orn = th.tensor(_BOWL_NOMINAL_ORN, dtype=bowl_orn.dtype, device=bowl_orn.device)
+    _place_bowl_and_cupcake(bowl, cupcake, fallback_pos, fallback_orn, jitter_cupcake_xy=False)
+    for _ in range(_PLACEMENT_SETTLE_STEPS):
+        og.sim.step()
+    print("[food_in_microwave] bowl/cupcake placement fell back to nominal pose")
+
+
 def reset(env):
     """Small uniform noise on base xyz, yaw, and arm joints; settle briefly."""
     
@@ -169,14 +250,27 @@ def reset(env):
         og.sim.load_state(state_flat_array, serialized=True)
 
     microwave = env.scene.object_registry("name", "microwave")
-    microwave.root_link.mass = 100.0
+    # microwave.root_link.mass = 100.0
     # set microwave to open
-    microwave.joints["j_link_0"].set_pos(0.9, normalized=True)
-    
-    # Reset the robot's position and orientation
+    microwave.joints["j_leaf"].set_pos(0.9, normalized=True)
+
+    cupcake = env.scene.object_registry("name", "cupcake")
+    if cupcake is not None and not getattr(env, "_cupcake_low_friction_applied", False):
+        _apply_link_physics_material(
+            cupcake, "base_link", "cupcake_base_physics_mat", **_CUPCAKE_FRICTION
+        )
+        env._cupcake_low_friction_applied = True
+
+    bowl = env.scene.object_registry("name", "bowl")
+    if bowl is not None and cupcake is not None:
+        _randomize_bowl_and_cupcake(bowl, cupcake)
+
     if not getattr(env, "robots", None):
         return
     robot = env.robots[0]
+    RESET_JOINT_POSITIONS = th.tensor([0.0606, -1.7628, 1.5638, -2.4855, 0.1761, 2.4263, 2.1347, 0.0400, 0.0400])
+    robot.set_joint_positions(RESET_JOINT_POSITIONS)
+    
     pos, orn = robot.get_position_orientation()
     pos = pos.clone()
     pos[0] += float(np.random.uniform(-_U_XY, _U_XY))
@@ -208,4 +302,4 @@ def task_completion_check(env):
     cupcake_inside = cupcake.states[object_states.Inside].get_value(other=microwave)
     cupcake_on_top_bowl = cupcake.states[object_states.OnTop].get_value(other=bowl)
     layout_ok = not microwave_open and cupcake_inside and bowl_inside and cupcake_on_top_bowl
-    return layout_ok and gripper_far_from_object(robot, cupcake)
+    return layout_ok and gripper_far_from_object(robot, microwave, threshold=0.5)

@@ -12,8 +12,8 @@ Robot (flip ``TURN_ON_STOVE_ROBOT`` below):
     OmniGibson does not ship a Panda+Omron (mobile Omni + Panda arm) preset;
     Tiago is the closest bundled substitute when you must drive the base.
 
-Task success (when used): knob ON, gripper retracted from stove, ``saucepot`` ``OnTop`` the stove and
-within the burner ``HeatSourceOrSink`` coupling used for temperature propagation.
+Task success (when used): knob ON before pot placement, pot ``OnTop`` the active burner,
+gripper retracted from stove; placing the pot before turning the knob does not count.
 """
 
 import copy
@@ -45,7 +45,7 @@ if _STOVE_SYNSET is None:
     )
 _STOVE_ABILITIES = copy.deepcopy(OBJECT_TAXONOMY.get_abilities(_STOVE_SYNSET))
 _STOVE_ABILITIES.setdefault("heatSource", {})
-_STOVE_ABILITIES["heatSource"]["distance_threshold"] = 0.15
+_STOVE_ABILITIES["heatSource"]["distance_threshold"] = 0.10
 
 # Thermal coupling sphere is generous; completion uses a tighter horizontal gate so a pot sitting
 # on another part of THIS stove (rear deck / inactive burner plane) cannot count unless it is near
@@ -288,11 +288,11 @@ EXTERNAL_CAMERA_CONFIGS = {
         "orientation": VIEWER_CAMERA_ORN,
         "horizontal_aperture": 30.0,
     },
-    "external_sensor_1": {
-        "position": [-0.5087745785713196, -3.052588701248169, 0.9984493851661682],
-        "orientation": [0.5276271104812622, 0.19144046306610107, 0.2822819948196411, 0.7779955267906189],
-        "horizontal_aperture": 30.0,
-    },
+    # "external_sensor_1": {
+    #     "position": [-0.5087745785713196, -3.052588701248169, 0.9984493851661682],
+    #     "orientation": [0.5276271104812622, 0.19144046306610107, 0.2822819948196411, 0.7779955267906189],
+    #     "horizontal_aperture": 30.0,
+    # },
 }
 
 INIT_STATE_PATH = None
@@ -316,6 +316,7 @@ def get_task_config() -> TaskConfig:
         viewer_camera_pos=VIEWER_CAMERA_POS,
         viewer_camera_orn=VIEWER_CAMERA_ORN,
         external_camera_configs=EXTERNAL_CAMERA_CONFIGS,
+        exclude_sensor_names=["eef_link"],
         target_objects_health_with_links=_VIZ["health_with_links"],
         target_objects_health=[ROBOT_NAME],
         target_objects_temperature=_VIZ["temperature"],
@@ -375,6 +376,75 @@ def tighten_stove_joints(env):
         stove.keep_still()
 
 
+def _init_turn_on_stove_sequence_state(env):
+    """Per-episode flags for knob-before-pot ordering (updated each ``task_completion_check``)."""
+    env.stove_knob_before_pot_placement = False
+    env.stove_knob_after_pot_placement = False
+
+
+def _stove_is_on(stove) -> bool:
+    """True when the stove knob / heat element is logically active."""
+    if stove is None:
+        return False
+    try:
+        if object_states.ToggledOn not in stove.states:
+            return False
+        if not stove.states[object_states.ToggledOn].get_value():
+            return False
+        if object_states.HeatSourceOrSink not in stove.states:
+            return True
+        return bool(stove.states[object_states.HeatSourceOrSink].get_value())
+    except (KeyError, AttributeError):
+        return False
+
+
+def _pot_on_burner(stove, saucepot) -> bool:
+    """
+    True when ``saucepot`` is ``OnTop`` the stove and centered over the heatsource anchor.
+    Does not require the knob to be on (used for sequence tracking).
+    """
+    if stove is None or saucepot is None:
+        return False
+    try:
+        if object_states.OnTop not in saucepot.states:
+            return False
+        if not saucepot.states[object_states.OnTop].get_value(other=stove):
+            return False
+        if object_states.HeatSourceOrSink not in stove.states:
+            return True
+        heat = stove.states[object_states.HeatSourceOrSink]
+        anchor = _heat_source_world_anchor(heat).to(dtype=th.float32)
+        pot_ctr, _ = _pot_geometry_center_world(saucepot)
+        xy_sep = float(th.norm(pot_ctr.to(dtype=th.float32)[:2] - anchor[:2]))
+        return xy_sep <= float(_TASK_POT_VS_BURNER_XY_MAX_M)
+    except (KeyError, AttributeError):
+        return False
+
+
+def _update_turn_on_stove_sequence_state(env, stove, saucepot) -> None:
+    """Track whether the knob was turned on before vs. after pot placement."""
+    if not hasattr(env, "stove_knob_before_pot_placement"):
+        _init_turn_on_stove_sequence_state(env)
+
+    stove_on = _stove_is_on(stove)
+    pot_on_burner = _pot_on_burner(stove, saucepot)
+
+    if pot_on_burner and not stove_on:
+        env.stove_knob_after_pot_placement = True
+    if stove_on and not pot_on_burner:
+        env.stove_knob_before_pot_placement = True
+
+
+def _turn_on_stove_sequence_ok(env, stove, saucepot) -> bool:
+    """Success requires knob-on before pot-on; pot-on while knob-off disqualifies the episode."""
+    _update_turn_on_stove_sequence_state(env, stove, saucepot)
+    if env.stove_knob_after_pot_placement:
+        return False
+    if env.stove_knob_before_pot_placement:
+        return True
+    return _stove_is_on(stove) and _pot_on_burner(stove, saucepot)
+
+
 def _pot_over_active_burner(stove, saucepot):
     """
     True when the knob is ON, ``saucepot`` is kinematically marked ``OnTop`` the stove cooktop,
@@ -382,50 +452,12 @@ def _pot_over_active_burner(stove, saucepot):
     within a tight XY window of the heatsource anchor (same point ``HeatSourceOrSink._update`` uses
     for its overlap sphere) with sensible vertical slack.
     """
-    if stove is None or saucepot is None:
-        return False
-
-    try:
-        if object_states.OnTop not in saucepot.states:
-            return False
-        if object_states.ToggledOn not in stove.states:
-            return False
-
-        knob_on = stove.states[object_states.ToggledOn].get_value()
-        placed_on_surface = saucepot.states[object_states.OnTop].get_value(other=stove)
-
-        if not knob_on:
-            return False
-        if not placed_on_surface:
-            return False
-
-        if object_states.HeatSourceOrSink not in stove.states:
-            return True
-
-        heat = stove.states[object_states.HeatSourceOrSink]
-        # ``get_value``: toggles / door requirements satisfied so the element is logically “on”.
-        if not heat.get_value():
-            return False
-
-        anchor = _heat_source_world_anchor(heat).to(dtype=th.float32)
-        pot_ctr, pot_bot = _pot_geometry_center_world(saucepot)
-        pot_ctr_f = pot_ctr.to(dtype=th.float32)
-        pot_bot_f = pot_bot.to(dtype=th.float32)
-        xy_sep = float(th.norm(pot_ctr_f[:2] - anchor[:2]))
-        if xy_sep > float(_TASK_POT_VS_BURNER_XY_MAX_M):
-            print("pot not over active burner")
-            return False
-        else:
-            print("pot in xy window of active burner")
-            return True
-        # min_bot_z = float(anchor[2]) + float(_TASK_POT_BOTTOM_ABOVE_BURNER_Z_MIN_M)
-        # return float(pot_bot_f[2]) >= min_bot_z
-    except (KeyError, AttributeError):
-        return False
+    return _stove_is_on(stove) and _pot_on_burner(stove, saucepot)
 
 
 def reset(env):
     """Small uniform noise on robot pose / arm joints + ``saucepot`` spawn offset; settle briefly."""
+    _init_turn_on_stove_sequence_state(env)
 
     if INIT_STATE_PATH is not None:
         with open(INIT_STATE_PATH, "rb") as f:
@@ -481,10 +513,11 @@ def task_completion_check(env):
         return False
 
     pot_ok = _pot_over_active_burner(stove, saucepot)
+    sequence_ok = _turn_on_stove_sequence_ok(env, stove, saucepot)
     gripper_far = gripper_far_from_object(
         robot,
         stove,
         threshold=0.5,
         arm=TELEOP_ARM_FOR_STOVE,
     )
-    return pot_ok and gripper_far
+    return pot_ok and sequence_ok and gripper_far

@@ -15,9 +15,8 @@ Usage:
 
 Keys:
     TAB       — end current episode (resets env, starts next episode)
-    ESC       — quit immediately (saves video + HDF5 if save_to_hdf5)
+    ESC       — quit (saves completed episodes to HDF5; discards in-progress)
     BACKSPACE — discard current trajectory and start over (no save, no count)
-    R         — reset to initial state (mid-episode)
     S         — save serialized state to init_states and breakpoint
 """
 
@@ -344,6 +343,12 @@ def parse_args():
 
 
 MAX_RESET_RETRIES = 5
+def discard_in_progress_traj(env):
+    """Drop the current in-memory trajectory without writing to HDF5."""
+    if hasattr(env, "discard_current_traj"):
+        env.discard_current_traj()
+
+
 def reset_env(env, task_cfg, task_mod):
     """
     Reset the environment to the initial state.
@@ -439,9 +444,6 @@ class TeleopWrapper:
         self.teleop_force_records = {}
         self.teleop_temperature_records = {}
 
-        if self.save_to_hdf5 and hasattr(self.env, "current_traj_history"):
-            self.env.current_traj_history = []
-    
     def setup_keyboard_interface(self):
         # This is only used for controlling the teleop session and not for the robot controller
         keyboard_interface = KeyboardRobotController(robot=self.robot)
@@ -458,11 +460,6 @@ class TeleopWrapper:
         def on_backspace():
             DISCARD_REQUESTED[0] = True
 
-        keyboard_interface.register_custom_keymapping(
-            key=lazy.carb.input.KeyboardInput.R,
-            description="Reset to initial state from pickle",
-            callback_fn=reset_env,
-        )
         keyboard_interface.register_custom_keymapping(
             key=lazy.carb.input.KeyboardInput.S,
             description="Save serialized state to init_states and breakpoint",
@@ -664,7 +661,8 @@ def main():
     while completed_episodes < n_episodes:
         print("\n" + "="*80)
         print(f"[TELEOP] Running episode {completed_episodes + 1}/{n_episodes}…")
-        print("Press TAB to end an episode (and save if save_to_hdf5 is True), ESC to quit, BACKSPACE to discard and restart.")
+        print("Press TAB to end an episode (and save if save_to_hdf5 is True), "
+              "ESC to quit (discards in-progress), BACKSPACE to discard and restart.")
         print("Press c to continue")
         print("="*80 + "\n")
         teleop_wrapper.reset_teleop_wrapper()
@@ -690,6 +688,9 @@ def main():
 
         if DISCARD_REQUESTED[0]:
             print(f"[TELEOP] Discarded episode {completed_episodes + 1}. Resetting and starting over…")
+            if save_to_hdf5:
+                discard_in_progress_traj(env)
+            teleop_wrapper.reset_teleop_wrapper()
             reset_env(env, task_cfg, task_mod)
             DISCARD_REQUESTED[0] = False
 
@@ -713,6 +714,8 @@ def main():
             EPISODE_DONE[0] = False
 
     if save_to_hdf5 and hasattr(env, "save_data"):
+        if QUIT_REQUESTED[0]:
+            discard_in_progress_traj(env)
         env.save_data()
         print(f"[teleop] HDF5 saved to {args.collect_hdf5_path}")
 

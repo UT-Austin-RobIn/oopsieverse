@@ -64,6 +64,7 @@ TASK_REGISTRY: Dict[str, str] = {
     "pour_water": "oopsiebench.envs.behavior1k.pour_water",
     "turn_on_stove": "oopsiebench.envs.behavior1k.turn_on_stove",
     "open_single_door": "oopsiebench.envs.behavior1k.open_single_door",
+    "food_in_microwave": "oopsiebench.envs.behavior1k.food_in_microwave",
 }
 
 
@@ -290,6 +291,7 @@ def run_playback(args, task_cfg):
         robot_obs_modalities=robot_obs_modalities,
         robot_sensor_config=robot_sensor_config,
         external_sensors_config=external_sensors_config,
+        exclude_sensor_names=task_cfg.exclude_sensor_names,
         n_render_iterations=1,
         only_successes=False,
         activity_name=args.task_name,
@@ -377,7 +379,7 @@ def run_visualize(args, task_cfg):
             target_objects=task_cfg.target_objects_health,
             health=health,
             fps=30,
-            panel_title="Healths",
+            panel_title="Health",
         )
 
         # Save videos for forces plot
