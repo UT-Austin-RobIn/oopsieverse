@@ -42,6 +42,7 @@ class TaskConfig:
     viewer_camera_pos: List[float] = field(default_factory=lambda: [0, 0, 0])
     viewer_camera_orn: List[float] = field(default_factory=lambda: [0, 0, 0, 1])
     external_camera_configs: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    exclude_sensor_names: List[str] = field(default_factory=list)
 
     # ── Visualization config ────────────────────────────────────────────
     target_objects_health_with_links: List[str] = field(default_factory=list)

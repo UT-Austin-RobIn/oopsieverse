@@ -65,18 +65,64 @@
   text-underline-offset: 0.12em;
 }
 
-/* OopsieBench tables: clearer header row + compact GLightbox buttons */
+/* OopsieBench task tables: task IDs stay one line without horizontal scrollbars.
+   Narrow first column shrink-wrap + description column absorbs remaining width + wraps. */
+.md-typeset .oopsiebench-task-table-wrapper {
+  margin-block: 0.5rem 1rem;
+}
+
+.md-typeset .oopsiebench-task-table-wrapper table {
+  width: 100%;
+  max-width: 100%;
+  table-layout: auto;
+}
+
+/* Classic “min content width” trick for nowrap column without forcing overflow */
+.md-typeset .oopsiebench-task-table-wrapper table thead th:first-child,
+.md-typeset .oopsiebench-task-table-wrapper table tbody td:first-child {
+  width: 1%;
+  white-space: nowrap;
+  vertical-align: top;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.md-typeset .oopsiebench-task-table-wrapper table thead th:first-child {
+  vertical-align: bottom;
+}
+
+.md-typeset .oopsiebench-task-table-wrapper table tbody td:first-child code {
+  white-space: nowrap;
+}
+
+.md-typeset .oopsiebench-task-table-wrapper table thead th:nth-child(2),
+.md-typeset .oopsiebench-task-table-wrapper table tbody td:nth-child(2) {
+  overflow-wrap: anywhere;
+  word-wrap: break-word;
+  hyphens: auto;
+  white-space: normal;
+}
+
+/* Keep video buttons compact; center under header badges */
+.md-typeset .oopsiebench-task-table-wrapper table thead th:nth-child(n + 3),
+.md-typeset .oopsiebench-task-table-wrapper table tbody td:nth-child(n + 3) {
+  width: 1%;
+  white-space: nowrap;
+  text-align: center;
+  vertical-align: top;
+}
+
+.md-typeset .oopsiebench-task-table-wrapper table .md-button {
+  margin: 0;
+  font-size: 0.75rem;
+  padding: 0.35em 0.75em;
+}
+
+/* OopsieBench + other docs: bolder table header row */
 .md-typeset table:not([class]) thead th {
   font-weight: 700;
   font-size: 0.8rem;
   letter-spacing: 0.02em;
   vertical-align: bottom;
-}
-
-.md-typeset table .md-button {
-  margin: 0;
-  font-size: 0.75rem;
-  padding: 0.35em 0.75em;
 }
 
 .md-typeset table td .md-button:not(:last-child) {

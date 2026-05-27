@@ -270,7 +270,7 @@ PARAMS = {
         "mechanical": {
             "impact_damage_sensitivity": 1.0,
             "qs_damage_sensitivity": 0.2,
-            "damage_threshold": 50.0,
+            "damage_threshold": 40.0,
             "damage_scale": 1.0,
         },
     },
@@ -279,16 +279,16 @@ PARAMS = {
         "mechanical": {
             "impact_damage_sensitivity": 1.0,
             "qs_damage_sensitivity": 0.2,
-            "damage_threshold": 50.0,
+            "damage_threshold": 40.0,
             "damage_scale": 1.0,
         },
     },
     "cupcake": {
         "damage_evaluators": ["mechanical"],
         "mechanical": {
-            "impact_damage_sensitivity": 1.0,
+            "impact_damage_sensitivity": 5.0,
             "qs_damage_sensitivity": 1.0,
-            "damage_threshold": 50.0,
+            "damage_threshold": 20.0,
             "damage_scale": 1.0,
         },
     },

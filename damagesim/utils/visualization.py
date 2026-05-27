@@ -628,7 +628,7 @@ def save_rgb_health_video_with_overlay(
     obj_display_names: Optional[Dict[str, str]] = None,
     layout: str = "column",
     panel_mode: str = "side",
-    panel_title: str = "Healths",
+    panel_title: str = "Health",
     side_panel_width: Optional[int] = None,
 ) -> None:
     """
