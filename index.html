@@ -623,7 +623,9 @@
             <strong>Damage-Augmented POMDP Implementation with DamageSim.</strong> Conceptually, our DamageSim plugin (<em>blue</em>) extends an existing POMDP in simulation (<em>green</em>, dotted arrow to agent) by augmenting the state with <em>health</em>. The health state can in turn influence the observations and rewards, and/or provide access to new damage-aware terminal states. DamageSim implements the health state to augment the original POMDP state into a <em>Damage Aware</em> state (s<sup>DA</sup> ∈ S<sup>DA</sup> = S × S<sup>h</sup>) as a per-object physical property, updated at every timestep by a set of <em>damage evaluator models (DEM)</em> that compute mechanical, thermal, and fluid damage (d<sub>DEM</sub>) from simulator state and interactions, reducing per-entity health accordingly. The augmented POMDP provided by DamageSim approximates better the conditions of the real-world task.
           </p>
           <br>
-          <img src="static/images/mdp_fig.png" alt="Damage-Augmented POMDP diagram" style="width: 100%; height: auto; border-radius: 10px;" />
+          <video autoplay controls muted loop playsinline style="width: 100%; height: auto; border-radius: 10px;">
+            <source src="static/videos/method.mp4" type="video/mp4">
+          </video>
         </div>
       </div>
 
