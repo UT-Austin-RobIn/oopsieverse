@@ -1,462 +1,507 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>OopsieVerse: A Safety Benchmark with Damage-Aware Simulation for Robot Manipulation</title>
+  <meta name="description" content="OopsieVerse: A Safety Benchmark with Damage-Aware Simulation for Robot Manipulation.">
+  <link rel="icon" type="image/png" href="static/images/oopsieverse_final_logo.png">
+
+  <!-- Enable progressive-enhancement (scroll reveal) only when JS runs -->
+  <script>document.documentElement.classList.add('js');</script>
+
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
   <style>
+    /* ============================================================
+       Design tokens
+       ============================================================ */
+    :root {
+      --font-sans: 'Inter', 'Noto Sans', system-ui, -apple-system, sans-serif;
+      --font-display: 'Space Grotesk', 'Inter', sans-serif;
+
+      --bg: #ffffff;
+      --bg-alt: #f6f7fb;
+      --surface: #ffffff;
+      --surface-2: #fbfbfd;
+      --text: #15181f;
+      --text-soft: #3a3f4b;
+      --text-muted: #6b7280;
+      --border: #e6e8ee;
+      --border-strong: #d6d9e2;
+
+      --accent: #4f46e5;          /* indigo */
+      --accent-soft: #6366f1;
+      --accent-ink: #ffffff;
+      --accent-tint: rgba(79, 70, 229, 0.10);
+
+      /* "Health" motif: safe -> caution -> damaged */
+      --health-1: #22c55e;
+      --health-2: #eab308;
+      --health-3: #ef4444;
+      --health-grad: linear-gradient(90deg, var(--health-1) 0%, var(--health-2) 55%, var(--health-3) 100%);
+
+      --dmg-mech: #3b82f6;   /* mechanical -> blue */
+      --dmg-therm: #f97316;  /* thermal -> orange */
+      --dmg-fluid: #06b6d4;  /* fluid -> cyan */
+
+      --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
+      --shadow-md: 0 8px 24px rgba(16, 24, 40, 0.08);
+      --shadow-lg: 0 20px 48px rgba(16, 24, 40, 0.14);
+      --shadow-accent: 0 10px 30px rgba(79, 70, 229, 0.28);
+
+      --radius: 14px;
+      --radius-lg: 20px;
+      --maxw: 1000px;
+      --nav-h: 5rem;
+    }
+
+    /* ============================================================
+       Base
+       ============================================================ */
+    * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
-    body { font-family: 'Noto Sans', sans-serif; background: #fff; }
-    .hero, .section { background: #fff !important; }
-    .section.abstract-section { background: #f5f5f5 !important; }
-    .publication-title { font-family: 'Noto Sans', sans-serif; font-weight: 600; }
-    .publication-subtitle { font-family: 'Noto Sans', sans-serif; font-weight: 400; font-size: 1.5rem; color: #363636; }
-    .publication-authors { font-family: 'Noto Sans', sans-serif; font-size: 1.1rem; }
-    .publication-venue { color: #555; font-weight: 600; width: fit-content; }
-    .hero.teaser .hero-body { padding-top: 0; padding-bottom: 3rem; }
-    .hero.teaser video { width: 100%; height: auto; border-radius: 10px; }
-    .section .title { font-weight: 600; }
-    .section .title.is-2 { font-size: 2rem; }
-    .video-section { padding: 2rem 0; }
-    .video-section video { width: 100%; height: auto; border-radius: 10px; }
-    .content-row { margin-bottom: 3rem; }
-    .content-row video, .content-row img { width: 100%; height: auto; border-radius: 10px; border: 1px solid #ddd; margin: 0.5%; }
-    .content-row .column { display: flex; align-items: center; }
-    .content-row img { display: block; border: none; box-shadow: none; object-fit: contain; }
-    .damagesim-caption { text-align: center; font-weight: 600; margin-top: 0.5rem; font-size: 0.95rem; }
-    .section[id] { scroll-margin-top: 4.5rem; }
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      padding-top: var(--nav-h);
+      -webkit-font-smoothing: antialiased;
+      transition: background-color .35s ease, color .35s ease;
+      overflow-x: hidden;
+    }
+    .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 1.5rem; }
 
-    /* Top navbar */
-    body { padding-top: 3.5rem; }
-    .navbar.is-fixed-top { box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+    /* Bulma overrides so existing markup inherits the theme */
+    .hero, .section { background: transparent !important; }
+    .title, .subtitle { color: var(--text); }
+    .content, .content p, .content li { color: var(--text-soft); }
+    a { color: var(--accent); }
+    a:hover { color: var(--accent-soft); }
+    ::selection { background: var(--accent-tint); }
 
-    /* DamageSim: three damage types row (larger videos) */
+    .section { padding: 4.5rem 1.5rem; position: relative; }
+    .section.tinted { background: var(--bg-alt) !important; }
+    .section[id] { scroll-margin-top: 5rem; }
+    .container.is-max-desktop { max-width: var(--maxw); }
+
+    /* ============================================================
+       Scroll progress + navbar
+       ============================================================ */
+    #scroll-progress {
+      position: fixed; top: 0; left: 0; height: 3px; width: 0%;
+      background: var(--health-grad);
+      z-index: 60; transition: width .1s linear;
+    }
+    .ov-nav {
+      position: fixed; top: 0; left: 0; right: 0; height: var(--nav-h);
+      z-index: 50;
+      display: flex; align-items: center;
+      background: color-mix(in srgb, var(--bg) 72%, transparent);
+      backdrop-filter: saturate(160%) blur(14px);
+      -webkit-backdrop-filter: saturate(160%) blur(14px);
+      border-bottom: 1px solid var(--border);
+    }
+    .ov-nav .wrap { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+    .ov-brand {
+      font-family: var(--font-display);
+      font-weight: 700; font-size: 1.25rem; letter-spacing: -0.02em;
+      color: var(--text) !important; display: inline-flex; align-items: center; gap: .55rem;
+    }
+    .ov-brand .dot {
+      width: 11px; height: 11px; border-radius: 50%;
+      background: var(--health-grad);
+      box-shadow: 0 0 0 4px var(--accent-tint);
+    }
+    .ov-links { display: flex; align-items: center; gap: .25rem; }
+    .ov-links a.nav-link {
+      color: var(--text-soft); font-weight: 500; font-size: .94rem;
+      padding: .5rem .8rem; border-radius: 9px; position: relative;
+      transition: color .2s, background .2s;
+    }
+    .ov-links a.nav-link:hover { color: var(--text); background: var(--accent-tint); }
+    .ov-links a.nav-link.is-current { color: var(--accent); }
+    .ov-links a.nav-link.is-current::after {
+      content: ""; position: absolute; left: .8rem; right: .8rem; bottom: .2rem;
+      height: 2px; border-radius: 2px; background: var(--health-grad);
+    }
+    .ov-burger {
+      display: none; width: 40px; height: 40px; border: 1px solid var(--border);
+      background: var(--surface); border-radius: 10px; cursor: pointer; color: var(--text);
+      align-items: center; justify-content: center; font-size: 1.1rem;
+    }
+
+    @media (max-width: 820px) {
+      .ov-burger { display: inline-flex; }
+      .ov-links {
+        position: fixed; top: var(--nav-h); left: 0; right: 0;
+        flex-direction: column; align-items: stretch; gap: 0;
+        background: var(--bg); border-bottom: 1px solid var(--border);
+        padding: .5rem 1rem 1rem; box-shadow: var(--shadow-md);
+        transform: translateY(-130%); transition: transform .3s ease;
+      }
+      .ov-links.open { transform: translateY(0); }
+      .ov-links a.nav-link { padding: .8rem .6rem; }
+      .ov-links a.nav-link.is-current::after { display: none; }
+    }
+
+    /* ============================================================
+       Hero
+       ============================================================ */
+    .ov-hero {
+      position: relative; overflow: hidden;
+      padding: 4.5rem 1.5rem 3rem;
+      text-align: center;
+    }
+    .ov-hero::before {
+      content: ""; position: absolute; inset: -20% -10% auto -10%; height: 130%;
+      background:
+        radial-gradient(40% 55% at 20% 20%, rgba(79,70,229,.20), transparent 60%),
+        radial-gradient(35% 50% at 82% 15%, rgba(6,182,212,.18), transparent 60%),
+        radial-gradient(40% 60% at 70% 80%, rgba(239,68,68,.14), transparent 60%),
+        radial-gradient(35% 55% at 25% 90%, rgba(34,197,94,.14), transparent 60%);
+      filter: blur(8px); z-index: 0;
+      animation: meshfloat 18s ease-in-out infinite alternate;
+    }
+    @keyframes meshfloat {
+      0%   { transform: translate3d(0,0,0) scale(1); }
+      100% { transform: translate3d(0,-18px,0) scale(1.06); }
+    }
+    .ov-hero > * { position: relative; z-index: 1; }
+
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .4rem .9rem; border-radius: 999px;
+      background: var(--surface); border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      font-size: .82rem; font-weight: 600; color: var(--text-soft);
+      letter-spacing: .01em; margin-bottom: 1.4rem;
+    }
+    .hero-eyebrow .pip { width: 8px; height: 8px; border-radius: 50%; background: var(--health-grad); }
+
+    .hero-title {
+      font-family: var(--font-display);
+      font-weight: 700; letter-spacing: -0.03em; line-height: 1;
+      font-size: clamp(3rem, 9vw, 5.5rem);
+      margin: 0 0 .6rem;
+      background: linear-gradient(120deg, var(--text) 30%, var(--accent) 75%, var(--dmg-fluid) 100%);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent; color: transparent;
+    }
+    .hero-subtitle {
+      font-family: var(--font-display);
+      font-weight: 500; font-size: clamp(1.15rem, 3.3vw, 1.7rem);
+      color: var(--text-soft); max-width: 760px; margin: 0 auto 1.6rem;
+      line-height: 1.3;
+    }
+    .hero-health {
+      max-width: 360px; margin: 0 auto 2rem; height: 8px; border-radius: 999px;
+      background: var(--border); overflow: hidden; position: relative;
+    }
+    .hero-health::after {
+      content: ""; position: absolute; inset: 0; border-radius: 999px;
+      background: var(--health-grad);
+      transform-origin: left; animation: healthpulse 4.5s ease-in-out infinite;
+    }
+    @keyframes healthpulse {
+      0%, 100% { transform: scaleX(1); opacity: 1; }
+      50%      { transform: scaleX(.45); opacity: .85; }
+    }
+
+    .hero-authors { font-size: 1.06rem; color: var(--text-soft); margin-bottom: .4rem; line-height: 1.7; }
+    .hero-authors a { color: var(--text); font-weight: 600; text-decoration: none; border-bottom: 2px solid transparent; transition: border-color .2s, color .2s; }
+    .hero-authors a:hover { color: var(--accent); border-color: var(--accent); }
+    .hero-affil { color: var(--text-muted); font-size: 1rem; margin-bottom: .2rem; }
+    .hero-affil .eql { display: block; font-size: .85rem; margin-top: .3rem; }
+
+    .hero-actions { display: flex; flex-wrap: wrap; gap: .8rem; justify-content: center; margin-top: 1.8rem; }
+    .btn {
+      display: inline-flex; align-items: center; gap: .55rem;
+      padding: .7rem 1.4rem; border-radius: 999px; font-weight: 600; font-size: .98rem;
+      font-family: var(--font-sans); cursor: pointer; text-decoration: none;
+      border: 1px solid transparent; transition: transform .12s ease, box-shadow .2s ease, background .2s, color .2s, border-color .2s;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary { background: var(--accent); color: var(--accent-ink); box-shadow: var(--shadow-accent); }
+    .btn-primary:hover { color: var(--accent-ink); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+    .btn-ghost { background: var(--surface); color: var(--text); border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+    .btn-ghost:hover { color: var(--accent); border-color: var(--accent); transform: translateY(-2px); }
+    .btn[aria-disabled="true"] { opacity: .6; cursor: default; pointer-events: none; }
+    .btn .fa-arrow-down { animation: nudge 1.6s ease-in-out infinite; }
+
+    .scroll-cue {
+      margin-top: 2.4rem; display: inline-flex; flex-direction: column; align-items: center;
+      gap: .35rem; color: var(--text-muted); font-size: .8rem; letter-spacing: .08em; text-transform: uppercase;
+    }
+    .scroll-cue .fa-chevron-down { animation: nudge 1.6s ease-in-out infinite; }
+    @keyframes nudge { 0%,100% { transform: translateY(0);} 50% { transform: translateY(5px);} }
+
+    /* Teaser */
+    .teaser-wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 1.5rem 1rem; }
+    .media-frame {
+      border-radius: var(--radius-lg); overflow: hidden; background: #000;
+      box-shadow: var(--shadow-lg); border: 1px solid var(--border);
+    }
+    .media-frame video { width: 100%; height: auto; display: block; }
+
+    /* ============================================================
+       Stat band
+       ============================================================ */
+    .stat-band {
+      max-width: var(--maxw); margin: 2.2rem auto 0; padding: 0 1.5rem;
+    }
+    .stat-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;
+    }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.3rem 1rem; text-align: center;
+      box-shadow: var(--shadow-sm); position: relative; overflow: hidden;
+    }
+    .stat-card::before {
+      content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--health-grad);
+    }
+    .stat-num {
+      font-family: var(--font-display); font-weight: 700; font-size: 2.3rem; line-height: 1;
+      color: var(--text); letter-spacing: -0.02em;
+    }
+    .stat-label { margin-top: .4rem; color: var(--text-muted); font-size: .86rem; font-weight: 500; }
+    @media (max-width: 720px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    /* ============================================================
+       Section headers
+       ============================================================ */
+    .sec-head { text-align: center; margin-bottom: 2.2rem; }
+    .sec-eyebrow {
+      display: inline-block; font-weight: 700; font-size: .8rem; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--accent);
+      padding: .3rem .8rem; border-radius: 999px; background: var(--accent-tint); margin-bottom: .9rem;
+    }
+    .sec-title {
+      font-family: var(--font-display); font-weight: 700; letter-spacing: -0.02em;
+      font-size: clamp(2rem, 5vw, 2.7rem); color: var(--text); margin: 0;
+    }
+    .sec-title .accent-underline { position: relative; display: inline-block; }
+    .sec-title .accent-underline::after {
+      content: ""; position: absolute; left: 0; right: 0; bottom: -.12em; height: .16em;
+      border-radius: 999px; background: var(--health-grad);
+    }
+    .sec-lead {
+      max-width: 820px; margin: 1.2rem auto 0; color: var(--text-soft);
+      font-size: 1.08rem; line-height: 1.7; text-align: center;
+    }
+
+    /* Abstract card */
+    .abstract-card {
+      max-width: 880px; margin: 0 auto; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius-lg);
+      padding: 2.4rem 2.4rem; box-shadow: var(--shadow-md); position: relative;
+    }
+    .abstract-card::before {
+      content: ""; position: absolute; left: 0; top: 1.6rem; bottom: 1.6rem; width: 4px;
+      border-radius: 999px; background: var(--health-grad);
+    }
+    .abstract-card p { font-size: 1.06rem; line-height: 1.8; color: var(--text-soft); text-align: justify; margin: 0; }
+
+    /* ============================================================
+       DamageSim
+       ============================================================ */
+    .lead-text { max-width: 880px; margin: 0 auto 2rem; }
+    .lead-text p { font-size: 1.06rem; line-height: 1.8; color: var(--text-soft); text-align: justify; }
+
     .damagesim-types-row {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 1.5rem;
-      margin-top: 2rem;
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.4rem; margin-top: 1.5rem;
     }
-    .damagesim-types-row video {
-      width: 100%;
-      height: auto;
-      border-radius: 10px;
-      border: 1px solid #ddd;
-      display: block;
+    .dmg-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      overflow: hidden; box-shadow: var(--shadow-sm); transition: transform .25s ease, box-shadow .25s ease;
+      --dmg: var(--accent);
     }
-    .damagesim-types-row .damagesim-caption { margin-top: 0.5rem; }
-    .damagesim-fig-caption {
-      margin-top: 0.75rem;
-      /* font-size: 0.9rem; */
-      line-height: 1.55;
-      color: #363636;
-      max-width: 960px;
-      margin-left: auto;
-      margin-right: auto;
+    .dmg-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+    .dmg-card.mech { --dmg: var(--dmg-mech); }
+    .dmg-card.therm { --dmg: var(--dmg-therm); }
+    .dmg-card.fluid { --dmg: var(--dmg-fluid); }
+    .dmg-card .dmg-top { height: 4px; background: var(--dmg); }
+    .dmg-card video { width: 100%; height: auto; display: block; background: #000; }
+    .damagesim-caption {
+      text-align: center; font-weight: 600; font-size: .98rem; color: var(--text);
+      padding: .85rem .5rem; display: flex; align-items: center; justify-content: center; gap: .5rem;
     }
-    .damagesim-fig-caption strong { font-weight: 700; }
+    .damagesim-caption .ico {
+      width: 26px; height: 26px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center;
+      background: color-mix(in srgb, var(--dmg) 16%, transparent); color: var(--dmg); font-size: .8rem;
+    }
+
     .damagesim-fig-title {
-      text-align: center;
-      font-weight: 600;
-      font-size: 1.5rem;
-      line-height: 1.35;
-      margin-bottom: 1rem;
-      color: #363636;
+      text-align: center; font-family: var(--font-display); font-weight: 600;
+      font-size: 1.4rem; line-height: 1.35; margin-bottom: 1.1rem; color: var(--text);
     }
+    .method-frame { border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-md); border: 1px solid var(--border); background: #000; }
+    .method-frame video { width: 100%; height: auto; display: block; }
+
     .damagesim-sim-row {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 1.5rem;
-      margin-top: 2.5rem;
-    }
-    .damagesim-sim-label {
-      text-align: center;
-      font-weight: 700;
-      font-size: 1.05rem;
-      margin-bottom: 0.5rem;
-    }
-    .damagesim-sim-row video {
-      width: 100%;
-      height: auto;
-      border-radius: 10px;
-      border: 1px solid #ddd;
-      display: block;
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.4rem; margin-top: 2.5rem;
     }
     .damagesim-sim-caption {
-      margin-top: 1rem;
-      /* text-align: center; */
-      /* font-size: 0.95rem; */
-      line-height: 1.5;
-      color: #363636;
-      grid-column: 1 / -1;
+      grid-column: 1 / -1; line-height: 1.75; color: var(--text-soft); font-size: 1.04rem;
+      background: var(--surface-2); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+      border-radius: 12px; padding: 1.1rem 1.3rem; margin: 0;
+    }
+    .sim-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); }
+    .sim-card video { width: 100%; height: auto; display: block; background: #000; }
+    .damagesim-sim-label {
+      text-align: center; font-weight: 700; font-size: 1rem; color: var(--text);
+      padding: .7rem .5rem; display: flex; align-items: center; justify-content: center; gap: .5rem;
+    }
+    .damagesim-sim-label .tag-chip {
+      font-size: .72rem; font-weight: 600; color: var(--accent); background: var(--accent-tint);
+      padding: .15rem .5rem; border-radius: 999px;
     }
     @media (max-width: 768px) {
       .damagesim-types-row { grid-template-columns: 1fr; }
       .damagesim-sim-row { grid-template-columns: 1fr; }
     }
 
-    /* Use-cases: tabbed panels */
-    .usecase-tabs { margin-top: 1rem; }
-    .usecase-panel { display: none; margin-top: 1.5rem; }
-    .usecase-panel.is-active { display: block; }
-    .usecase-subtitle { text-align: center; margin-bottom: 0.75rem; }
-
-    /* Use-case tabs: clearer active state */
-    .usecase-tabs-wrapper {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-top: 1rem;
-    }
-    .usecase-tabs-wrapper .tabs { margin-top: 0; margin-bottom: 0; }
-    .usecase-tabs-wrapper .tabs ul { border-bottom: none; }
-    .usecase-tabs li.is-active a {
-      font-weight: 700;
-      color: #fff !important;
-      background-color: #3273dc !important;
-      border-color: #3273dc !important;
-    }
-    .usecase-tabs li a {
-      font-weight: 500;
-      transition: background-color 0.15s ease, color 0.15s ease;
-    }
-
-    .usecase-content-wrapper {
-      margin-top: 1.5rem;
-    }
-    .usecase-content-inner {
-      max-width: 960px;
-      margin: 0 auto;
-    }
-    .usecase-nav {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 1.5rem;
-      margin-top: 1.5rem;
-      padding: 0.75rem 0;
-    }
-    .usecase-nav .carousel-btn {
-      padding: 0.75rem 1.5rem;
-      font-size: 1.1rem;
-      min-width: 140px;
-    }
-    .usecase-nav .carousel-btn .arrow { font-size: 1.4rem; }
-
-    /* Carousel */
-    .carousel-wrapper { position: relative; overflow: hidden; }
-    .carousel-viewport { overflow: hidden; width: 100%; }
-    .carousel-track {
-      display: flex;
-      transition: transform 0.4s ease;
-    }
-    .carousel-col {
-      min-width: calc(100% / 3);
-      flex: 0 0 calc(100% / 3);
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      padding: 0 0.4rem;
-      box-sizing: border-box;
-    }
-    .carousel-cell {
-      text-align: center;
-    }
-    .carousel-cell .video-box {
-      width: 100%;
-      padding-top: 100%; /* 1:1 aspect ratio */
-      position: relative;
-      overflow: hidden;
-      border-radius: 10px;
-      border: 1px solid #ddd;
-    }
-    .carousel-cell .video-box video {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-    .carousel-cell p {
-      margin-top: 0.4rem;
-      font-weight: 600;
-      font-size: 0.9rem;
-      color: #363636;
-    }
-    .carousel-nav {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 1.5rem;
-      margin-top: 1.25rem;
-      padding: 0.75rem 0;
-    }
-    .carousel-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      padding: 0.6rem 1.25rem;
-      font-size: 1rem;
-      font-weight: 600;
-      font-family: inherit;
-      color: #fff;
-      background: #363636;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      min-width: 120px;
-      transition: background 0.2s, transform 0.1s;
-    }
-    .carousel-btn:hover { background: #505050; }
-    .carousel-btn:active { transform: scale(0.98); }
-    .carousel-btn .arrow { font-size: 1.25rem; line-height: 1; }
-
-    /* OopsieBench: 3x5 grid, small tiles, hover to expand and show task name */
+    /* ============================================================
+       OopsieBench grid + modal
+       ============================================================ */
     .oopsiebench-grid {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      grid-template-rows: repeat(3, auto);
-      gap: 0.75rem;
-      margin-top: 1.5rem;
+      display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-rows: repeat(3, auto); gap: .8rem; margin-top: 1.8rem;
     }
     .oopsiebench-tile {
-      position: relative;
-      border-radius: 8px;
-      overflow: hidden;
-      transition: transform 0.25s ease, z-index 0s;
-      cursor: pointer;
+      position: relative; border-radius: 12px; overflow: hidden; cursor: pointer;
+      transition: transform .25s ease, box-shadow .25s ease; box-shadow: var(--shadow-sm);
     }
-    .oopsiebench-tile:hover {
-      transform: scale(1.5);
-      z-index: 5;
-    }
+    .oopsiebench-tile:hover { transform: scale(1.45); z-index: 5; box-shadow: var(--shadow-lg); }
     .oopsiebench-tile .video-box {
-      width: 100%;
-      padding-top: 100%;
-      position: relative;
-      overflow: hidden;
-      border-radius: 8px;
-      border: 1px solid #ddd;
-      background: #000;
+      width: 100%; padding-top: 100%; position: relative; overflow: hidden;
+      border-radius: 12px; border: 1px solid var(--border); background: #000;
     }
     .oopsiebench-tile .video-box video {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; display: block;
     }
+    .oopsiebench-tile .video-box::after {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(to top, rgba(0,0,0,.55), transparent 42%);
+      opacity: 0; transition: opacity .2s ease;
+    }
+    .oopsiebench-tile:hover .video-box::after { opacity: 1; }
     .oopsiebench-tile .oopsiebench-label {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      padding: 0.4rem 0.5rem;
-      background: rgba(0,0,0,0.75);
-      color: #fff;
-      font-weight: 600;
-      font-size: 0.85rem;
-      text-align: center;
-      opacity: 0;
-      transition: opacity 0.2s ease;
-      pointer-events: none;
+      position: absolute; bottom: 0; left: 0; right: 0; padding: .4rem .5rem;
+      color: #fff; font-weight: 600; font-size: .8rem; text-align: center;
+      opacity: 0; transition: opacity .2s ease; pointer-events: none; z-index: 2;
+      text-shadow: 0 1px 4px rgba(0,0,0,.6);
     }
-    .oopsiebench-tile:hover .oopsiebench-label {
-      opacity: 1;
-    }
+    .oopsiebench-tile:hover .oopsiebench-label { opacity: 1; }
+    .oopsiebench-hint { margin-top: 1.4rem; text-align: center; font-size: .95rem; color: var(--text-muted); }
+    .oopsiebench-hint i { color: var(--accent); }
 
-    .oopsiebench-hint {
-      margin-top: 0.75rem;
-      text-align: center;
-      font-size: 0.95rem;
-      color: #6b6b6b;
-    }
-
-    /* OopsieBench fullscreen modal */
     .oopsiebench-modal {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 1000;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-      background: rgba(0,0,0,0.85);
-      cursor: pointer;
+      display: none; position: fixed; inset: 0; z-index: 1000; align-items: center; justify-content: center;
+      padding: 2rem; background: rgba(5,7,12,.88); backdrop-filter: blur(4px); cursor: pointer;
     }
-    .oopsiebench-modal.is-active {
-      display: flex;
-    }
-    .oopsiebench-modal-content {
-      position: relative;
-      max-width: 90vw;
-      max-height: 85vh;
-      cursor: default;
-    }
-    .oopsiebench-modal-content video {
-      display: block;
-      width: 100%;
-      max-height: 80vh;
-      border-radius: 10px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-    }
-    .oopsiebench-modal-caption {
-      margin-top: 0.75rem;
-      text-align: center;
-      font-weight: 600;
-      font-size: 1.1rem;
-      color: #fff;
-    }
+    .oopsiebench-modal.is-active { display: flex; }
+    .oopsiebench-modal-content { position: relative; max-width: 90vw; max-height: 85vh; cursor: default; }
+    .oopsiebench-modal-content video { display: block; width: 100%; max-height: 80vh; border-radius: 14px; box-shadow: 0 8px 40px rgba(0,0,0,.6); }
+    .oopsiebench-modal-caption { margin-top: .85rem; text-align: center; font-weight: 600; font-size: 1.15rem; color: #fff; font-family: var(--font-display); }
     .oopsiebench-modal-close {
-      position: absolute;
-      top: -12px;
-      right: -12px;
-      width: 40px;
-      height: 40px;
-      border: none;
-      border-radius: 50%;
-      background: #fff;
-      color: #333;
-      font-size: 1.5rem;
-      line-height: 1;
-      cursor: pointer;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      transition: background 0.15s ease;
+      position: absolute; top: -14px; right: -14px; width: 42px; height: 42px; border: none; border-radius: 50%;
+      background: #fff; color: #333; font-size: 1.5rem; line-height: 1; cursor: pointer;
+      box-shadow: 0 2px 12px rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; padding: 0;
+      transition: transform .15s ease;
     }
-    .oopsiebench-modal-close:hover {
-      background: #f0f0f0;
-    }
+    .oopsiebench-modal-close:hover { transform: rotate(90deg); }
 
-    /* VLA evals: 2x4 grid */
-    .vla-video-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 1rem;
-      margin-top: 1.5rem;
+    /* ============================================================
+       Use cases (tabs)
+       ============================================================ */
+    .usecase-tabs-wrapper { display: flex; justify-content: center; margin-top: .5rem; }
+    .seg-tabs {
+      display: inline-flex; flex-wrap: wrap; gap: .25rem; padding: .35rem;
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; box-shadow: var(--shadow-sm);
     }
-    .vla-video-grid .carousel-cell { margin: 0; }
+    .seg-tabs button {
+      border: none; background: transparent; cursor: pointer; font-family: var(--font-sans);
+      font-weight: 600; font-size: .92rem; color: var(--text-soft);
+      padding: .55rem 1.1rem; border-radius: 999px; transition: color .2s, background .2s, box-shadow .2s;
+      white-space: nowrap;
+    }
+    .seg-tabs button:hover { color: var(--text); }
+    .seg-tabs button.is-active { color: var(--accent-ink); background: var(--accent); box-shadow: var(--shadow-accent); }
 
-    /* VLA per-tile mini-carousel controls */
+    .usecase-panel { display: none; }
+    .usecase-panel.is-active { display: block; animation: fadeUp .4s ease both; }
+    .usecase-content-wrapper { margin-top: 1.8rem; }
+    .usecase-content-inner { max-width: 960px; margin: 0 auto; }
+    .usecase-content-inner .content { font-size: 1.05rem; line-height: 1.75; color: var(--text-soft); }
+    .usecase-content-inner > .columns video,
+    .usecase-panel > .columns video { width: 100%; border-radius: var(--radius); box-shadow: var(--shadow-md); border: 1px solid var(--border); display: block; }
+    .usecase-content-inner img, .usecase-panel img { border-radius: var(--radius); }
+
+    .usecase-nav { display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 2rem; }
+
+    /* Carousel (legacy hooks preserved) */
+    .carousel-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+      padding: .65rem 1.4rem; font-size: 1rem; font-weight: 600; font-family: inherit;
+      color: var(--accent-ink); background: var(--accent); border: none; border-radius: 999px; cursor: pointer;
+      box-shadow: var(--shadow-accent); min-width: 130px; transition: transform .12s, box-shadow .2s, background .2s;
+    }
+    .carousel-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+    .carousel-btn:active { transform: scale(.98); }
+    .carousel-btn .arrow { font-size: 1.25rem; line-height: 1; }
+
+    /* IL grid */
+    .il-video-grid { display: flex; justify-content: center; gap: 1.1rem; margin-top: 1.4rem; flex-wrap: wrap; }
+    .il-task-col { flex: 0 1 18%; text-align: center; }
+    .il-task-label { font-weight: 600; margin-bottom: .55rem; font-size: .92rem; color: var(--text); }
+    .il-video-grid .video-row { margin-bottom: .7rem; position: relative; }
+    .il-video-grid .video-box {
+      position: relative; width: 100%; padding-top: 100%; border-radius: 12px; overflow: hidden;
+      box-shadow: var(--shadow-sm); background: #000; border: 1px solid var(--border);
+    }
+    .il-video-grid .video-box video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    /* VLA grid */
+    .vla-video-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin-top: 1.6rem; }
+    .vla-video-grid .carousel-cell { margin: 0; text-align: center; }
+    .vla-video-grid .video-box {
+      width: 100%; padding-top: 100%; position: relative; overflow: hidden;
+      border-radius: 12px; border: 1px solid var(--border); background: #000; box-shadow: var(--shadow-sm);
+    }
+    .vla-video-grid .video-box video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+    .vla-video-grid .carousel-cell p { margin-top: .5rem; font-weight: 600; font-size: .9rem; color: var(--text); }
     .vla-mini-btn {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 34px;
-      height: 34px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.25);
-      background: rgba(0,0,0,0.55);
-      color: #fff;
-      font-size: 1.25rem;
-      line-height: 1;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: background 0.15s ease, transform 0.1s ease;
-      z-index: 2;
+      position: absolute; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.25); background: rgba(0,0,0,.55); color: #fff; font-size: 1.25rem; line-height: 1;
+      display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+      transition: background .15s ease, transform .1s ease; z-index: 2;
     }
-    .vla-mini-btn:hover { background: rgba(0,0,0,0.7); }
-    .vla-mini-btn:active { transform: translateY(-50%) scale(0.98); }
+    .vla-mini-btn:hover { background: rgba(0,0,0,.7); }
+    .vla-mini-btn:active { transform: translateY(-50%) scale(.98); }
     .vla-mini-btn.prev { left: 8px; }
     .vla-mini-btn.next { right: 8px; }
     .vla-mini-indicator {
-      position: absolute;
-      bottom: 8px;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 2px 10px;
-      border-radius: 999px;
-      background: rgba(0,0,0,0.55);
-      color: #fff;
-      font-size: 0.8rem;
-      font-weight: 600;
-      z-index: 2;
-      user-select: none;
-      pointer-events: none;
+      position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); padding: 2px 10px; border-radius: 999px;
+      background: rgba(0,0,0,.55); color: #fff; font-size: .8rem; font-weight: 600; z-index: 2; user-select: none; pointer-events: none;
     }
 
-    /* IL unsafe/safe grid */
-    .il-video-grid {
-      display: flex;
-      justify-content: center;
-      gap: 1.25rem;
-      margin-top: 1.75rem;
-      flex-wrap: wrap;
-    }
-    .il-task-col {
-      flex: 0 1 18%;
-      text-align: center;
-    }
-    .il-task-label {
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-      font-size: 0.95rem;
-    }
-    .il-video-grid .video-row {
-      margin-bottom: 0.75rem;
-    }
-    .il-video-grid .video-box {
-      position: relative;
-      width: 100%;
-      padding-top: 100%;
-      border-radius: 10px;
-      overflow: hidden;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-      background: #000;
-    }
-    .il-video-grid .video-box video {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    /* Sim2Real 2x2 collage */
-    .sim2real-video-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 1.25rem;
-      margin-top: 1.5rem;
-    }
+    /* Sim2Real */
+    .sim2real-video-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2rem; margin-top: 1.6rem; }
     .sim2real-video-grid .video-box {
-      position: relative;
-      width: 100%;
-      padding-top: 100%;
-      border-radius: 10px;
-      overflow: hidden;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-      background: #000;
+      position: relative; width: 100%; padding-top: 100%; border-radius: 12px; overflow: hidden;
+      box-shadow: var(--shadow-sm); background: #000; border: 1px solid var(--border);
     }
-    .sim2real-video-grid .video-box video {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-    .sim2real-caption {
-      margin-top: 0.5rem;
-      font-weight: 600;
-      text-align: center;
-      font-size: 0.95rem;
-    }
+    .sim2real-video-grid .video-box video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+    .sim2real-caption { margin-top: .55rem; font-weight: 600; text-align: center; font-size: .92rem; color: var(--text); }
+
+    .content-row { margin-bottom: 1.5rem; }
+    .content-row img { width: 100%; height: auto; border-radius: var(--radius); display: block; box-shadow: var(--shadow-sm); border: 1px solid var(--border); }
 
     @media (max-width: 1023px) {
       .vla-video-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -467,12 +512,413 @@
       .vla-video-grid { grid-template-columns: 1fr; }
       .il-task-col { flex: 0 1 100%; }
       .oopsiebench-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .stat-grid { grid-template-columns: repeat(2, 1fr); }
+      .abstract-card { padding: 1.6rem 1.4rem; }
     }
 
-    .content.has-text-justified p { line-height: 1.6; }
+    /* ============================================================
+       Footer
+       ============================================================ */
+    .ov-footer { background: var(--bg-alt); border-top: 1px solid var(--border); padding: 2.5rem 1.5rem; }
+    .ov-footer .wrap { text-align: center; }
+    .ov-footer p { font-size: .9rem; color: var(--text-muted); line-height: 1.7; max-width: 720px; margin: 0 auto; }
+    .ov-footer a { color: var(--accent); }
+    .ov-footer .foot-brand { font-family: var(--font-display); font-weight: 700; color: var(--text); display: inline-flex; align-items: center; gap: .5rem; margin-bottom: .8rem; }
+    .ov-footer .foot-brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--health-grad); }
+
+    /* ============================================================
+       Scroll-reveal (progressive enhancement)
+       ============================================================ */
+    .js .reveal { opacity: 0; transform: translateY(22px); transition: opacity .6s ease, transform .6s ease; will-change: opacity, transform; }
+    .js .reveal.is-visible { opacity: 1; transform: none; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(14px);} to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .js .reveal { opacity: 1; transform: none; }
+    }
+
+    /* Modal prev/next navigation */
+    .oopsiebench-modal-nav {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      width: 48px; height: 48px; border-radius: 50%; border: none;
+      background: rgba(255,255,255,.12); color: #fff; font-size: 1.6rem; line-height: 1;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.25);
+      transition: background .15s ease, transform .12s ease; z-index: 3;
+    }
+    .oopsiebench-modal-nav:hover { background: rgba(255,255,255,.24); }
+    .oopsiebench-modal-nav:active { transform: translateY(-50%) scale(.92); }
+    .oopsiebench-modal-nav.prev { left: -68px; }
+    .oopsiebench-modal-nav.next { right: -68px; }
+    @media (max-width: 720px) {
+      .oopsiebench-modal-nav.prev { left: 6px; }
+      .oopsiebench-modal-nav.next { right: 6px; }
+    }
+
+    /* Back to top */
+    .to-top {
+      position: fixed; right: 1.4rem; bottom: 1.4rem; z-index: 40;
+      width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--border);
+      background: var(--surface); color: var(--accent); cursor: pointer; font-size: 1.05rem;
+      display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-md);
+      opacity: 0; visibility: hidden; transform: translateY(12px);
+      transition: opacity .25s ease, transform .25s ease, visibility .25s, background .2s, border-color .2s;
+    }
+    .to-top.show { opacity: 1; visibility: visible; transform: none; }
+    .to-top:hover { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+
+    /* ============================================================
+       General polish pass
+       ============================================================ */
+    /* Accessible focus rings */
+    a:focus-visible, button:focus-visible, .btn:focus-visible,
+    .seg-tabs button:focus-visible,
+    .nav-link:focus-visible, .carousel-btn:focus-visible, .to-top:focus-visible {
+      outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 10px;
+    }
+    .seg-tabs button:focus:not(:focus-visible) { outline: none; }
+
+    /* Body-copy links: animated underline affordance */
+    .content a, .abstract-card a, .lead-text a {
+      color: var(--accent); text-decoration: none; padding-bottom: 1px;
+      background-image: linear-gradient(var(--accent-soft), var(--accent-soft));
+      background-size: 0% 2px; background-position: 0 100%; background-repeat: no-repeat;
+      transition: background-size .28s ease, color .2s ease;
+    }
+    .content a:hover, .abstract-card a:hover, .lead-text a:hover {
+      background-size: 100% 2px; color: var(--accent-soft);
+    }
+
+    /* Custom scrollbar */
+    html { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+    ::-webkit-scrollbar { width: 12px; height: 12px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; border: 3px solid var(--bg); }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    /* Unified soft theme transitions on surfaces */
+    .ov-nav, .stat-card, .dmg-card, .sim-card, .abstract-card, .seg-tabs,
+    .btn-ghost, .to-top, .media-frame, .method-frame, .damagesim-sim-caption {
+      transition: background-color .35s ease, border-color .35s ease, color .35s ease, box-shadow .25s ease, transform .25s ease;
+    }
+
+    /* Card hover parity */
+    .stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--border-strong); }
+    .sim-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+
+    /* OopsieBench: calmer, smoother zoom */
+    .oopsiebench-tile { will-change: transform; }
+    .oopsiebench-tile:hover { transform: scale(1.32); }
+
+    /* Crisp hairline between stacked sections */
+    .section.tinted { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+
+    /* Tighten justified copy into left-aligned on small screens (avoids rivers) */
+    @media (max-width: 620px) {
+      .lead-text p, .abstract-card p, .content.has-text-justified,
+      .sec-lead { text-align: left; }
+      .hero-actions { gap: .6rem; }
+    }
+
+    /* ============================================================
+       v2 — "Lab report / instrument" restyle
+       (monochrome ink-on-paper + health gradient as the only color)
+       ============================================================ */
+    :root {
+      --font-sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+      --font-display: 'IBM Plex Sans', system-ui, sans-serif;
+      --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+      --bg: #f4f4f1;
+      --bg-alt: #eeeee8;
+      --surface: #ffffff;
+      --surface-2: #faf9f6;
+      --text: #16181c;
+      --text-soft: #3c3e44;
+      --text-muted: #76787f;
+      --border: #e2e1d9;
+      --border-strong: #cdccc2;
+
+      --accent: #16181c;
+      --accent-soft: #16181c;
+      --accent-ink: #f4f4f1;
+      --accent-tint: rgba(22, 24, 28, 0.06);
+
+      /* slightly muted, more editorial health stops */
+      --health-1: #1f9d57;
+      --health-2: #e0a500;
+      --health-3: #d83a34;
+
+      --grid-line: rgba(22, 24, 28, 0.06);
+
+      --radius: 6px;
+      --radius-lg: 8px;
+      --shadow-sm: none;
+      --shadow-md: none;
+      --shadow-lg: 0 16px 50px rgba(0, 0, 0, .18);
+      --shadow-accent: none;
+    }
+
+    body { counter-reset: secnum; }
+
+    /* Nav: solid + hairline, monospace links */
+    .ov-nav {
+      background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none;
+      border-bottom: 1px solid var(--border-strong);
+    }
+    .ov-brand { letter-spacing: -.01em; }
+    .ov-links a.nav-link {
+      font-family: var(--font-mono); text-transform: uppercase;
+      letter-spacing: .07em; font-size: .73rem; border-radius: 4px;
+    }
+    .ov-links a.nav-link.is-current::after { background: var(--health-grad); }
+
+    /* Hero: engineering grid instead of gradient mesh; solid ink title */
+    .ov-hero::before {
+      content: ""; position: absolute; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+      background-size: 34px 34px;
+      -webkit-mask-image: radial-gradient(ellipse 72% 64% at 50% 42%, #000 26%, transparent 100%);
+              mask-image: radial-gradient(ellipse 72% 64% at 50% 42%, #000 26%, transparent 100%);
+      animation: none; filter: none; opacity: 1;
+    }
+    .hero-title {
+      background: none; -webkit-text-fill-color: currentColor; color: var(--text);
+      letter-spacing: -.045em;
+    }
+    .hero-subtitle { color: var(--text-soft); font-weight: 500; }
+    .hero-subtitle::after {
+      content: ""; display: block; width: 64px; height: 3px;
+      margin: 1.6rem auto 0; background: var(--health-grad); border-radius: 2px;
+    }
+
+    /* Buttons: squared, bordered, ink fill */
+    .btn { border-radius: 6px; box-shadow: none; }
+    .btn-primary { background: var(--text); color: var(--bg); border: 1px solid var(--text); box-shadow: none; }
+    .btn-primary:hover { color: var(--bg); transform: translate(-2px, -2px); box-shadow: 4px 4px 0 var(--accent-tint); }
+    .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border-strong); box-shadow: none; }
+    .btn-ghost:hover { color: var(--text); border-color: var(--text); transform: translate(-2px, -2px); box-shadow: 4px 4px 0 var(--accent-tint); }
+    .scroll-cue { font-family: var(--font-mono); letter-spacing: .15em; }
+
+    /* Section labels: monospace, auto-numbered, gradient tick */
+    .sec-eyebrow {
+      background: none; padding: 0; border-radius: 0; color: var(--text-muted);
+      font-family: var(--font-mono); font-weight: 500; letter-spacing: .16em; font-size: .72rem;
+      text-transform: uppercase; display: inline-flex; align-items: center; gap: .7rem;
+    }
+    .sec-eyebrow::before {
+      counter-increment: secnum;
+      content: counter(secnum, decimal-leading-zero);
+      color: var(--text); font-weight: 600;
+    }
+    .sec-eyebrow::after {
+      content: ""; width: 30px; height: 2px; border-radius: 2px;
+      background: var(--health-grad); display: inline-block;
+    }
+    .sec-title .accent-underline::after { background: var(--health-grad); height: .14em; }
+
+    /* Cards & frames: hairline, no soft shadow */
+    .dmg-card, .sim-card, .abstract-card, .media-frame, .method-frame {
+      box-shadow: none; border: 1px solid var(--border-strong);
+    }
+    .media-frame, .method-frame { border-radius: var(--radius); }
+    .dmg-card:hover, .sim-card:hover { transform: translateY(-3px); box-shadow: none; border-color: var(--text); }
+    .dmg-card .dmg-top { height: 3px; }
+    .damagesim-caption .ico { border-radius: 4px; }
+    .damagesim-sim-label .tag-chip {
+      font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .05em;
+      background: var(--accent-tint); color: var(--text); border-radius: 4px;
+    }
+    .damagesim-sim-caption { border-radius: 6px; border-left-color: var(--text); background: var(--surface-2); }
+    .abstract-card { background: var(--surface); }
+    .abstract-card p + p { margin-top: 1.1rem; }
+    .abstract-card .abstract-lead {
+      font-family: var(--font-display); font-weight: 600;
+      font-size: 1.32rem; line-height: 1.45; color: var(--text); text-align: left;
+    }
+
+    /* Brand logo (replaces the placeholder gradient dot + text) */
+    .ov-brand { gap: 0; }
+    .ov-brand .brand-logo { height: 66px; width: auto; display: block; }
+    .hero-title { margin-bottom: 1.3rem; }
+    .hero-logo { width: min(84%, 560px); height: auto; display: block; margin: 0 auto; }
+    .foot-brand { gap: 0; display: block; }
+    .foot-brand .footer-logo { height: 44px; width: auto; display: block; margin: 0 auto .6rem; }
+    @media (max-width: 600px) { .ov-brand .brand-logo { height: 44px; } }
+
+    /* Tabs: underlined monospace bar (was a pill segmented control) */
+    .seg-tabs {
+      background: none; border: none; border-bottom: 1px solid var(--border-strong);
+      border-radius: 0; padding: 0; gap: 0; box-shadow: none; flex-wrap: wrap;
+    }
+    .seg-tabs button {
+      background: none; box-shadow: none; border-radius: 0; color: var(--text-muted);
+      font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .05em;
+      font-size: .75rem; padding: .7rem 1rem; position: relative;
+    }
+    .seg-tabs button:hover { background: none; color: var(--text); }
+    .seg-tabs button.is-active { background: none; color: var(--text); box-shadow: none; }
+    .seg-tabs button.is-active::after {
+      content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--health-grad);
+    }
+
+    /* Prev/Next: ink, squared */
+    .carousel-btn { background: var(--text); color: var(--bg); border: 1px solid var(--text); border-radius: 6px; box-shadow: none; }
+    .carousel-btn:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--accent-tint); }
+
+    /* Sharper media corners across grids */
+    .oopsiebench-tile, .oopsiebench-tile .video-box,
+    .il-video-grid .video-box, .sim2real-video-grid .video-box,
+    .vla-video-grid .video-box, .dmg-card video, .sim-card video,
+    .content-row img { border-radius: var(--radius); }
+
+    /* Body links: persistent thin underline (no gradient-grow gimmick) */
+    .content a, .abstract-card a, .lead-text a {
+      background-image: none; padding-bottom: 0; color: var(--text);
+      text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px;
+      text-decoration-color: var(--border-strong); transition: text-decoration-color .2s ease;
+    }
+    .content a:hover, .abstract-card a:hover, .lead-text a:hover { color: var(--text); text-decoration-color: var(--health-3); }
+
+    /* Controls: squared, ink hover */
+    .to-top { border-radius: 6px; color: var(--text); }
+    .to-top:hover { background: var(--text); color: var(--bg); border-color: var(--text); }
+    .oopsiebench-modal-content video { border-radius: 8px; }
+
+    /* ============================================================
+       Showcase opener + section pillars + scroll-snap
+       ============================================================ */
+    /* Full-bleed cinematic showcase */
+    .showcase-full { position: relative; width: 100%; margin: 0; background: #000; line-height: 0; overflow: hidden; }
+    .showcase-full video { display: block; width: 100%; height: clamp(360px, 74vh, 800px); object-fit: cover; }
+    .showcase-tag {
+      position: absolute; left: 1.1rem; top: 1.1rem; line-height: 1;
+      font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .16em;
+      font-size: .72rem; color: #fff; background: rgba(0, 0, 0, .45);
+      padding: .45rem .7rem; border-radius: 4px;
+      -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+    }
+    .teaser-wrap { padding-top: 2rem; }
+
+    /* ---- Hero with full-screen showcase video background ---- */
+    /* Hero box matches the video's aspect ratio (2112x1200), so `cover`
+       shows the whole frame with clean, flush edges and no bars. */
+    .ov-hero {
+      height: clamp(540px, 56.82vw, 980px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 3rem 1.5rem; overflow: hidden;
+    }
+    .ov-hero::before { content: none; } /* drop the graph-paper grid; video takes over */
+    .hero-bg-video {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: cover; z-index: 0; pointer-events: none;
+    }
+    .hero-scrim {
+      position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background:
+        radial-gradient(ellipse 62% 56% at 50% 46%, rgba(0,0,0,.34), transparent 80%),
+        linear-gradient(to bottom, rgba(0,0,0,.46) 0%, rgba(0,0,0,.22) 30%, rgba(0,0,0,.30) 64%, rgba(0,0,0,.60) 100%);
+    }
+    .ov-hero::after {
+      content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 22px; z-index: 1;
+      background: linear-gradient(to bottom, transparent, var(--bg)); pointer-events: none;
+    }
+    .hero-inner { position: relative; z-index: 2; text-align: center; max-width: 900px; }
+    @media (max-width: 768px) { .ov-hero { height: auto; min-height: 70vh; } }
+
+    /* Hero text on video: light + legible */
+    .ov-hero .hero-title { color: #fff; -webkit-text-fill-color: #fff; text-shadow: 0 2px 22px rgba(0,0,0,.5); }
+    .ov-hero .hero-subtitle { color: rgba(255,255,255,.92); text-shadow: 0 2px 16px rgba(0,0,0,.55); }
+    .ov-hero .hero-authors, .ov-hero .hero-authors a { color: #fff; text-shadow: 0 1px 10px rgba(0,0,0,.55); }
+    .ov-hero .hero-authors a:hover { color: #fff; border-bottom-color: rgba(255,255,255,.85); }
+    .ov-hero .hero-affil, .ov-hero .hero-affil .eql { color: #fff; text-shadow: 0 1px 10px rgba(0,0,0,.5); }
+    /* Bulma styles <strong> dark; make the author/footnote asterisks inherit white */
+    .ov-hero .hero-authors strong, .ov-hero .hero-affil strong { color: inherit; }
+
+    /* Subtle fullscreen / watch-showcase button in the hero corner */
+    .hero-watch-btn {
+      position: absolute; top: 1rem; left: 1rem; z-index: 3;
+      width: 40px; height: 40px; border-radius: 8px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,.32); color: #fff; border: 1px solid rgba(255,255,255,.4);
+      cursor: pointer; font-size: .95rem;
+      -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+      transition: background .2s ease, border-color .2s ease, transform .1s ease;
+    }
+    .hero-watch-btn:hover { background: rgba(0,0,0,.55); border-color: #fff; }
+    .hero-watch-btn:active { transform: scale(.93); }
+    .ov-hero .scroll-cue { color: rgba(255,255,255,.88); }
+
+    /* Hero buttons tuned for the dark video */
+    .ov-hero .btn-primary { background: #fff; color: #16181c; border-color: #fff; }
+    .ov-hero .btn-primary:hover { color: #16181c; box-shadow: 4px 4px 0 rgba(255,255,255,.28); }
+    .ov-hero .btn-ghost { background: rgba(255,255,255,.10); color: #fff; border-color: rgba(255,255,255,.65); }
+    .ov-hero .btn-ghost:hover { color: #fff; border-color: #fff; box-shadow: 4px 4px 0 rgba(255,255,255,.22); }
+
+    @media (prefers-reduced-motion: reduce) { .hero-bg-video { display: none; } }
+
+    /* Showcase player modal */
+    .showcase-modal {
+      display: none; position: fixed; inset: 0; z-index: 1000; align-items: center; justify-content: center;
+      padding: 2rem; background: rgba(5,7,12,.9); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); cursor: pointer;
+    }
+    .showcase-modal.is-active { display: flex; }
+    .showcase-modal-content { position: relative; width: min(1120px, 94vw); cursor: default; }
+    .showcase-modal-content video { display: block; width: 100%; max-height: 84vh; border-radius: 10px; background: #000; box-shadow: 0 8px 44px rgba(0,0,0,.6); }
+    .showcase-modal-close {
+      position: absolute; top: -14px; right: -14px; width: 42px; height: 42px; border: none; border-radius: 50%;
+      background: #fff; color: #333; font-size: 1.5rem; line-height: 1; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; padding: 0;
+      box-shadow: 0 2px 12px rgba(0,0,0,.4); transition: transform .15s ease;
+    }
+    .showcase-modal-close:hover { transform: rotate(90deg); }
+
+    .pillars-section { padding: 1rem 1.5rem 3rem; }
+    .pillars-heading {
+      text-align: center; font-family: var(--font-mono); text-transform: uppercase;
+      letter-spacing: .16em; font-size: .74rem; color: var(--text-muted); margin: 0 0 1.3rem;
+    }
+    .pillars { max-width: var(--maxw); margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    .pillar {
+      display: block; text-decoration: none; color: inherit; position: relative; overflow: hidden;
+      border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface);
+      padding: 1.4rem 1.4rem 1.3rem;
+      transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+    }
+    .pillar::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--health-grad); }
+    .pillar:hover { transform: translateY(-3px); border-color: var(--text); box-shadow: 4px 4px 0 var(--accent-tint); }
+    .pillar .p-idx { font-family: var(--font-mono); font-size: .72rem; color: var(--text-muted); letter-spacing: .14em; }
+    .pillar .p-name { font-family: var(--font-display); font-weight: 600; font-size: 1.3rem; color: var(--text); display: block; margin: .35rem 0 .5rem; }
+    .pillar .p-desc { font-size: .95rem; color: var(--text-soft); line-height: 1.55; margin: 0; }
+    .pillar .p-arrow { display: inline-block; margin-top: .9rem; font-family: var(--font-mono); font-size: .8rem; letter-spacing: .04em; color: var(--text-muted); transition: color .2s ease, transform .2s ease; }
+    .pillar:hover .p-arrow { color: var(--text); transform: translateX(3px); }
+    @media (max-width: 820px) { .pillars { grid-template-columns: 1fr; } }
+
+    /* ---- Separate "pages": one section view at a time ---- */
+    .page { display: none; }
+    .page.is-active { display: block; animation: pageIn .4s ease both; }
+    @keyframes pageIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+    /* Linear prev/next navigation between section pages */
+    .page-nav {
+      max-width: var(--maxw); margin: 0 auto; padding: 1.5rem 1.5rem 3.5rem;
+      display: flex; justify-content: space-between; gap: 1rem;
+    }
+    .page-nav-link {
+      display: flex; flex-direction: column; gap: .25rem; text-decoration: none; color: var(--text);
+      border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface);
+      padding: .9rem 1.25rem; min-width: 210px;
+      transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+    }
+    .page-nav-link.next { text-align: right; margin-left: auto; align-items: flex-end; }
+    .page-nav-link:hover { transform: translateY(-2px); border-color: var(--text); box-shadow: 4px 4px 0 var(--accent-tint); }
+    .page-nav-link .pn-dir { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .1em; font-size: .7rem; color: var(--text-muted); }
+    .page-nav-link .pn-name { font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; }
+    @media (max-width: 600px) { .page-nav-link { min-width: 0; flex: 1; } }
+
     video { outline: none; }
-    .footer { padding: 3rem 1.5rem; background: #fff !important; }
-    .footer .content p { font-size: 0.9rem; color: #666; }
     /* Hide volume controls but keep timeline */
     video::-webkit-media-controls-volume-slider { display: none !important; }
     video::-webkit-media-controls-mute-button { display: none !important; }
@@ -485,297 +931,345 @@
 </head>
 <body>
 
-  <nav class="navbar is-fixed-top is-white" role="navigation" aria-label="main navigation">
-    <div class="container is-max-desktop">
-      <div class="navbar-brand">
-        <a class="navbar-item" href="#top" style="font-weight: 700;">OopsieVerse</a>
-        <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="mainNavbarMenu">
-          <span aria-hidden="true"></span>
-          <span aria-hidden="true"></span>
-          <span aria-hidden="true"></span>
-        </a>
+  <div id="scroll-progress"></div>
+
+  <!-- ================= NAV ================= -->
+  <nav class="ov-nav" role="navigation" aria-label="main navigation">
+    <div class="wrap">
+      <a class="ov-brand" href="#top" aria-label="OopsieVerse home"><img class="brand-logo" src="static/images/oopsieverse_final_logo.png" alt="OopsieVerse"></a>
+      <div class="ov-links" id="navLinks">
+        <a class="nav-link" href="#top">Overview</a>
+        <a class="nav-link" href="#damagesim">DamageSim</a>
+        <a class="nav-link" href="#oopsiebench">OopsieBench</a>
+        <a class="nav-link" href="#use-cases">OopsieVerse Use Cases</a>
       </div>
-      <div id="mainNavbarMenu" class="navbar-menu">
-        <div class="navbar-end">
-          <a class="navbar-item" href="#damagesim">DamageSim</a>
-          <a class="navbar-item" href="#oopsiebench">OopsieBench</a>
-          <a class="navbar-item" href="#use-cases">OopsieVerse Use Cases</a>
-        </div>
-      </div>
+      <button class="ov-burger" id="navBurger" aria-label="menu" aria-expanded="false"><i class="fas fa-bars"></i></button>
     </div>
   </nav>
 
-  <section class="hero" id="top">
-    <div class="hero-body">
-      <div class="container is-max-desktop">
-        <div class="columns is-centered">
-          <div class="column has-text-centered">
-            <h1 class="title is-1 publication-title">OopsieVerse:</h1>
-            <h2 class="subtitle is-2 publication-subtitle">A Safety Benchmark with Damage-Aware Simulation for Robot Manipulation</h2>
-            <div class="is-size-5 publication-authors">
-               <span class="author-block"><a href="https://www.linkedin.com/in/arnavbalaji/" target="_blank">Arnav Balaji<strong style="font-size: 24px;">*</strong></a>,</span>
-               <span class="author-block"><a href="https://arpitrf.github.io/" target="_blank">Arpit Bahety<strong style="font-size: 24px;">*</strong></a>,</span>
-               <span class="author-block"><a href="linkedin.com/in/asriniket" target="_blank">Sriniket Ambatipudi</a>,</span>
-               <span class="author-block"><a href="https://www.linkedin.com/in/danielwlam/" target="_blank">Daniel Lam</a>,</span>
-               <span class="author-block"><a href="https://junhongxu.github.io/" target="_blank">Junhong Xu</a>,</span>
-               <span class="author-block"><a href="https://robertomartinmartin.com/" target="_blank">Roberto Martín-Martín</a></span>
-            </div>
-            <div class="is-size-5 publication-authors">
-              <span class="author-block">University of Texas at Austin
-                <!-- <br>Conferance name and year -->
-              </span>
-              <span class="eql-cntrb"><small><br><strong style="font-size: 24px;">*</strong>Equal contribution; order by dice roll</small></span>
-            </div>
-            <br>
+  <!-- ============ PAGE: HOME (overview) ============ -->
+  <div class="page is-active" id="page-home" data-page="home">
 
-            <div class="column has-text-centered">
-              <div class="publication-links">
-                <!-- Paper PDF link -->
-                <span class="link-block">
-                  <a href="static/pdfs/oopsieverse.pdf" target="_blank"
-                  class="external-link button is-normal is-rounded is-dark">
-                  <span class="icon">
-                    <i class="fas fa-file-pdf"></i>
-                  </span>
-                  <span>Paper</span>
-                  </a>
-                </span>
+  <!-- ================= HERO (video background) ================= -->
+  <header class="ov-hero" id="top">
+    <video class="hero-bg-video" autoplay muted loop playsinline poster="static/images/showcase_poster.jpg">
+      <source src="static/videos/showcase.mp4" type="video/mp4">
+    </video>
+    <div class="hero-scrim" aria-hidden="true"></div>
+    <button type="button" class="hero-watch-btn" id="openShowcase" aria-label="Watch showcase fullscreen" title="Watch showcase">
+      <i class="fas fa-expand"></i>
+    </button>
+    <div class="hero-inner">
+    <h1 class="hero-title">OopsieVerse</h1>
+    <p class="hero-subtitle">A Safety Benchmark with Damage-Aware Simulation for Robot Manipulation</p>
 
-                <!-- Github link -->
-                <span class="link-block">
-                  <a href="" target="_blank"
-                  class="external-link button is-normal is-rounded is-dark">
-                  <span class="icon">
-                    <i class="fab fa-github"></i>
-                  </span>
-                  <span>Code (Coming Soon)</span>
-                  </a>
-                </span>
-              </div>
-            </div>
+    <div class="hero-authors">
+      <a href="https://arnavbalaji.github.io/" target="_blank">Arnav Balaji<strong style="font-size: 1.2em;">*</strong></a>,
+      <a href="https://arpitrf.github.io/" target="_blank">Arpit Bahety<strong style="font-size: 1.2em;">*</strong></a>,
+      <a href="https://linkedin.com/in/asriniket" target="_blank">Sriniket Ambatipudi</a>,
+      <a href="https://www.linkedin.com/in/danielwlam/" target="_blank">Daniel Lam</a>,
+      <a href="https://junhongxu.github.io/" target="_blank">Junhong Xu</a>,
+      <a href="https://robertomartinmartin.com/" target="_blank">Roberto Martín-Martín</a>
+    </div>
+    <div class="hero-affil">
+      University of Texas at Austin
+      <span class="eql"><strong>*</strong>Equal contribution; order by dice roll</span>
+    </div>
 
-          </div>
-        </div>
-      </div>
+    <div class="hero-actions">
+      <a href="static/pdfs/oopsieverse.pdf" target="_blank" class="btn btn-primary">
+        <i class="fas fa-file-pdf"></i><span>Paper</span>
+      </a>
+      <a href="" class="btn btn-ghost" aria-disabled="true">
+        <i class="fab fa-github"></i><span>Code (Coming Soon)</span>
+      </a>
+    </div>
+
+    <a href="#teaser-section" class="scroll-cue" aria-label="Scroll to content">
+      <span>Scroll</span><i class="fas fa-chevron-down"></i>
+    </a>
+    </div>
+  </header>
+
+  <!-- ================= TEASER (pull) ================= -->
+  <section class="teaser-wrap" id="teaser-section">
+    <div class="media-frame reveal">
+      <video id="teaser" autoplay controls muted loop playsinline>
+        <source src="static/videos/oopsieverse_pull.mp4" type="video/mp4">
+      </video>
     </div>
   </section>
 
-  <!-- Teaser video -->
-  <section class="hero teaser">
-    <div class="container is-max-desktop">
-      <div class="hero-body">
-        <video id="teaser" autoplay controls muted loop playsinline>
-          <source src="static/videos/oopsieverse_pull.mp4" type="video/mp4">
-        </video>
-      </div>
+  <!-- ================= ABSTRACT ================= -->
+  <section class="section tinted">
+    <div class="sec-head reveal">
+      <span class="sec-eyebrow">Overview</span>
+      <h2 class="sec-title"><span class="accent-underline">Abstract</span></h2>
+    </div>
+    <div class="abstract-card reveal">
+      <p class="abstract-lead">What if your home robot finishes the job — but breaks your kitchen in the process?</p>
+      <p>
+        Robots are getting better at manipulating everyday objects, but task success alone is not enough. A robot that picks up an egg while cracking it, or pours water while spilling half of it, is not ready for real homes. The missing piece is safety — and today's simulators barely measure it.
+      </p>
+      <p>
+        OopsieVerse tackles this head on: a unified, damage-aware simulation framework for household manipulation. Instead of only rewarding task completion, it augments the standard decision-making setup with explicit damage signals and user-defined safety preferences. At its heart is DamageSim, a simulator-agnostic layer that converts physical signals like contact forces, temperature changes, and liquid interactions into measurable mechanical, thermal, or fluid damage. Paired with a benchmark suite of household tasks, OopsieVerse cleanly separates "did the robot succeed?" from "did it do so safely?"
+      </p>
+      <p>
+        Integrated into both BEHAVIOR-1K (Omniverse) and RoboCasa (MuJoCo), OopsieVerse supports safer data collection, damage-aware imitation and reinforcement learning, and safety benchmarking of Vision-Language-Action policies — for improved sim-to-real transfer of safer behaviors.
+      </p>
     </div>
   </section>
 
-  <!-- Paper abstract -->
-  <section class="section abstract-section">
-    <div class="container is-max-desktop">
-      <div class="columns is-centered has-text-centered">
-        <div class="column is-four-fifths">
-          <h2 class="title is-3" style="text-align: center;">Abstract</h2>
-          <div class="content has-text-justified" style="margin-top: 1rem;">
-            <p>
-              While robotic manipulation capabilities have advanced rapidly, physical safety remains a major barrier to deploying household robots: task success is insufficient if the robot damages itself or its surroundings. Simulation offers a harm-free alternative to costly and dangerous real-world training and evaluation, yet existing simulators lack general mechanisms to detect, quantify, and represent damage. To address this gap, we introduce OopsieVerse, a unified simulation framework and benchmark for damage-aware household manipulation. At a theoretical level, OopsieVerse augments an existing Markov Decision Problem with additional damage-related observations, rewards and/or termination conditions based on user preferences. OopsieVerse provides damage as an explicit, physically-grounded, and task-agnostic signal by converting sources such as contact forces, temperature changes, and liquid interactions into corresponding mechanical, thermal or fluid damage. OopsieVerse comprises two core elements: (1) DamageSim, a simulator-agnostic framework for detecting and quantifying damage during navigation and manipulation, and (2) a suite of household tasks designed to evaluate common damage modes and distinguish between task completion and safe execution. We demonstrate the generality of our framework by instantiating DamageSim in two simulators with different physics backends, BEHAVIOR-1k (Nvidia Omniverse) and RoboCasa (MuJoCo). We further showcase the utility of OopsieVerse across multiple use cases, including (1) guiding safer demonstration collection via real- time damage feedback, (2) learning safer manipulation policies through damage-conditioned imitation learning and reinforcement learning, (3) benchmarking the safety of state-of-the-art Vision Language Action policies, and (4) improving real-world safety of sim-to-real transferred policies. Together, our results highlight the potential of OopsieVerse as an open-source foundation for systematic, scalable research on safe robot manipulation.
-            </p>
-          </div>
-        </div>
-      </div>
+  <!-- ================= WHAT'S INSIDE / PILLARS ================= -->
+  <section class="pillars-section reveal" aria-label="Explore OopsieVerse">
+    <p class="pillars-heading">Explore the work</p>
+    <div class="pillars">
+      <a class="pillar" href="#damagesim">
+        <span class="p-idx">01</span>
+        <span class="p-name">DamageSim</span>
+        <p class="p-desc">A simulator-agnostic plugin that turns contact forces, heat, and liquid exposure into measurable mechanical, thermal, and fluid damage.</p>
+        <span class="p-arrow">Explore &rarr;</span>
+      </a>
+      <a class="pillar" href="#oopsiebench">
+        <span class="p-idx">02</span>
+        <span class="p-name">OopsieBench</span>
+        <p class="p-desc">A suite of 32 household tasks that contrast easy-but-risky strategies with safer, more careful ones.</p>
+        <span class="p-arrow">Explore &rarr;</span>
+      </a>
+      <a class="pillar" href="#use-cases">
+        <span class="p-idx">03</span>
+        <span class="p-name">Use Cases</span>
+        <p class="p-desc">Safer data collection, damage-aware imitation and reinforcement learning, VLA safety evals, and sim-to-real transfer.</p>
+        <span class="p-arrow">Explore &rarr;</span>
+      </a>
     </div>
   </section>
 
-  <!-- DamageSim -->
+  </div><!-- /page-home -->
+
+  <!-- ============ PAGE: DAMAGESIM ============ -->
+  <div class="page" id="page-damagesim" data-page="damagesim">
+  <!-- ================= DAMAGESIM ================= -->
   <section class="section" id="damagesim">
     <div class="container is-max-desktop">
-      <h2 class="title is-2" style="text-align: center; margin-bottom: 0.5rem;">DamageSim</h2>
-      <div class="columns is-centered">
-        <div class="column is-five-fifths">
-          <div class="content has-text-justified" style="margin-top: 1rem;">
-            <p>DamageSim is our simulator-agnostic plugin that makes physical safety measurable 
-              by tracking object-centric “health.” It monitors simulator signals—such as contact 
-              forces, temperature, and liquid exposure—and converts them into mechanical 
-              (e.g., impact or compression), thermal, and fluid damage, which can be used as 
-              observations, rewards, or termination conditions. 
-              We instantiate it in RoboCasa (MuJoCo) and BEHAVIOR-1K (Omniverse) showcasing its consistency across simulators.</p>
-          </div>
-        </div>
+      <div class="sec-head reveal">
+        <span class="sec-eyebrow">Framework</span>
+        <h2 class="sec-title"><span class="accent-underline">DamageSim</span></h2>
+      </div>
+
+      <div class="lead-text reveal">
+        <p>DamageSim is our simulator-agnostic plugin that makes physical safety measurable
+          by tracking object-centric “health.” It monitors simulator signals—such as contact
+          forces, temperature, and liquid exposure—and converts them into mechanical
+          (e.g., impact or compression), thermal, and fluid damage, which can be used as
+          observations, rewards, or termination conditions.
+          We instantiate it in RoboCasa (MuJoCo) and BEHAVIOR-1K (Omniverse) showcasing its consistency across simulators.</p>
       </div>
 
       <div class="damagesim-types-row">
-        <div>
+        <div class="dmg-card mech reveal">
+          <div class="dmg-top"></div>
           <video autoplay controls muted loop playsinline>
             <source src="static/videos/lift_egg.mp4" type="video/mp4">
           </video>
-          <p class="damagesim-caption">Mechanical Damage</p>
+          <p class="damagesim-caption"><span class="ico"><i class="fas fa-hand-back-fist"></i></span>Mechanical Damage</p>
         </div>
-        <div>
+        <div class="dmg-card therm reveal">
+          <div class="dmg-top"></div>
           <video autoplay controls muted loop playsinline>
             <source src="static/videos/place_log.mp4" type="video/mp4">
           </video>
-          <p class="damagesim-caption">Thermal Damage</p>
+          <p class="damagesim-caption"><span class="ico"><i class="fas fa-fire"></i></span>Thermal Damage</p>
         </div>
-        <div>
+        <div class="dmg-card fluid reveal">
+          <div class="dmg-top"></div>
           <video autoplay controls muted loop playsinline>
             <source src="static/videos/pour_water.mp4" type="video/mp4">
           </video>
-          <p class="damagesim-caption">Fluid Damage</p>
+          <p class="damagesim-caption"><span class="ico"><i class="fas fa-droplet"></i></span>Fluid Damage</p>
         </div>
       </div>
 
-      <div class="columns is-centered" style="margin-top: 2.5rem;">
-        <div class="column is-five-fifths">
-          <h3 class="damagesim-fig-title">Damage-Augmented POMDP Implementation with DamageSim</h3>
-          <video autoplay controls muted loop playsinline style="width: 100%; height: auto; border-radius: 10px;">
+      <div class="reveal" style="margin-top: 3rem;">
+        <h3 class="damagesim-fig-title">Damage-Augmented POMDP Implementation with DamageSim</h3>
+        <div class="method-frame">
+          <video autoplay controls muted loop playsinline>
             <source src="static/videos/method_cropped.mp4" type="video/mp4">
           </video>
         </div>
       </div>
 
-      
-      <div class="damagesim-sim-row">
-        <p class="damagesim-sim-caption"><b>DamageSim is simulator-agnostic.</b> we instantiate it in BEHAVIOR-1k (Nvidia Omniverse) 
+      <div class="damagesim-sim-row reveal">
+        <p class="damagesim-sim-caption"><b>DamageSim is simulator-agnostic.</b> we instantiate it in BEHAVIOR-1k (Nvidia Omniverse)
           and RoboCasa (MuJoCo) to demonstrate consistent safety measurement across different physics backends.</p>
-        <div>
+        <div class="sim-card">
           <video autoplay controls muted loop playsinline>
             <source src="static/videos/open_drawer_health.mp4" type="video/mp4">
           </video>
-          <p class="damagesim-sim-label">RoboCasa</p>
+          <p class="damagesim-sim-label"><span class="tag-chip">MuJoCo</span>RoboCasa</p>
         </div>
-        <div>
+        <div class="sim-card">
           <video autoplay controls muted loop playsinline>
             <source src="static/videos/shelve_item.mp4" type="video/mp4">
           </video>
-          <p class="damagesim-sim-label">BEHAVIOR-1k</p>
+          <p class="damagesim-sim-label"><span class="tag-chip">Omniverse</span>BEHAVIOR-1k</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- OopsieBench -->
-  <section class="section abstract-section" id="oopsiebench">
+  <nav class="page-nav" aria-label="Section navigation">
+    <a class="page-nav-link prev" href="#top">
+      <span class="pn-dir">&larr; Previous</span>
+      <span class="pn-name">Overview</span>
+    </a>
+    <a class="page-nav-link next" href="#oopsiebench">
+      <span class="pn-dir">Next &rarr;</span>
+      <span class="pn-name">OopsieBench</span>
+    </a>
+  </nav>
+  </div><!-- /page-damagesim -->
+
+  <!-- ============ PAGE: OOPSIEBENCH ============ -->
+  <div class="page" id="page-oopsiebench" data-page="oopsiebench">
+  <!-- ================= OOPSIEBENCH ================= -->
+  <section class="section tinted" id="oopsiebench">
     <div class="container is-max-desktop">
-      <h2 class="title is-2" style="text-align: center; margin-bottom: 0.5rem;">OopsieBench</h2>
-      <div class="columns is-centered" style="margin-top: 1rem;">
-        <div class="column is-five-fifths">
-          <div class="content has-text-justified">
-            <p>OopsieBench is a suite of 32 household tasks in total (15 tasks shown in the grid below; hover a tile to see its name). 
-              The suite is designed to (i) expose policies to realistic, physically damaging failure modes in household manipulation, 
-              and (ii) make safety measurable by contrasting easy but risky strategies with safer ones that require more careful 
-              interaction (e.g., gentler contact, safer approaches, or avoiding hazards). 
-              The benchmark spans diverse scenes, objects, and damage modalities, is cross-platform (BEHAVIOR-1k and RoboCasa), 
-              and includes a dataset of safe and unsafe human teleop demonstrations for five tasks.</p>
-          </div>
-        </div>
+      <div class="sec-head reveal">
+        <span class="sec-eyebrow">Benchmark</span>
+        <h2 class="sec-title"><span class="accent-underline">OopsieBench</span></h2>
+      </div>
+
+      <div class="lead-text reveal">
+        <p>OopsieBench is a suite of 32 household tasks in total (15 tasks shown in the grid below; hover a tile to see its name).
+          The suite is designed to (i) expose policies to realistic, physically damaging failure modes in household manipulation,
+          and (ii) make safety measurable by contrasting easy but risky strategies with safer ones that require more careful
+          interaction (e.g., gentler contact, safer approaches, or avoiding hazards).
+          The benchmark spans diverse scenes, objects, and damage modalities, is cross-platform (BEHAVIOR-1k and RoboCasa),
+          and includes a dataset of safe and unsafe human teleop demonstrations for five tasks.</p>
       </div>
 
       <div class="oopsiebench-grid" aria-label="OopsieBench tasks (hover to see task name)">
         <!-- Row 1: pour water, shelve item, place log, place bowl, open drawer -->
-        <div class="oopsiebench-tile">
+        <div class="oopsiebench-tile reveal">
           <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/pour_glass_unsafe.mp4" type="video/mp4"></video></div>
           <span class="oopsiebench-label">Pour Glass</span>
         </div>
-        <div class="oopsiebench-tile">
+        <div class="oopsiebench-tile reveal">
           <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/ignite_wood_unsafe.mp4" type="video/mp4"></video></div>
           <span class="oopsiebench-label">Ignite Wood</span>
         </div>
-        <div class="oopsiebench-tile">
+        <div class="oopsiebench-tile reveal">
           <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/place_log_unsafe.mp4" type="video/mp4"></video></div>
           <span class="oopsiebench-label">Place Log</span>
         </div>
-        <div class="oopsiebench-tile">
+        <div class="oopsiebench-tile reveal">
           <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/pick_bowl_unsafe.mp4" type="video/mp4"></video></div>
           <span class="oopsiebench-label">Place Bowl in Sink</span>
         </div>
-        <div class="oopsiebench-tile">
+        <div class="oopsiebench-tile reveal">
           <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/open_drawer_unsafe.mp4" type="video/mp4"></video></div>
           <span class="oopsiebench-label">Open Drawer</span>
         </div>
         <!-- Row 2: nav to table (leftmost), then rest -->
-        <div class="oopsiebench-tile">
+        <div class="oopsiebench-tile reveal">
           <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/nav_to_table_unsafe.mp4" type="video/mp4"></video></div>
           <span class="oopsiebench-label">Nav to Table</span>
         </div>
-        <div class="oopsiebench-tile">
+        <div class="oopsiebench-tile reveal">
           <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/attach_camera_unsafe.mp4" type="video/mp4"></video></div>
           <span class="oopsiebench-label">Attach Camera</span>
         </div>
-        <div class="oopsiebench-tile">
+        <div class="oopsiebench-tile reveal">
           <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/clean_trumpet_unsafe.mp4" type="video/mp4"></video></div>
           <span class="oopsiebench-label">Pick Scrub</span>
         </div>
-        <div class="oopsiebench-tile">
+        <div class="oopsiebench-tile reveal">
           <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/shelve_item_unsafe.mp4" type="video/mp4"></video></div>
           <span class="oopsiebench-label">Shelve Item</span>
         </div>
-        <div class="oopsiebench-tile">
+        <div class="oopsiebench-tile reveal">
           <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/open_single_door_unsafe.mp4" type="video/mp4"></video></div>
           <span class="oopsiebench-label">Open Single Door</span>
         </div>
         <!-- Row 3: lift egg (leftmost), then rest -->
-        <div class="oopsiebench-tile">
+        <div class="oopsiebench-tile reveal">
           <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/pick_egg_unsafe.mp4" type="video/mp4"></video></div>
           <span class="oopsiebench-label">Lift Egg</span>
         </div>
-        <div class="oopsiebench-tile">
+        <div class="oopsiebench-tile reveal">
           <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/place_plate_unsafe.mp4" type="video/mp4"></video></div>
           <span class="oopsiebench-label">Place Plate</span>
         </div>
-        <div class="oopsiebench-tile">
+        <div class="oopsiebench-tile reveal">
           <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/place_in_microwave_unsafe.mp4" type="video/mp4"></video></div>
           <span class="oopsiebench-label">Put Cup in Microwave</span>
         </div>
-        <div class="oopsiebench-tile">
+        <div class="oopsiebench-tile reveal">
           <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/turn_on_microwave_unsafe.mp4" type="video/mp4"></video></div>
           <span class="oopsiebench-label">Turn on Microwave</span>
         </div>
-        <div class="oopsiebench-tile">
+        <div class="oopsiebench-tile reveal">
           <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/wipe_counter_unsafe.mp4" type="video/mp4"></video></div>
           <span class="oopsiebench-label">Wipe Counter</span>
         </div>
       </div>
 
-      <p class="oopsiebench-hint">Click a tile to enlarge.</p>
+      <p class="oopsiebench-hint"><i class="fas fa-up-right-and-down-left-from-center"></i> &nbsp;Click a tile to enlarge.</p>
 
       <div id="oopsiebenchModal" class="oopsiebench-modal" aria-hidden="true">
         <div class="oopsiebench-modal-content" onclick="event.stopPropagation()">
+          <button type="button" class="oopsiebench-modal-nav prev" id="oopsiebenchModalPrev" aria-label="Previous task">&#8249;</button>
           <button type="button" class="oopsiebench-modal-close" id="oopsiebenchModalClose" aria-label="Close">×</button>
           <video id="oopsiebenchModalVideo" controls muted loop playsinline></video>
           <p class="oopsiebench-modal-caption" id="oopsiebenchModalCaption"></p>
+          <button type="button" class="oopsiebench-modal-nav next" id="oopsiebenchModalNext" aria-label="Next task">&#8250;</button>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Experiments / How can OopsieVerse enable safer policy learning and evaluation -->
+  <nav class="page-nav" aria-label="Section navigation">
+    <a class="page-nav-link prev" href="#damagesim">
+      <span class="pn-dir">&larr; Previous</span>
+      <span class="pn-name">DamageSim</span>
+    </a>
+    <a class="page-nav-link next" href="#use-cases">
+      <span class="pn-dir">Next &rarr;</span>
+      <span class="pn-name">Use Cases</span>
+    </a>
+  </nav>
+  </div><!-- /page-oopsiebench -->
+
+  <!-- ============ PAGE: USE CASES ============ -->
+  <div class="page" id="page-usecases" data-page="usecases">
+  <!-- ================= USE CASES ================= -->
   <section class="section" id="use-cases">
     <div class="container is-max-desktop">
-      <h2 class="title is-2" style="text-align: center; margin-bottom: 1.5rem;">How can OopsieVerse enable safer policy learning and evaluation?</h2>
+      <div class="sec-head reveal">
+        <span class="sec-eyebrow">Experiments</span>
+        <h2 class="sec-title" style="max-width: 880px; margin-left: auto; margin-right: auto;">How can OopsieVerse enable <span class="accent-underline">safer policy learning and evaluation</span>?</h2>
+      </div>
 
-      <div class="usecase-tabs-wrapper">
-        <div class="tabs is-centered is-boxed usecase-tabs" aria-label="Use case tabs">
-          <ul>
-            <li class="is-active"><a href="javascript:void(0)" data-usecase="safety" aria-controls="usecase-panel-safety">Safety-aware data collection</a></li>
-            <li><a href="javascript:void(0)" data-usecase="il" aria-controls="usecase-panel-il">IL</a></li>
-            <li><a href="javascript:void(0)" data-usecase="rl" aria-controls="usecase-panel-rl">RL</a></li>
-            <li><a href="javascript:void(0)" data-usecase="vla" aria-controls="usecase-panel-vla">VLA evals</a></li>
-            <li><a href="javascript:void(0)" data-usecase="sim2real" aria-controls="usecase-panel-sim2real">Sim2Real</a></li>
-          </ul>
+      <div class="usecase-tabs-wrapper reveal">
+        <div class="seg-tabs usecase-tabs" aria-label="Use case tabs">
+          <button type="button" class="is-active" data-usecase="safety" aria-controls="usecase-panel-safety">Safety-aware data collection</button>
+          <button type="button" data-usecase="il" aria-controls="usecase-panel-il">IL</button>
+          <button type="button" data-usecase="rl" aria-controls="usecase-panel-rl">RL</button>
+          <button type="button" data-usecase="vla" aria-controls="usecase-panel-vla">VLA evals</button>
+          <button type="button" data-usecase="sim2real" aria-controls="usecase-panel-sim2real">Sim2Real</button>
         </div>
       </div>
 
       <div class="usecase-content-wrapper">
         <div class="usecase-content-inner">
       <div id="usecase-panel-safety" class="usecase-panel is-active" data-usecase-panel="safety">
-        <!-- <h3 class="title is-4 usecase-subtitle">Safety-aware data collection</h3> -->
         <div class="content has-text-justified">
           OopsieVerse can provide real-time safety feedback during data collection, enabling data collectors to collect safer data.
-            This feedback is provided in two ways: (1) damage-based coloration and (2) health bars of tracked objects. 
+            This feedback is provided in two ways: (1) damage-based coloration and (2) health bars of tracked objects.
             The health bars are particularly helpful when damage occurs outside the current camera view
             (e.g., the wineglass falling behind the counter).
-        </div> 
+        </div>
         <div class="columns is-centered" style="margin-top: 1rem;">
           <div class="column is-full">
             <video autoplay muted loop playsinline>
@@ -786,7 +1280,6 @@
       </div>
 
       <div id="usecase-panel-il" class="usecase-panel" data-usecase-panel="il">
-        <!-- <h3 class="title is-4 usecase-subtitle">Imitation Learning (IL)</h3> -->
         <div class="content has-text-justified" style="margin-top: 0.75rem;">
           Many real-world (or sim-collected) demonstration datasets mix safe and unsafe behavior. Using DamageSim, we can automatically flag trajectories that incur damage and filter them out to construct a dataset of only safe demonstrations. In the videos below, the top row shows an IL policy trained on the full dataset (including unsafe trajectories), while the bottom row shows a policy trained on the filtered safe-only demonstrations.
         </div>
@@ -881,7 +1374,7 @@
             </div>
           </div>
         </div>
-        <div class="columns is-centered content-row" style="margin-top: 1rem;">
+        <div class="columns is-centered content-row" style="margin-top: 1.5rem;">
           <div class="column">
             <img src="static/images/IL_plot.png" alt="Imitation Learning Results" />
           </div>
@@ -889,12 +1382,11 @@
       </div>
 
       <div id="usecase-panel-rl" class="usecase-panel" data-usecase-panel="rl">
-        <!-- <h3 class="title is-4 usecase-subtitle">Reinforcement Learning (RL)</h3> -->
         <div class="content has-text-justified" style="margin-top: 0.75rem;">
-          DamageSim lets us turn physically-grounded damage signals into a shaping reward that penalizes harmful interactions. 
-          Combined with the task reward, this yields a learning signal that encourages agents to complete the task while minimizing damage. 
+          DamageSim lets us turn physically-grounded damage signals into a shaping reward that penalizes harmful interactions.
+          Combined with the task reward, this yields a learning signal that encourages agents to complete the task while minimizing damage.
           We evaluate this idea in three settings: (i) pure RL on the <i>Place Plate</i> task with and without the damage reward (PPO),
-           (ii) behavior cloning on <i>Move Glass of Water</i> task followed by PPO finetuning with the damage reward, 
+           (ii) behavior cloning on <i>Move Glass of Water</i> task followed by PPO finetuning with the damage reward,
            and (iii) fine-tuning a <i>Shelve Item</i> policy—initially trained on the full IL dataset—using an additional damage-reward using <a href="https://diffusion-steering.github.io/">DSRL</a>.
            The video below shows the training process for (iii), illustrating that over time the agent learns to reduce damage while maintaining high task performance.
         </div>
@@ -915,11 +1407,11 @@
       <div id="usecase-panel-vla" class="usecase-panel" data-usecase-panel="vla">
         <div class="content has-text-justified" style="margin-top: 0.75rem;">
           We evaluate the safety of modern manipulation policies by benchmarking <a href="https://github.com/NVIDIA/Isaac-GR00T">GR00T</a>, a state-of-the-art Vision-Language-Action model
-          from NVIDIA. Even when GR00T achieves high task success, it frequently causes damage, resulting in much lower safe success 
+          from NVIDIA. Even when GR00T achieves high task success, it frequently causes damage, resulting in much lower safe success
           rates and degraded environment health. This underscores the limits of evaluating VLAs solely by task completion and highlights
-          the need for benchmarks and learning signals that explicitly account for harmful interactions.          
+          the need for benchmarks and learning signals that explicitly account for harmful interactions.
         </div>
-        
+
         <div class="vla-video-grid">
           <div class="carousel-cell vla-mini-carousel" data-sources="static/vla_evals/attach_camera_1.mp4|static/vla_evals/attach_camera_1.mp4|static/vla_evals/attach_camera_1.mp4" data-index="0">
             <div class="video-box">
@@ -1001,20 +1493,19 @@
             <p>Turn on Stove</p>
           </div>
         </div>
-        <div class="columns is-centered" style="margin-top: 1rem;">
+        <div class="columns is-centered" style="margin-top: 1.5rem;">
           <div class="column is-four-fifths">
-            <img src="static/images/vla_results.png" alt="VLA Evaluation Results" style="width: 100%; height: auto; border-radius: 10px;" />
+            <img src="static/images/vla_results.png" alt="VLA Evaluation Results" style="width: 100%; height: auto; border-radius: 14px;" />
           </div>
         </div>
       </div>
 
       <div id="usecase-panel-sim2real" class="usecase-panel" data-usecase-panel="sim2real">
-        <!-- <h3 class="title is-4 usecase-subtitle">Sim2Real</h3> -->
         <div class="content has-text-justified" style="margin-top: 0.75rem;">
           Our ultimate goal is safe real-world robot behavior, so we test whether policies trained with OopsieVerse transfer safely to real world.
-          Compared to a baseline IL policy trained on all data, a damage-aware IL policy trained on health-filtered episodes behaves 
-          more cautiously in the <i>Pour Water</i> and <i>Shelve Cereal Box</i> tasks. It goes futher away from the laptop when pouring water 
-          and learns to make space for the cereal box by pushing non-fragile objects like the crackers box instead of fragile objects 
+          Compared to a baseline IL policy trained on all data, a damage-aware IL policy trained on health-filtered episodes behaves
+          more cautiously in the <i>Pour Water</i> and <i>Shelve Cereal Box</i> tasks. It goes futher away from the laptop when pouring water
+          and learns to make space for the cereal box by pushing non-fragile objects like the crackers box instead of fragile objects
           like glass bottles. Our experiments suggest that explicit damage signals obtained via OopsieVerse can translate into improved safety on hardware.
         </div>
         <div class="sim2real-video-grid" aria-label="Sim2Real real-world evaluations">
@@ -1061,19 +1552,39 @@
     </div>
   </section>
 
-  <!-- <footer class="footer">
-    <div class="container">
-      <div class="columns is-centered">
-        <div class="column is-8">
-          <div class="content">
-            <p>
-              This page was built using the <a href="https://github.com/eliahuhorwitz/Academic-project-page-template" target="_blank">Academic Project Page Template</a>, adopted from the <a href="https://nerfies.github.io" target="_blank">Nerfies</a> project page and styled after <a href="https://robin-lab.cs.utexas.edu/SafeMimic/" target="_blank">SafeMimic</a>.
-            </p>
-          </div>
-        </div>
-      </div>
+  <nav class="page-nav" aria-label="Section navigation">
+    <a class="page-nav-link prev" href="#oopsiebench">
+      <span class="pn-dir">&larr; Previous</span>
+      <span class="pn-name">OopsieBench</span>
+    </a>
+    <a class="page-nav-link next" href="#top">
+      <span class="pn-dir">Back to &rarr;</span>
+      <span class="pn-name">Overview</span>
+    </a>
+  </nav>
+  </div><!-- /page-usecases -->
+
+  <!-- ================= FOOTER ================= -->
+  <footer class="ov-footer">
+    <div class="wrap reveal">
+      <div class="foot-brand"><img class="footer-logo" src="static/images/oopsieverse_final_logo.png" alt="OopsieVerse"></div>
+      <p>
+        This page was built using the <a href="https://github.com/eliahuhorwitz/Academic-project-page-template" target="_blank">Academic Project Page Template</a>, adopted from the <a href="https://nerfies.github.io" target="_blank">Nerfies</a> project page and styled after <a href="https://robin-lab.cs.utexas.edu/SafeMimic/" target="_blank">SafeMimic</a>.
+      </p>
     </div>
-  </footer> -->
+  </footer>
+
+  <!-- Showcase player modal -->
+  <div id="showcaseModal" class="showcase-modal" aria-hidden="true">
+    <div class="showcase-modal-content" onclick="event.stopPropagation()">
+      <button type="button" class="showcase-modal-close" id="showcaseModalClose" aria-label="Close">&times;</button>
+      <video id="showcaseModalVideo" controls playsinline>
+        <source src="static/videos/showcase.mp4" type="video/mp4">
+      </video>
+    </div>
+  </div>
+
+  <button type="button" class="to-top" id="toTop" aria-label="Back to top"><i class="fas fa-arrow-up"></i></button>
 
   <script>
     // Carousel logic – start in middle so user can scroll left or right equally
@@ -1109,27 +1620,145 @@
 
     document.addEventListener('DOMContentLoaded', function() {
       recomputeCarouselBounds();
-      // Navbar burger (mobile)
+
+      // Force every video to be silent (no audio, no volume) and keep it that way
       (function() {
-        var burgers = Array.prototype.slice.call(document.querySelectorAll('.navbar-burger'), 0);
-        burgers.forEach(function(el) {
-          el.addEventListener('click', function() {
-            var targetId = el.dataset.target;
-            var target = document.getElementById(targetId);
-            el.classList.toggle('is-active');
-            if (target) target.classList.toggle('is-active');
+        var vids = Array.prototype.slice.call(document.querySelectorAll('video'), 0);
+        vids.forEach(function(v) {
+          v.muted = true;
+          v.volume = 0;
+          v.setAttribute('muted', '');
+          v.addEventListener('volumechange', function() {
+            if (!v.muted || v.volume !== 0) { v.muted = true; v.volume = 0; }
           });
+          v.addEventListener('loadeddata', function() { v.muted = true; v.volume = 0; });
         });
       })();
 
-      // OopsieBench: click tile -> fullscreen modal; X or backdrop to close
+      // Mobile nav burger
+      (function() {
+        var burger = document.getElementById('navBurger');
+        var links = document.getElementById('navLinks');
+        if (!burger || !links) return;
+        burger.addEventListener('click', function() {
+          var open = links.classList.toggle('open');
+          burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        links.querySelectorAll('a.nav-link').forEach(function(a) {
+          a.addEventListener('click', function() { links.classList.remove('open'); });
+        });
+      })();
+
+      // Scroll progress bar
+      (function() {
+        var bar = document.getElementById('scroll-progress');
+        if (!bar) return;
+        function onScroll() {
+          var h = document.documentElement;
+          var scrolled = h.scrollTop;
+          var height = h.scrollHeight - h.clientHeight;
+          bar.style.width = (height > 0 ? (scrolled / height) * 100 : 0) + '%';
+        }
+        window.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
+      })();
+
+      // Page router: show one section "page" at a time (no long scroll)
+      (function() {
+        var routes = {
+          '': 'home', '#': 'home', '#top': 'home', '#home': 'home',
+          '#damagesim': 'damagesim', '#oopsiebench': 'oopsiebench', '#use-cases': 'usecases'
+        };
+        var pages = {};
+        Array.prototype.slice.call(document.querySelectorAll('.page'), 0).forEach(function(p) {
+          pages[p.dataset.page] = p;
+        });
+        var navLinks = Array.prototype.slice.call(document.querySelectorAll('.ov-links a.nav-link'), 0);
+
+        function keyFromHash(h) { return routes.hasOwnProperty(h) ? routes[h] : 'home'; }
+
+        function show(key, noScroll) {
+          if (!pages[key]) key = 'home';
+          Object.keys(pages).forEach(function(k) { pages[k].classList.toggle('is-active', k === key); });
+          navLinks.forEach(function(a) {
+            a.classList.toggle('is-current', keyFromHash(a.getAttribute('href')) === key);
+          });
+          if (!noScroll) window.scrollTo(0, 0);
+          // close mobile menu if open
+          var links = document.getElementById('navLinks');
+          if (links) links.classList.remove('open');
+        }
+
+        // Intercept clicks on links that map to a page route
+        document.addEventListener('click', function(e) {
+          var a = e.target.closest('a[href^="#"]');
+          if (!a) return;
+          var href = a.getAttribute('href');
+          if (!routes.hasOwnProperty(href)) return; // in-page anchors (e.g. #teaser-section) keep default behavior
+          e.preventDefault();
+          var key = routes[href];
+          var newHash = (key === 'home') ? '#top' : href;
+          if (location.hash !== newHash) {
+            if (history.pushState) history.pushState(null, '', newHash);
+            else location.hash = newHash;
+          }
+          show(key);
+        });
+
+        window.addEventListener('hashchange', function() { show(keyFromHash(location.hash), true); });
+
+        show(keyFromHash(location.hash), true);
+      })();
+
+      // Scroll-reveal
+      (function() {
+        var els = Array.prototype.slice.call(document.querySelectorAll('.reveal'), 0);
+        if (!els.length) return;
+        if (!('IntersectionObserver' in window)) {
+          els.forEach(function(el) { el.classList.add('is-visible'); });
+          return;
+        }
+        var obs = new IntersectionObserver(function(entries) {
+          entries.forEach(function(e) {
+            if (e.isIntersecting) { e.target.classList.add('is-visible'); obs.unobserve(e.target); }
+          });
+        }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+        els.forEach(function(el) { obs.observe(el); });
+      })();
+
+      // OopsieBench: click tile -> fullscreen modal; X or backdrop to close; arrows/buttons to browse
       (function() {
         var modal = document.getElementById('oopsiebenchModal');
         var modalVideo = document.getElementById('oopsiebenchModalVideo');
         var modalCaption = document.getElementById('oopsiebenchModalCaption');
         var modalClose = document.getElementById('oopsiebenchModalClose');
+        var modalPrev = document.getElementById('oopsiebenchModalPrev');
+        var modalNext = document.getElementById('oopsiebenchModalNext');
         var grid = document.querySelector('.oopsiebench-grid');
         if (!modal || !modalVideo || !modalCaption || !modalClose || !grid) return;
+
+        var tiles = Array.prototype.slice.call(grid.querySelectorAll('.oopsiebench-tile'), 0);
+        var current = -1;
+
+        function showTile(idx) {
+          if (!tiles.length) return;
+          current = ((idx % tiles.length) + tiles.length) % tiles.length;
+          var tile = tiles[current];
+          var srcEl = tile.querySelector('video source');
+          var label = tile.querySelector('.oopsiebench-label');
+          if (!srcEl || !srcEl.getAttribute('src')) return;
+          modalVideo.src = srcEl.getAttribute('src');
+          modalCaption.textContent = label ? label.textContent : '';
+          modalVideo.load();
+          var p = modalVideo.play();
+          if (p && typeof p.catch === 'function') p.catch(function() {});
+        }
+
+        function openTile(idx) {
+          modal.classList.add('is-active');
+          modal.setAttribute('aria-hidden', 'false');
+          showTile(idx);
+        }
 
         function closeModal() {
           modal.classList.remove('is-active');
@@ -1140,24 +1769,130 @@
         grid.addEventListener('click', function(e) {
           var tile = e.target.closest('.oopsiebench-tile');
           if (!tile) return;
-          var srcEl = tile.querySelector('video source');
-          var label = tile.querySelector('.oopsiebench-label');
-          if (!srcEl || !srcEl.getAttribute('src')) return;
-          modalVideo.src = srcEl.getAttribute('src');
-          modalCaption.textContent = label ? label.textContent : '';
-          modal.classList.add('is-active');
-          modal.setAttribute('aria-hidden', 'false');
-          modalVideo.load();
-          var p = modalVideo.play();
-          if (p && typeof p.catch === 'function') p.catch(function() {});
+          var idx = tiles.indexOf(tile);
+          if (idx >= 0) openTile(idx);
         });
+
+        if (modalPrev) modalPrev.addEventListener('click', function() { showTile(current - 1); });
+        if (modalNext) modalNext.addEventListener('click', function() { showTile(current + 1); });
 
         modalClose.addEventListener('click', closeModal);
         modal.addEventListener('click', function(e) {
           if (e.target === modal) closeModal();
         });
         document.addEventListener('keydown', function(e) {
-          if (e.key === 'Escape' && modal.classList.contains('is-active')) closeModal();
+          if (!modal.classList.contains('is-active')) return;
+          if (e.key === 'Escape') closeModal();
+          else if (e.key === 'ArrowLeft') showTile(current - 1);
+          else if (e.key === 'ArrowRight') showTile(current + 1);
+        });
+      })();
+
+      // Stat numbers: count up when scrolled into view
+      (function() {
+        var nums = Array.prototype.slice.call(document.querySelectorAll('.stat-num'), 0);
+        if (!nums.length || !('IntersectionObserver' in window)) return;
+        function animate(el) {
+          var target = parseInt(el.textContent, 10);
+          if (isNaN(target)) return;
+          var dur = 1100, start = null;
+          function step(ts) {
+            if (start === null) start = ts;
+            var p = Math.min(1, (ts - start) / dur);
+            var eased = 1 - Math.pow(1 - p, 3);
+            el.textContent = Math.round(eased * target);
+            if (p < 1) requestAnimationFrame(step);
+            else el.textContent = String(target);
+          }
+          requestAnimationFrame(step);
+        }
+        var obs = new IntersectionObserver(function(entries) {
+          entries.forEach(function(e) {
+            if (e.isIntersecting) { animate(e.target); obs.unobserve(e.target); }
+          });
+        }, { threshold: 0.6 });
+        nums.forEach(function(el) { obs.observe(el); });
+      })();
+
+      // Performance: pause videos that scroll off-screen, resume them on-screen
+      (function() {
+        if (!('IntersectionObserver' in window)) return;
+        var vids = Array.prototype.slice.call(document.querySelectorAll('video'), 0);
+        var obs = new IntersectionObserver(function(entries) {
+          entries.forEach(function(e) {
+            var v = e.target;
+            if (e.isIntersecting) {
+              if (v.dataset.autoPaused === '1') {
+                delete v.dataset.autoPaused;
+                var p = v.play();
+                if (p && typeof p.catch === 'function') p.catch(function() {});
+              }
+            } else if (!v.paused) {
+              v.pause();
+              v.dataset.autoPaused = '1';
+            }
+          });
+        }, { threshold: 0.1 });
+        vids.forEach(function(v) { obs.observe(v); });
+      })();
+
+      // Back to top
+      (function() {
+        var btn = document.getElementById('toTop');
+        if (!btn) return;
+        function onScroll() {
+          if (window.pageYOffset > 600) btn.classList.add('show');
+          else btn.classList.remove('show');
+        }
+        window.addEventListener('scroll', onScroll, { passive: true });
+        btn.addEventListener('click', function() {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+        onScroll();
+      })();
+
+      // Showcase player modal (open from hero "Watch Showcase" button)
+      (function() {
+        var modal = document.getElementById('showcaseModal');
+        var vid = document.getElementById('showcaseModalVideo');
+        var openBtn = document.getElementById('openShowcase');
+        var closeBtn = document.getElementById('showcaseModalClose');
+        if (!modal || !vid || !openBtn || !closeBtn) return;
+
+        function open() {
+          modal.classList.add('is-active');
+          modal.setAttribute('aria-hidden', 'false');
+          var p = vid.play();
+          if (p && typeof p.catch === 'function') p.catch(function() {});
+        }
+        function close() {
+          modal.classList.remove('is-active');
+          modal.setAttribute('aria-hidden', 'true');
+          vid.pause();
+        }
+
+        openBtn.addEventListener('click', open);
+        closeBtn.addEventListener('click', close);
+        modal.addEventListener('click', function(e) { if (e.target === modal) close(); });
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && modal.classList.contains('is-active')) close();
+        });
+      })();
+
+      // Use-case tabs: arrow-key navigation when focused
+      (function() {
+        var bar = document.querySelector('.seg-tabs');
+        if (!bar) return;
+        bar.addEventListener('keydown', function(e) {
+          if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+          var btns = Array.prototype.slice.call(bar.querySelectorAll('button'), 0);
+          var idx = btns.indexOf(document.activeElement);
+          if (idx < 0) return;
+          e.preventDefault();
+          var next = e.key === 'ArrowRight' ? idx + 1 : idx - 1;
+          next = (next + btns.length) % btns.length;
+          btns[next].focus();
+          btns[next].click();
         });
       })();
 
@@ -1179,10 +1914,8 @@
           var panels = Array.prototype.slice.call(document.querySelectorAll('[data-usecase-panel]'), 0);
 
           tabs.forEach(function(a) {
-            var li = a.closest('li');
-            if (!li) return;
             var isActive = a.dataset.usecase === key;
-            li.classList.toggle('is-active', isActive);
+            a.classList.toggle('is-active', isActive);
           });
 
           panels.forEach(function(p) {
