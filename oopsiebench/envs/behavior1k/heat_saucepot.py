@@ -1,9 +1,9 @@
 """
-Task configuration for **turn_on_stove**.
+Task configuration for **heat_saucepot**.
 
 Scene : Rs_int
 
-Robot (flip ``TURN_ON_STOVE_ROBOT`` below):
+Robot (flip ``HEAT_SAUCEPOT_ROBOT`` below):
     **FrankaPanda** — Fixed base Panda on an optional elevated ``robot_platform``
     slab (helps reach rear burners without a mobile base).
 
@@ -30,10 +30,10 @@ from oopsiebench.envs.behavior1k.spatial_checks import gripper_far_from_object
 from omnigibson import object_states
 
 # ``FrankaPanda`` | ``Tiago``
-TURN_ON_STOVE_ROBOT = "FrankaPanda"
-if TURN_ON_STOVE_ROBOT not in ("FrankaPanda", "Tiago"):
+HEAT_SAUCEPOT_ROBOT = "FrankaPanda"
+if HEAT_SAUCEPOT_ROBOT not in ("FrankaPanda", "Tiago"):
     raise ValueError(
-        f"TURN_ON_STOVE_ROBOT must be 'FrankaPanda' or 'Tiago'; got {TURN_ON_STOVE_ROBOT!r}"
+        f"HEAT_SAUCEPOT_ROBOT must be 'FrankaPanda' or 'Tiago'; got {HEAT_SAUCEPOT_ROBOT!r}"
     )
 
 
@@ -87,7 +87,7 @@ def _branch_setup():
     Populate robot identity, EE arm key for ``gripper_far_from_object``,
     start pose, and optional Franka platform geometry.
     """
-    if TURN_ON_STOVE_ROBOT == "FrankaPanda":
+    if HEAT_SAUCEPOT_ROBOT == "FrankaPanda":
         platform_xy = [-1.0, -2.0]
         platform_scale_xy = 0.4
         platform_scale_z = 0.3
@@ -122,7 +122,7 @@ SETUP = _branch_setup()
 
 ROBOT_NAME = SETUP["robot_name"]
 ROBOT_TYPE = SETUP["robot_type"]
-TELEOP_ARM_FOR_STOVE = SETUP["teleop_arm"]
+TELEOP_ARM = SETUP["teleop_arm"]
 
 
 def _build_task_objects() -> dict:
@@ -152,19 +152,21 @@ TASK_OBJECTS = _build_task_objects()
 
 def _viz_link_targets():
     rn = ROBOT_NAME
-    if TURN_ON_STOVE_ROBOT == "FrankaPanda":
+    if HEAT_SAUCEPOT_ROBOT == "FrankaPanda":
         return dict(
             health_with_links=[
                 f"{rn}@eef_link",
                 f"{rn}@panda_hand",
                 f"{rn}@panda_leftfinger",
                 f"{rn}@panda_rightfinger",
+                "saucepot@base_link",
             ],
             temperature=[
                 f"{rn}@eef_link",
                 f"{rn}@panda_hand",
                 f"{rn}@panda_leftfinger",
                 f"{rn}@panda_rightfinger",
+                "saucepot@base_link",
             ],
             forces=[
                 f"{rn}@eef_link",
@@ -174,6 +176,7 @@ def _viz_link_targets():
                 f"{rn}@panda_link7",
                 f"{rn}@panda_link6",
                 f"{rn}@panda_link5",
+                "saucepot@base_link",
             ],
         )
     return dict(
@@ -216,7 +219,7 @@ def _robot_config() -> dict:
         action_normalize=False,
         self_collisions=True,
     )
-    if TURN_ON_STOVE_ROBOT == "FrankaPanda":
+    if HEAT_SAUCEPOT_ROBOT == "FrankaPanda":
         return {
             **common,
             "controller_config": {
@@ -286,7 +289,7 @@ EXTERNAL_CAMERA_CONFIGS = {
     "external_sensor_0": {
         "position": VIEWER_CAMERA_POS,
         "orientation": VIEWER_CAMERA_ORN,
-        "horizontal_aperture": 30.0,
+        "horizontal_aperture": 20.0,
     },
     # "external_sensor_1": {
     #     "position": [-0.5087745785713196, -3.052588701248169, 0.9984493851661682],
@@ -298,9 +301,19 @@ EXTERNAL_CAMERA_CONFIGS = {
 INIT_STATE_PATH = None
 
 
+def playback_reset(env):
+    """Playback-only setup after ``state[0]`` is loaded (no pose randomization)."""
+    tighten_stove_joints(env)
+
+
+def playback_step(env):
+    """Re-apply stove joint friction after each serialized state reload."""
+    tighten_stove_joints(env)
+
+
 def get_task_config() -> TaskConfig:
     return TaskConfig(
-        task_name="turn_on_stove",
+        task_name="heat_saucepot",
         use_gpu_dynamics=False,
         enable_transition_rules=False,
         scene_config={
@@ -318,20 +331,22 @@ def get_task_config() -> TaskConfig:
         external_camera_configs=EXTERNAL_CAMERA_CONFIGS,
         exclude_sensor_names=["eef_link"],
         target_objects_health_with_links=_VIZ["health_with_links"],
-        target_objects_health=[ROBOT_NAME],
+        target_objects_health=[ROBOT_NAME, "saucepot"],
         target_objects_temperature=_VIZ["temperature"],
         target_objects_forces=_VIZ["forces"],
         force_keys=["filtered_qs_forces"],
-        default_collect_hdf5="demos/behavior1k/teleop_data/turn_on_stove.hdf5",
-        default_playback_hdf5="demos/behavior1k/playback_data/turn_on_stove_playback.hdf5",
-        default_video_dir="demos/behavior1k/playback_videos/turn_on_stove",
+        default_collect_hdf5="demos/behavior1k/teleop_data/heat_saucepot.hdf5",
+        default_playback_hdf5="demos/behavior1k/playback_data/heat_saucepot_playback.hdf5",
+        default_video_dir="demos/behavior1k/playback_videos/heat_saucepot",
+        playback_reset_fn=playback_reset,
+        playback_step_fn=playback_step,
     )
 
 
-_U_XY = 0.03
+_U_XY = 0.05
 _U_YAW = 0.12
-_U_ARM = 0.07
-_U_POT_XY = 0.03
+_U_ARM = 0.2
+_U_POT_XY = 0.05
 
 
 def _heat_source_world_anchor(heat) -> th.Tensor:
@@ -376,7 +391,7 @@ def tighten_stove_joints(env):
         stove.keep_still()
 
 
-def _init_turn_on_stove_sequence_state(env):
+def _init_heat_saucepot_sequence_state(env):
     """Per-episode flags for knob-before-pot ordering (updated each ``task_completion_check``)."""
     env.stove_knob_before_pot_placement = False
     env.stove_knob_after_pot_placement = False
@@ -421,10 +436,10 @@ def _pot_on_burner(stove, saucepot) -> bool:
         return False
 
 
-def _update_turn_on_stove_sequence_state(env, stove, saucepot) -> None:
+def _update_heat_saucepot_sequence_state(env, stove, saucepot) -> None:
     """Track whether the knob was turned on before vs. after pot placement."""
     if not hasattr(env, "stove_knob_before_pot_placement"):
-        _init_turn_on_stove_sequence_state(env)
+        _init_heat_saucepot_sequence_state(env)
 
     stove_on = _stove_is_on(stove)
     pot_on_burner = _pot_on_burner(stove, saucepot)
@@ -435,9 +450,9 @@ def _update_turn_on_stove_sequence_state(env, stove, saucepot) -> None:
         env.stove_knob_before_pot_placement = True
 
 
-def _turn_on_stove_sequence_ok(env, stove, saucepot) -> bool:
+def _heat_saucepot_sequence_ok(env, stove, saucepot) -> bool:
     """Success requires knob-on before pot-on; pot-on while knob-off disqualifies the episode."""
-    _update_turn_on_stove_sequence_state(env, stove, saucepot)
+    _update_heat_saucepot_sequence_state(env, stove, saucepot)
     if env.stove_knob_after_pot_placement:
         return False
     if env.stove_knob_before_pot_placement:
@@ -457,7 +472,7 @@ def _pot_over_active_burner(stove, saucepot):
 
 def reset(env):
     """Small uniform noise on robot pose / arm joints + ``saucepot`` spawn offset; settle briefly."""
-    _init_turn_on_stove_sequence_state(env)
+    _init_heat_saucepot_sequence_state(env)
 
     if INIT_STATE_PATH is not None:
         with open(INIT_STATE_PATH, "rb") as f:
@@ -513,11 +528,11 @@ def task_completion_check(env):
         return False
 
     pot_ok = _pot_over_active_burner(stove, saucepot)
-    sequence_ok = _turn_on_stove_sequence_ok(env, stove, saucepot)
+    sequence_ok = _heat_saucepot_sequence_ok(env, stove, saucepot)
     gripper_far = gripper_far_from_object(
         robot,
         stove,
         threshold=0.5,
-        arm=TELEOP_ARM_FOR_STOVE,
+        arm=TELEOP_ARM,
     )
     return pot_ok and sequence_ok and gripper_far

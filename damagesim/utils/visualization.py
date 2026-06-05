@@ -281,6 +281,83 @@ def resolve_object_display_name(
     return format_object_display_name(obj_name)
 
 
+def apply_playback_health_tint_to_frame(
+    img_rgb: np.ndarray,
+    seg: np.ndarray,
+    obs_info: dict,
+    target_objects_health: List[str],
+    health_values: Dict[str, float],
+    camera_type: str = "external",
+    camera_name: str = "external_sensor1",
+) -> np.ndarray:
+    """Tint one RGB frame using a seg mask (playback ``--visualize`` style)."""
+    img = cv2.cvtColor(np.asarray(img_rgb)[:, :, :3], cv2.COLOR_RGB2BGR)
+    if hasattr(seg, "cpu"):
+        seg = seg.cpu().numpy()
+    else:
+        seg = np.asarray(seg)
+
+    for obj_name in target_objects_health:
+        h_val = float(health_values.get(obj_name, 100.0))
+        seg_info = (
+            obs_info.get(camera_type, {})
+            .get(camera_name, {})
+            .get("seg_instance", {})
+        )
+        seg_key = int(
+            next((k for k, v in seg_info.items() if v == obj_name), -1)
+        )
+        if seg_key == -1 or h_val >= 100.0:
+            continue
+        mask = seg == seg_key
+        alpha = 1.0 - h_val / 100.0
+        overlay = np.array([0, 0, 255], dtype=np.uint8)
+        img[mask] = ((1.0 - alpha) * img[mask] + alpha * overlay).astype(np.uint8)
+
+    return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+
+def apply_playback_health_tint_to_frames(
+    imgs: np.ndarray,
+    seg_frames: List[np.ndarray],
+    obs_info_list: List[dict],
+    target_objects_health: List[str],
+    health: Dict[str, np.ndarray],
+    camera_type: str = "external",
+    camera_name: str = "external_sensor1",
+) -> np.ndarray:
+    """
+    Tint damaged objects red on RGB frames using seg masks (same logic as
+    ``playback_b1k.overlay_health_on_frames``).
+    """
+    if len(imgs) == 0:
+        return imgs
+
+    new_imgs = []
+    n = min(len(imgs), len(seg_frames), len(obs_info_list))
+    for i in range(n):
+        health_values = {
+            obj_name: float(h_arr[i]) if i < len(h_arr) else 100.0
+            for obj_name, h_arr in health.items()
+            if h_arr is not None
+        }
+        new_imgs.append(
+            apply_playback_health_tint_to_frame(
+                imgs[i],
+                seg_frames[i],
+                obs_info_list[i],
+                target_objects_health,
+                health_values,
+                camera_type=camera_type,
+                camera_name=camera_name,
+            )
+        )
+
+    for i in range(n, len(imgs)):
+        new_imgs.append(np.asarray(imgs[i]))
+    return np.array(new_imgs)
+
+
 def _merge_display_name_overrides(
     obj_display_names: Optional[Dict[str, str]] = None,
 ) -> Dict[str, str]:
@@ -565,10 +642,11 @@ def _render_health_side_panel(
 
     content_top = header_height + padding
     content_width = panel_width - 2 * padding
-    label_font = max(0.30, min(0.62, panel_width / 520.0))
+    # Object name labels — larger than value % text for readability in the side column.
+    label_font = max(0.48, min(0.92, panel_width / 380.0))
     value_font = max(0.28, min(0.58, panel_width / 540.0))
-    label_line_height = max(13, int(label_font * 22))
-    label_to_bar_gap = max(4, int(label_font * 8))
+    label_line_height = max(18, int(label_font * 28))
+    label_to_bar_gap = max(6, int(label_font * 10))
     entry_gap = max(10, int(panel_height * 0.014))
 
     n_objects = max(1, len(target_objects))
@@ -597,7 +675,7 @@ def _render_health_side_panel(
                 cv2.FONT_HERSHEY_SIMPLEX,
                 label_font,
                 label_color,
-                1,
+                2,
                 cv2.LINE_AA,
             )
         y += len(label_lines) * label_line_height + label_to_bar_gap
@@ -615,6 +693,148 @@ def _render_health_side_panel(
         y += bar_height + entry_gap
 
     return panel
+
+
+def compose_health_side_panel_frame(
+    img_rgb: np.ndarray,
+    target_objects: List[str],
+    health_values: Dict[str, float],
+    obj_display_names: Optional[Dict[str, str]] = None,
+    panel_title: str = "Health",
+    side_panel_width: Optional[int] = None,
+) -> np.ndarray:
+    """Append a health side panel to one RGB frame (returns combined RGB image)."""
+    img = np.asarray(img_rgb)[:, :, :3]
+    if img.dtype != np.uint8:
+        img = (
+            (img * 255).astype(np.uint8) if img.max() <= 1.0 else img.astype(np.uint8)
+        )
+
+    img_height, img_width = img.shape[:2]
+    panel_width = side_panel_width or max(320, int(img_width * 0.32))
+    display_map = _merge_display_name_overrides(obj_display_names)
+
+    panel_bgr = _render_health_side_panel(
+        panel_height=img_height,
+        panel_width=panel_width,
+        target_objects=target_objects,
+        health_values=health_values,
+        display_overrides=display_map,
+        title=panel_title,
+    )
+    video_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    combined_bgr = np.hstack([video_bgr, panel_bgr])
+    return cv2.cvtColor(combined_bgr, cv2.COLOR_BGR2RGB)
+
+
+class TeleopHealthVideoStreamWriter:
+    """
+    Stream teleop frames to disk (AVI → MP4) one frame at a time to avoid OOM.
+
+    Writes combined video + health side panel when ``panel_order`` is non-empty.
+    """
+
+    def __init__(
+        self,
+        output_base: str,
+        *,
+        fps: int = 30,
+        panel_order: Optional[List[str]] = None,
+        obj_display_names: Optional[Dict[str, str]] = None,
+        panel_title: str = "Health",
+        playback_health_tint: bool = False,
+        tint_objects: Optional[List[str]] = None,
+        camera_type: str = "external",
+        camera_name: str = "external_sensor1",
+    ) -> None:
+        self.output_base = output_base
+        self.fps = fps
+        self.panel_order = list(panel_order or [])
+        self.obj_display_names = obj_display_names or {}
+        self.panel_title = panel_title
+        self.playback_health_tint = playback_health_tint
+        self.tint_objects = list(tint_objects or [])
+        self.camera_type = camera_type
+        self.camera_name = camera_name
+
+        self._avi_path = output_base + ".avi"
+        self._mp4_path = output_base + ".mp4"
+        self._writer: Optional[cv2.VideoWriter] = None
+        self.frame_count = 0
+
+    def write(
+        self,
+        img_rgb: np.ndarray,
+        health_values: Dict[str, float],
+        seg: Optional[np.ndarray] = None,
+        obs_info: Optional[dict] = None,
+    ) -> None:
+        img = np.asarray(img_rgb)
+        if self.playback_health_tint and seg is not None and obs_info is not None:
+            img = apply_playback_health_tint_to_frame(
+                img,
+                seg,
+                obs_info,
+                self.tint_objects,
+                health_values,
+                camera_type=self.camera_type,
+                camera_name=self.camera_name,
+            )
+
+        if self.panel_order:
+            out = compose_health_side_panel_frame(
+                img,
+                self.panel_order,
+                health_values,
+                obj_display_names=self.obj_display_names,
+                panel_title=self.panel_title,
+            )
+        else:
+            out = img
+            if out.dtype != np.uint8:
+                out = (
+                    (out * 255).astype(np.uint8)
+                    if out.max() <= 1.0
+                    else out.astype(np.uint8)
+                )
+
+        bgr = cv2.cvtColor(out[:, :, :3], cv2.COLOR_RGB2BGR)
+        h, w = bgr.shape[:2]
+        if self._writer is None:
+            os.makedirs(os.path.dirname(self._avi_path) or ".", exist_ok=True)
+            fourcc = cv2.VideoWriter_fourcc(*"XVID")
+            self._writer = cv2.VideoWriter(self._avi_path, fourcc, self.fps, (w, h))
+        self._writer.write(np.ascontiguousarray(bgr, dtype=np.uint8))
+        self.frame_count += 1
+
+    def close(self, finalize: bool = True) -> Optional[str]:
+        """Release writer; run ffmpeg when ``finalize`` and at least one frame was written."""
+        if self._writer is not None:
+            self._writer.release()
+            self._writer = None
+
+        if not finalize or self.frame_count == 0:
+            if os.path.exists(self._avi_path):
+                os.remove(self._avi_path)
+            return None
+
+        subprocess.run(
+            [
+                "ffmpeg", "-y",
+                "-i", self._avi_path,
+                "-c:v", "libx264",
+                "-pix_fmt", "yuv420p",
+                "-movflags", "+faststart",
+                "-loglevel", "error",
+                "-hide_banner",
+                "-nostats",
+                self._mp4_path,
+            ],
+            check=True,
+        )
+        if os.path.exists(self._avi_path):
+            os.remove(self._avi_path)
+        return self._mp4_path
 
 
 def save_rgb_health_video_with_overlay(

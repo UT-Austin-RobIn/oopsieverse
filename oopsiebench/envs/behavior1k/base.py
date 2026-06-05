@@ -69,4 +69,7 @@ class TaskConfig:
     # ── Optional task-specific hooks ────────────────────────────────────
     # Called after env is created during playback (before playback starts)
     post_playback_env_setup: Optional[Any] = None  # Callable[[env], None]
+    # Per-episode / per-step during HDF5 replay (playback-safe; no teleop randomization)
+    playback_reset_fn: Optional[Any] = None  # Callable[[env, episode_id], None]
+    playback_step_fn: Optional[Any] = None  # Callable[[env, step_idx], None]
 

@@ -20,12 +20,13 @@ from omnigibson.object_states import ToggledOn
 from omnigibson.utils import transform_utils as T
 
 from oopsiebench.envs.behavior1k.base import TaskConfig
+from oopsiebench.envs.behavior1k.spatial_checks import gripper_far_from_object
 
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaMounted"
 
 # Enlarged sink (user request: scale *up* vs default 1,1,1).
-SINK_SCALE = [1.5, 1.5, 1.25]
+SINK_SCALE = [1, 1, 1.25]
 
 # Near the middle of Rs_int’s main walkable pocket (floor plane ~ z = 0 for mounted robots).
 SINK_POSITION = [-1.05, -2.05, 0.02]
@@ -54,13 +55,8 @@ TASK_OBJECTS = {
 # ── Cameras ──────────────────────────────────────────────────────────────
 
 # Eye/orientation from teleop TAB (`viewer_camera`).
-VIEWER_CAMERA_POS = [-0.5717363953590393, 0.6585857272148132, 2.2222187519073486]
-VIEWER_CAMERA_ORN = [
-    0.026565760374069214,
-    0.5716556310653687,
-    0.8191794157028198,
-    0.03806858882308006,
-]
+VIEWER_CAMERA_POS = [-0.7933, -1.0910,  1.8558]
+VIEWER_CAMERA_ORN = [-0.0039,  0.4483,  0.8938, -0.0079]
 
 EXTERNAL_CAMERA_CONFIGS = {
     "external_sensor_0": {
@@ -83,10 +79,9 @@ _RESET_SINK_XY_JITTER = (
     (0.015, -0.015),
 )
 
-_U_XY = 0.03
+_U_XY = 0.05
 _U_YAW = 0.12
-_U_ARM = 0.07
-_SUCCESS_STEPS = 20
+_U_ARM = 0.2
 
 
 def _nudge_sink_for_retry(sink, attempt: int) -> None:
@@ -129,7 +124,6 @@ def reset(env):
     """Light settle, lock sink base, controllers sync + faucet OFF."""
     if not getattr(env, "robots", None):
         return
-    env._turn_on_faucet_streak = 0
     attempt = int(getattr(env, "_reset_settle_attempt", 0))
     robot = env.robots[0]
     sink = env.scene.object_registry("name", "sink") if getattr(env, "scene", None) else None
@@ -181,13 +175,10 @@ def reset(env):
 
 def task_completion_check(env):
     sink = env.scene.object_registry("name", "sink")
-    if sink is None or ToggledOn not in sink.states:
-        env._turn_on_faucet_streak = 0
+    if sink is None or not getattr(env, "robots", None) or ToggledOn not in sink.states:
         return False
-    on = bool(sink.states[ToggledOn].get_value())
-    streak = getattr(env, "_turn_on_faucet_streak", 0)
-    env._turn_on_faucet_streak = streak + 1 if on else 0
-    return env._turn_on_faucet_streak >= _SUCCESS_STEPS
+    faucet_on = bool(sink.states[ToggledOn].get_value())
+    return faucet_on and gripper_far_from_object(env.robots[0], sink, threshold=0.75)
 
 
 def get_task_config() -> TaskConfig:

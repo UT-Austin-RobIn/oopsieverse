@@ -14,6 +14,7 @@ from omnigibson.controllers.controller_base import IsGraspingState
 from omnigibson.utils import transform_utils as T
 
 from oopsiebench.envs.behavior1k.base import TaskConfig
+from oopsiebench.envs.behavior1k.spatial_checks import gripper_far_from_object
 
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaMounted"
@@ -38,7 +39,7 @@ TASK_OBJECTS = {
         "model": "nxzfmz",
         "position": PLACE_MAT_POS,
         "orientation": [0.0, 0.0, 0.0, 1.0],
-        "scale": [0.4, 0.4, 0.4],
+        "scale": [0.3, 0.3, 0.4],
         "fixed_base": True,
     },
 }
@@ -131,12 +132,11 @@ def get_task_config() -> TaskConfig:
     )
 
 
-_U_XY = 0.03
+_U_XY = 0.05
 _U_YAW = 0.12
-_U_ARM = 0.07
-_MAT_U_XY = 0.02
+_U_ARM = 0.2
+_MAT_U_XY = 0.05
 _MAT_U_YAW = 0.08
-_SUCCESS_STEPS = 10
 
 
 def _counter_top_z_under(env, xy_pos):
@@ -168,7 +168,6 @@ def reset(env):
     """Settle robot, snap kinematic mat onto the counter with jitter, jitter robot pose."""
     if not env.robots:
         return
-    env._place_plate_on_top_streak = 0
     robot = env.robots[0]
 
     robot.keep_still()
@@ -238,10 +237,12 @@ def reset(env):
 def task_completion_check(env):
     plate = env.scene.object_registry("name", "plate")
     place_mat = env.scene.object_registry("name", "place_mat")
-    if plate is None or place_mat is None or object_states.OnTop not in plate.states:
-        env._place_plate_on_top_streak = 0
+    if (
+        plate is None
+        or place_mat is None
+        or not getattr(env, "robots", None)
+        or object_states.OnTop not in plate.states
+    ):
         return False
     on_top = bool(plate.states[object_states.OnTop].get_value(other=place_mat))
-    streak = getattr(env, "_place_plate_on_top_streak", 0)
-    env._place_plate_on_top_streak = streak + 1 if on_top else 0
-    return env._place_plate_on_top_streak >= _SUCCESS_STEPS
+    return on_top and gripper_far_from_object(env.robots[0], plate)

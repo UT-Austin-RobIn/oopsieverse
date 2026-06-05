@@ -442,15 +442,32 @@ def create_panda_eef_cylinders(
     return vis_geoms
 
 
-def setup_panda_eef_visualization(robot, scene):
-    """Attach RGB axis cylinders to the Panda EEF and make them visible."""
+def setup_robot_eef_visualization(robot, scene, arms=None, **cylinder_kwargs):
+    """
+    Attach RGB XYZ axis cylinders to each arm's EEF (Panda ``eef_link``, Tiago ``*_eef_link``, …).
+
+    Tiago marks EEF links ``visible=False`` in ``_post_load``; this helper re-enables them so the
+    cylinders show in the viewport (same idea as joylo ``setup_robot_visualizers``).
+    """
     og, _, _ = _load_og_ui_modules()
-    eef_vis = create_panda_eef_cylinders(robot, scene)
-    if "eef_link" in robot.links:
+    eef_vis = create_panda_eef_cylinders(robot, scene, **cylinder_kwargs)
+
+    eef_links = getattr(robot, "eef_links", {})
+    for arm, hand_link in eef_links.items():
+        if arms is not None and arm not in arms:
+            continue
+        hand_link.visible = True
+        hand_link.prim.GetAttribute("visibility").Set("inherited")
+
+    # Franka / single-EEF robots that expose ``eef_link`` only via ``robot.links``
+    if "eef_link" in robot.links and "eef_link" not in {lnk.prim_path for lnk in eef_links.values()}:
+        robot.links["eef_link"].visible = True
         robot.links["eef_link"].prim.GetAttribute("visibility").Set("inherited")
+
     for geom_list in eef_vis.values():
         for geom in geom_list:
             geom.prim.GetAttribute("visibility").Set("inherited")
     for _ in range(10):
         og.sim.render()
     return eef_vis
+

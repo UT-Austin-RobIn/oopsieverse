@@ -454,7 +454,7 @@ class OGDamageableDataCollectionWrapper(DataCollectionWrapper):
         """Drop in-memory episode data without writing to HDF5."""
         if not self.current_traj_history:
             return
-        self.step_count -= len(self.current_traj_history)
+        self.step_count = max(0, self.step_count - len(self.current_traj_history))
         self.current_traj_history = []
         self.max_state_size = 0
         self.current_transitions = dict()
@@ -463,9 +463,40 @@ class OGDamageableDataCollectionWrapper(DataCollectionWrapper):
         if self.checkpoint_rollback_trajs is not None:
             self.checkpoint_rollback_trajs = dict()
 
+    def flush_current_traj(self, traj_grp_name=None):
+        if self.should_save_current_episode:
+            if traj_grp_name is None:
+                traj_grp_name = f"demo_{self.traj_count}"
+            nested_keys = ["obs", "info"] if self._save_obs_to_hdf5 else ()
+            traj_grp = self.process_traj_to_hdf5(
+                self.current_traj_history, traj_grp_name, nested_keys=nested_keys
+            )
+            self.traj_count += 1
+            self.postprocess_traj_group(traj_grp)
+
+            if self.traj_count % self.flush_every_n_traj == 0:
+                self.flush_current_file()
+        else:
+            self.step_count -= len(self.current_traj_history)
+
+        self.current_traj_history = []
+
 
 class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
     """Extends OG DataPlaybackWrapper to use OGDamageableEnvironment."""
+
+    playback_reset_fn = None
+    playback_step_fn = None
+
+    def _run_task_playback_reset(self) -> None:
+        fn = getattr(self, "playback_reset_fn", None)
+        if fn is not None:
+            fn(self.env)
+
+    def _run_task_playback_step(self) -> None:
+        fn = getattr(self, "playback_step_fn", None)
+        if fn is not None:
+            fn(self.env)
 
     def _preinit_playback_systems(self, transitions):
         """Init particle systems from teleop transitions before loading serialized state."""
@@ -648,6 +679,60 @@ class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
                 )
         return results
     
+    def fix_fire_emitter_positions(self):
+        from omnigibson import object_states
+        from omnigibson.utils.constants import EmitterType
+        objects_on_fire = []
+        for o in self.scene.objects:
+            name = o.name
+            # o = self.scene.object_registry("name", name)
+            em = getattr(o, "_emitters", None)
+            on_fire = o.states[object_states.OnFire].get_value() if object_states.OnFire in o.states else None
+            enabled = em[EmitterType.FIRE]["emitter"].GetAttribute("enabled").Get() if em and EmitterType.FIRE in em else None
+            # print(name, "onFire", on_fire, "emitter", enabled, "has_emitter", bool(em))
+            if on_fire or enabled:
+                objects_on_fire.append(o)
+
+        from pxr import UsdGeom, Gf
+        import torch as th
+        import omnigibson.utils.transform_utils as T
+
+        # print("objects_on_fire: ", len(objects_on_fire))
+        for o in objects_on_fire:
+            info = o._emitters[EmitterType.FIRE]
+            link = info["link"]
+            mesh = info["mesh"]
+            emitter_prim = info["emitter"]
+
+            link_p, link_q = link.get_position_orientation()
+            em_pos = th.tensor(emitter_prim.GetAttribute("position").Get(), dtype=th.float32)
+            expected_p, _ = T.pose_transform(link_p, link_q, em_pos, th.tensor([0., 0., 0., 1.]))
+
+            parent_prim = mesh.prim.GetParent()
+            link_p, link_q = link.get_position_orientation()
+            t_parent = UsdGeom.Xformable(parent_prim).ComputeLocalToWorldTransform(0)
+            parent_mat = th.tensor(t_parent, dtype=th.float32).T
+            link_mat = T.pose2mat((link_p, link_q))
+            local_mat = th.linalg.inv_ex(parent_mat).inverse @ link_mat
+            local_p, local_q = T.mat2pose(local_mat)
+
+            mesh.set_attribute("xformOp:translate", Gf.Vec3d(*local_p.tolist()))
+            orient = local_q[[3, 0, 1, 2]].tolist()
+            xform_op = mesh.prim.GetAttribute("xformOp:orient")
+            if xform_op.GetTypeName() == "quatf":
+                xform_op.Set(Gf.Quatf(*orient))
+            else:
+                xform_op.Set(Gf.Quatd(*orient))
+
+            t_mesh = UsdGeom.Xformable(mesh.prim).ComputeLocalToWorldTransform(0)
+            mesh_usd = th.tensor(list(t_mesh.ExtractTranslation()), dtype=th.float32)
+            # print("|mesh - link|:", th.norm(mesh_usd - link_p).item())
+
+            # sanity: parent_usd @ local ≈ link
+            check = parent_mat @ local_mat
+            check_p, _ = T.mat2pose(check)
+            # print("|parent@local - link|:", th.norm(check_p - link_p).item())
+            
     def playback_episode(self,
                          episode_id,
                          record_data=True,
@@ -764,6 +849,7 @@ class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
         saved_state_size = int(state_size[0])
         self._load_state_with_size_fallback(state[0], saved_state_size)
         for _ in range(10): og.sim.step()
+        self._run_task_playback_reset()
 
         # We need to step the environment to get the initial observations propagated
         first_time_load_n_iteration = 10
@@ -876,6 +962,8 @@ class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
                             lin_vels=th.zeros((system.n_particles, 3)), ang_vels=th.zeros((system.n_particles, 3))
                         )
             self.current_obs, _, _, _, info = self.env.step(action=a, n_render_iterations=self.n_render_iterations, episode_step_count=i, playback=True, init_skip_steps=self.init_skip_steps)
+            self._run_task_playback_step()
+            self.fix_fire_emitter_positions()
             # If recording, record data
             if record_data and i > self.init_skip_steps:
                 # for link_name in info["damage_info"]["franka0"]:
@@ -911,7 +999,7 @@ class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
             self.flush_current_traj(traj_grp_name=f"demo_{episode_id}")
 
         print("Final health: ", self.current_obs["health"])
-        
+
         return result
 
     def _parse_step_data(self, action, obs, reward, terminated, truncated, info, datacollection_health=None, datacollection_damage_info=None, save_images=True):

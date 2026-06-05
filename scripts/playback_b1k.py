@@ -67,24 +67,42 @@ TASK_REGISTRY: Dict[str, str] = {
     "wipe_counter": "oopsiebench.envs.behavior1k.wipe_counter",
     "nav_to_table": "oopsiebench.envs.behavior1k.nav_to_table",
     "pick_egg": "oopsiebench.envs.behavior1k.pick_egg",
-    "place_bowl": "oopsiebench.envs.behavior1k.place_bowl",
+    "fill_bowl": "oopsiebench.envs.behavior1k.fill_bowl",
     "place_plate": "oopsiebench.envs.behavior1k.place_plate",
     "turn_on_faucet": "oopsiebench.envs.behavior1k.turn_on_faucet",
-    "turn_on_stove": "oopsiebench.envs.behavior1k.turn_on_stove",
+    "heat_saucepot": "oopsiebench.envs.behavior1k.heat_saucepot",
     "open_single_door": "oopsiebench.envs.behavior1k.open_single_door",
     "food_in_microwave": "oopsiebench.envs.behavior1k.food_in_microwave",
 }
 
 
-def load_task_config(task_name: str):
-    """Import the task config module and return its ``TaskConfig``."""
+def load_task_module(task_name: str):
+    """Import the task config module."""
     if task_name not in TASK_REGISTRY:
         available = ", ".join(sorted(TASK_REGISTRY.keys()))
         raise ValueError(
             f"Unknown task '{task_name}'. Available tasks: {available}"
         )
-    mod = importlib.import_module(TASK_REGISTRY[task_name])
-    return mod.get_task_config()
+    return importlib.import_module(TASK_REGISTRY[task_name])
+
+
+def load_task_config(task_name: str):
+    """Import the task config module and return its ``TaskConfig``."""
+    return load_task_module(task_name).get_task_config()
+
+
+def attach_task_playback_hooks(env, task_cfg, task_mod) -> None:
+    """Wire optional per-task ``playback_reset`` / ``playback_step`` into the playback wrapper."""
+    env.playback_reset_fn = (
+        task_cfg.playback_reset_fn
+        if task_cfg.playback_reset_fn is not None
+        else getattr(task_mod, "playback_reset", None)
+    )
+    env.playback_step_fn = (
+        task_cfg.playback_step_fn
+        if task_cfg.playback_step_fn is not None
+        else getattr(task_mod, "playback_step", None)
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -197,6 +215,42 @@ def extract_forces_from_hdf5(
     return forces
 
 
+def extract_temperature_from_hdf5(
+    f: h5py.File,
+    demo_key: str,
+    target_objects_temperature: List[str],
+    temperature_plot_keys: List[str],
+):
+    """
+    Read per-link thermal fields from HDF5 ``info/damage_info``.
+    Uses 0.0 when thermal/key is missing (same layout as teleop ``record_temperature_step``).
+    """
+    temps: Dict[str, Dict[str, List[float]]] = dict()
+    for obj_name in target_objects_temperature:
+        temps[obj_name] = dict()
+        for temp_key in temperature_plot_keys:
+            temps[obj_name][temp_key] = []
+    for i in range(len(f[f"data/{demo_key}/info/damage_info"])):
+        damage_info = json.loads(f[f"data/{demo_key}/info/damage_info"][i].decode("utf-8"))
+        for obj_name in target_objects_temperature:
+            parts = obj_name.split("@", 1)
+            if len(parts) != 2:
+                for temp_key in temperature_plot_keys:
+                    temps[obj_name][temp_key].append(0.0)
+                continue
+            obj_key, link_key = parts
+            obj_info = damage_info.get(obj_key, {})
+            link_info = obj_info.get(link_key, {})
+            thermal = link_info.get("thermal", {})
+            for temp_key in temperature_plot_keys:
+                raw = thermal.get(temp_key)
+                try:
+                    val = float(raw) if raw is not None else 0.0
+                except (TypeError, ValueError):
+                    val = 0.0
+                temps[obj_name][temp_key].append(val)
+    return temps
+
 
 def overlay_health_on_frames(
     f: h5py.File,
@@ -210,6 +264,8 @@ def overlay_health_on_frames(
     Read RGB + seg_instance frames from HDF5, tint damaged objects red,
     and return the resulting numpy array of RGB frames.
     """
+    from damagesim.utils.visualization import apply_playback_health_tint_to_frames
+
     obs_info_list = []
     for i in range(len(f[f"data/{demo_key}/info/obs_info"])):
         obs_info = json.loads(
@@ -218,46 +274,27 @@ def overlay_health_on_frames(
         obs_info_list.append(obs_info)
 
     imgs = np.array(f[f"data/{demo_key}/obs/{camera_type}::{camera_name}::rgb"])[1:]
-    imgs_seg = np.array(
-        f[f"data/{demo_key}/obs/{camera_type}::{camera_name}::seg_instance"]
-    )[1:]
+    imgs_seg = list(
+        np.array(f[f"data/{demo_key}/obs/{camera_type}::{camera_name}::seg_instance"])[1:]
+    )
 
-    new_imgs = []
-    for i, img in enumerate(imgs):
-        img = cv2.cvtColor(img[:, :, :3], cv2.COLOR_RGB2BGR)
-        seg = imgs_seg[i]
-        obs_info = obs_info_list[i]
-
-        for obj_name in target_objects_health:
-            if health.get(obj_name) is None:
-                continue
-            seg_info = obs_info[camera_type][camera_name]["seg_instance"]
-            seg_key = int(
-                next((k for k, v in seg_info.items() if v == obj_name), -1)
-            )
-            if seg_key == -1:
-                continue
-            h_val = health[obj_name][i]
-            if h_val is not None and h_val < 100:
-                mask = seg == seg_key
-                alpha = 1.0 - h_val / 100.0
-                overlay = np.array([0, 0, 255], dtype=np.uint8)
-                img[mask] = (
-                    (1 - alpha) * img[mask] + alpha * overlay
-                ).astype(np.uint8)
-
-        new_imgs.append(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-
-    return np.array(new_imgs)
+    return apply_playback_health_tint_to_frames(
+        imgs,
+        imgs_seg,
+        obs_info_list,
+        target_objects_health,
+        health,
+        camera_type=camera_type,
+        camera_name=camera_name,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # PLAYBACK
 # ═══════════════════════════════════════════════════════════════════════
 
-def run_playback(args, task_cfg):
+def run_playback(args, task_cfg, task_mod):
     """Create an OG env from HDF5 and replay demonstrations."""
-
 
     gm.USE_GPU_DYNAMICS = task_cfg.use_gpu_dynamics
     # Playback replays serialized state + HDF5 transitions; OG DataPlaybackWrapper
@@ -319,8 +356,9 @@ def run_playback(args, task_cfg):
     if task_cfg.post_playback_env_setup is not None:
         task_cfg.post_playback_env_setup(env)
 
+    attach_task_playback_hooks(env, task_cfg, task_mod)
+
     # Run playback
-    # breakpoint()
     demo_ids = args.demo_ids if args.demo_ids else None
     env.playback_dataset(record_data=True, demo_ids=demo_ids)
     env.save_data()
@@ -338,6 +376,7 @@ def run_visualize(args, task_cfg):
         save_rgb_camera_video,
         save_rgb_health_video_with_overlay,
         save_rgb_force_video,
+        save_rgb_temperature_video,
     )
 
     f = h5py.File(args.playback_hdf5_path, "r")
@@ -365,6 +404,16 @@ def run_visualize(args, task_cfg):
             task_cfg.target_objects_forces,
             task_cfg.force_keys,
         )
+        target_objects_temperature = getattr(task_cfg, "target_objects_temperature", None) or []
+        temperature_plot_keys = getattr(task_cfg, "temperature_plot_keys", None) or ["temperature"]
+        temperatures = None
+        if target_objects_temperature:
+            temperatures = extract_temperature_from_hdf5(
+                f,
+                demo_key,
+                target_objects_temperature,
+                temperature_plot_keys,
+            )
 
         imgs = overlay_health_on_frames(
             f,
@@ -402,6 +451,32 @@ def run_visualize(args, task_cfg):
                 data=forces, 
                 forces_to_plot=task_cfg.force_keys
             )
+
+        if target_objects_temperature and temperatures:
+            n_frames = len(imgs)
+            has_temp = False
+            for obj_name in target_objects_temperature:
+                for k in temperature_plot_keys:
+                    arr = temperatures.get(obj_name, {}).get(k, [])
+                    if len(arr) > n_frames:
+                        temperatures[obj_name][k] = arr[:n_frames]
+                    elif len(arr) < n_frames:
+                        temperatures[obj_name][k] = arr + [0.0] * (n_frames - len(arr))
+                    if len(temperatures[obj_name][k]) == n_frames:
+                        has_temp = True
+            if has_temp:
+                temp_video_path = os.path.join(
+                    output_dir, f"demo_{demo_idx}_temperature_video.mp4"
+                )
+                save_rgb_temperature_video(
+                    output_video_path=temp_video_path,
+                    imgs=imgs,
+                    target_objects=target_objects_temperature,
+                    data=temperatures,
+                    temperature_keys=tuple(temperature_plot_keys),
+                    fps=30,
+                )
+                print(f"  Saved temperature plot -> {temp_video_path}")
 
 
     f.close()
@@ -498,11 +573,9 @@ def parse_args():
 
 def main():
     args = parse_args()
-    if args.activity_name is None:
-        args.activity_name = args.task_name
 
-    # Load per-task config
-    task_cfg = load_task_config(args.task_name)
+    task_mod = load_task_module(args.task_name)
+    task_cfg = task_mod.get_task_config()
 
     # Fill in default paths from task config when not provided on CLI
     if args.source_hdf5_path is None:
@@ -515,7 +588,7 @@ def main():
         sys.exit(0)
 
     if args.playback:
-        run_playback(args, task_cfg)
+        run_playback(args, task_cfg, task_mod)
 
     if args.visualize:
         run_visualize(args, task_cfg)

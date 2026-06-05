@@ -13,6 +13,7 @@ from typing import Dict, List, Optional
 
 from damagesim.core.damageable_mixin import DamageableMixin
 from damagesim.omnigibson.params import PARAMS
+from damagesim.omnigibson.params.damage_params import resolve_agent_damage_params
 from damagesim.omnigibson.evaluators import DAMAGE_EVALUATORS
 
 # ── Lazy OG imports (fail gracefully when OG is not installed) ──────────
@@ -71,6 +72,14 @@ class OGDamageableMixin(DamageableMixin):
             return list(self.links.keys())
         return []
 
+    def _filter_existing_links(self, link_names) -> List[str]:
+        """Keep only link names that exist on this object (avoids KeyError in evaluators)."""
+        names = list(link_names)
+        if hasattr(self, "links"):
+            valid = set(self.links.keys())
+            names = [n for n in names if n in valid]
+        return names
+
     # ── Setters ─────────────────────────────────────────────────────────
     def set_damageable_links_and_params(self) -> None:
         """
@@ -82,9 +91,12 @@ class OGDamageableMixin(DamageableMixin):
         cat = getattr(self, "category", "default")
 
         if cat in params:
-            # 1. Set the parameters for the object. These parameters are shared across all the links of the object.
-            # We provide functionality to override these parameters for each part / link of the object through link_config_overrides
-            self.set_params(params[cat])
+            # 1. Set evaluator params (robots: merge agent defaults + robot_overrides[RobotType])
+            cat_params = params[cat]
+            if cat == "agent":
+                self.set_params(resolve_agent_damage_params(cat_params, self.__class__.__name__))
+            else:
+                self.set_params(cat_params)
 
             # 2. Set the links of the object to be tracked for damage
             # For regular objects, we use a default key to get the damageable links
@@ -95,9 +107,9 @@ class OGDamageableMixin(DamageableMixin):
                 f"{self.__class__.__name__.lower()}_damageable_links"
             )
             if cat == "agent" and cls_links_key is not None:
-                self._set_damageable_links(cls_links_key)
+                self._set_damageable_links(self._filter_existing_links(cls_links_key))
             elif links_key:
-                self._set_damageable_links(links_key)
+                self._set_damageable_links(self._filter_existing_links(links_key))
             else:
                 # In case config file is missing the damageable_links key, we use all the links of the object
                 self._set_damageable_links(self.links.keys())

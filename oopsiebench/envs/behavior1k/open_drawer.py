@@ -25,7 +25,13 @@ TASK_OBJECTS = {}
 VIEWER_CAMERA_POS = [-0.2010, -2.7257,  1.0654]
 VIEWER_CAMERA_ORN = [0.6820, -0.0016, -0.0017, 0.7314]
 
-EXTERNAL_CAMERA_CONFIGS = {}
+EXTERNAL_CAMERA_CONFIGS = {
+        "external_sensor_0": {
+        "position": VIEWER_CAMERA_POS,
+        "orientation": VIEWER_CAMERA_ORN,
+        "horizontal_aperture": 20.0,
+    }
+}
 
 INIT_STATE_PATH = "resources/init_states/open_drawer.pkl"
 

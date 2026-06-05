@@ -28,6 +28,7 @@ import sys
 import os
 import pickle
 from datetime import datetime
+from typing import List, Optional
 
 os.environ.setdefault("CARB_LOG_CHANNELS", "omni.physx.plugin=off")
 
@@ -53,8 +54,9 @@ from damagesim.utils.visualization import (
     save_rgb_health_video_with_overlay,
     save_rgb_force_video,
     save_rgb_temperature_video,
+    apply_playback_health_tint_to_frames,
 )
-from utils.misc_utils import setup_viewport_layout, setup_panda_eef_visualization
+from utils.misc_utils import setup_viewport_layout, setup_robot_eef_visualization
 
 
 # --task_name picks which module to import from this package
@@ -72,10 +74,10 @@ TASK_REGISTRY = {
     "wipe_counter": "wipe_counter",
     "nav_to_table": "nav_to_table",
     "pick_egg": "pick_egg",
-    "place_bowl": "place_bowl",
+    "fill_bowl": "fill_bowl",
     "place_plate": "place_plate",
     "turn_on_faucet": "turn_on_faucet",
-    "turn_on_stove": "turn_on_stove",
+    "heat_saucepot": "heat_saucepot",
     "open_single_door": "open_single_door",
     "food_in_microwave": "food_in_microwave",
 }
@@ -84,6 +86,9 @@ TASK_REGISTRY = {
 QUIT_REQUESTED = [False]
 EPISODE_DONE = [False]
 DISCARD_REQUESTED = [False]
+
+VIDEO_CAMERA_TYPE = "external"
+VIDEO_CAMERA_NAME = "external_sensor0"
 
 
 def load_task_config(task_name: str):
@@ -187,14 +192,28 @@ def build_external_sensors_config(task_cfg, robot_name: str, robot_type: str,
             },
             "position": th.tensor(cam_cfg["position"], dtype=th.float32),
             "orientation": th.tensor(cam_cfg["orientation"], dtype=th.float32),
-            "pose_frame": "world",
+            "pose_frame": cam_cfg.get("frame", "world"),
         })
     return sensors
 
 
-def capture_viewer_rgb():
-    """Capture current viewer camera as RGB numpy array (H, W, 3) uint8."""
-    obs, _ = og.sim.viewer_camera.get_obs()
+def capture_rgb(camera="viewer", env=None, *, return_seg: bool = False):
+    """RGB frame (H, W, 3) uint8. camera: viewer | external_sensor* | robot sensor name | sensor object."""
+    if hasattr(camera, "get_obs"):
+        sensor = camera
+    elif camera in ("viewer", "viewer_camera"):
+        sensor = og.sim.viewer_camera
+    else:
+        sensor = None
+        node = env
+        while node is not None and sensor is None:
+            sensor = (getattr(node, "_external_sensors", None) or {}).get(camera)
+            for r in getattr(node, "robots", None) or ():
+                sensor = sensor or r.sensors.get(camera)
+            node = getattr(node, "env", None)
+        if sensor is None:
+            raise ValueError(f"Unknown camera: {camera}")
+    obs, sensor_info = sensor.get_obs()
     frame = obs["rgb"]
     if isinstance(frame, th.Tensor):
         frame = frame.cpu().numpy()
@@ -204,7 +223,18 @@ def capture_viewer_rgb():
         frame = frame[:, :, :3]
     if frame.dtype != np.uint8:
         frame = (frame * 255).astype(np.uint8) if frame.max() <= 1.0 else frame.astype(np.uint8)
-    return frame
+
+    if not return_seg:
+        return frame
+
+    seg = obs.get("seg_instance")
+    if seg is None:
+        raise ValueError(f"Camera {camera} did not return seg_instance (needed for --playback_health_tint)")
+    if isinstance(seg, th.Tensor):
+        seg = seg.cpu().numpy()
+    else:
+        seg = np.array(seg)
+    return frame, seg, sensor_info
 
 
 _VIEWER_CAM_STEP = 0.075
@@ -259,7 +289,12 @@ def viewer_camera_nudge(forward: float, right: float, up_world: float) -> None:
 
 def save_video(teleop_frames, teleop_health_records, target_objects_for_overlay,
                 task_cfg, fps=30, overlay_position="bottom_center", overlay_layout="column",
-                teleop_force_records=None, teleop_temperature_records=None):
+                teleop_force_records=None, teleop_temperature_records=None,
+                playback_health_tint: bool = False,
+                teleop_seg_frames: Optional[List[np.ndarray]] = None,
+                teleop_obs_info_list: Optional[List[dict]] = None,
+                video_camera_type: str = VIDEO_CAMERA_TYPE,
+                video_camera_name: str = VIDEO_CAMERA_NAME):
     """Save the collected frames as an MP4 (with health overlay if available).
     Also saves force / temperature side-by-side plots when configured and data exists."""
     if not teleop_frames:
@@ -285,6 +320,18 @@ def save_video(teleop_frames, teleop_health_records, target_objects_for_overlay,
             if len(arr) > len(teleop_frames):
                 arr = arr[: len(teleop_frames)]
             health_for_overlay[name] = arr
+
+    if playback_health_tint and health_for_overlay and teleop_seg_frames and teleop_obs_info_list:
+        imgs = apply_playback_health_tint_to_frames(
+            imgs,
+            teleop_seg_frames,
+            teleop_obs_info_list,
+            list(health_for_overlay.keys()),
+            health_for_overlay,
+            camera_type=video_camera_type,
+            camera_name=video_camera_name,
+        )
+
     if health_for_overlay and len(health_for_overlay) > 0:
         save_rgb_health_video_with_overlay(
             output_path,
@@ -398,6 +445,14 @@ def parse_args():
         choices=["column", "row"],
         help="Layout of health bars in saved video: column (default) or row.",
     )
+    p.add_argument(
+        "--playback_health_tint",
+        action="store_true",
+        help=(
+            "Disable live diffuse_tint coloring and apply playback-style seg-mask "
+            "red tint when saving video (requires --save_video)."
+        ),
+    )
     return p.parse_args()
 
 
@@ -409,44 +464,28 @@ def discard_in_progress_traj(env):
 
 
 def reset_env(env, task_cfg, task_mod):
-    """Reset to init pickle (or config), settle, and retry the full reload if robot health < 100."""
-    robot_name = task_cfg.robot_name
+    """
+    Reset the environment to the initial state.
+    """
 
-    for attempt in range(MAX_RESET_RETRIES):
-        env._reset_settle_attempt = attempt
-        load_state_from_pkl(env, task_name=task_cfg.task_name, task_module=None)
-        if task_mod is not None and hasattr(task_mod, "reset") and callable(task_mod.reset):
-            task_mod.reset(env)
-        env._reset_damage_tracking()
-        for _ in range(5):
-            og.sim.step()
-        if hasattr(env, "_update_all_health"):
-            env._update_all_health()
-        if env.get_env_health().get(robot_name, 100.0) >= 100.0:
-            break
-        print(
-            f"[teleop] reset retry {attempt + 1}/{MAX_RESET_RETRIES}: "
-            f"{robot_name} health {env.get_env_health().get(robot_name, 0.0):.1f}"
-        )
-    else:
-        env._reset_settle_attempt = MAX_RESET_RETRIES
-        load_state_from_pkl(env, task_name=task_cfg.task_name, task_module=None)
-        if task_mod is not None and hasattr(task_mod, "reset") and callable(task_mod.reset):
-            task_mod.reset(env)
-
-    env._reset_damage_tracking()
-    for _ in range(5):
-        og.sim.step()
-
+    # Set the viewer camera position and orientation
     if task_cfg.viewer_camera_pos is not None and task_cfg.viewer_camera_orn is not None:
         og.sim.viewer_camera.set_position_orientation(
             position=th.tensor(task_cfg.viewer_camera_pos, dtype=th.float32),
             orientation=th.tensor(task_cfg.viewer_camera_orn, dtype=th.float32),
         )
 
-    damaged = {k: v for k, v in (env.get_env_health() or {}).items() if v < 100.0}
+    env.reset()
+    # Call task specific reset
+    if task_mod is not None and hasattr(task_mod, "reset") and callable(task_mod.reset):
+        task_mod.reset(env)
+
+    env._reset_damage_tracking()
+    for _ in range(5): og.sim.step()
+    env_health = env.get_env_health()
+    damaged = {k: v for k, v in (env_health or {}).items() if v < 100.0}
     if damaged:
-        print(f"[teleop] health not clean after reset: {damaged}")
+        print(f"health not clean: {damaged}")
 
 
 class TeleopWrapper:
@@ -465,12 +504,17 @@ class TeleopWrapper:
 
         # For video saving
         self.teleop_frames = []
+        self.teleop_seg_frames = []
+        self.teleop_obs_info_list = []
         self.teleop_health_records = {}
         self.teleop_force_records = {}
         self.teleop_temperature_records = {}
         self.overlay_links = kwargs["overlay_links"]
         self.overlay_position = kwargs["overlay_position"]
         self.overlay_layout = kwargs["overlay_layout"]
+        self.playback_health_tint = kwargs.get("playback_health_tint", False)
+        self.video_camera_type = VIDEO_CAMERA_TYPE
+        self.video_camera_name = VIDEO_CAMERA_NAME
         self.target_objects_forces = getattr(self.task_cfg, "target_objects_forces", None) or []
         self.force_keys = getattr(self.task_cfg, "force_keys", None) or ["filtered_qs_forces"]
         self.target_objects_temperature = getattr(self.task_cfg, "target_objects_temperature", None) or []
@@ -491,6 +535,11 @@ class TeleopWrapper:
             from telemoma.configs.base_config import teleop_config
             from omnigibson.utils.teleop_utils import TeleopSystem
 
+            from utils.telemoma_spacemouse import register_scaled_spacemouse
+            from utils.og_teleop import patch_holonomic_teleop_trunk_and_camera
+
+            register_scaled_spacemouse()
+
             arm_teleop_method = self.teleop_device
             base_teleop_method = self.teleop_device
             # # Franka config: uses arm_0 instead of arm_left/arm_right
@@ -499,7 +548,12 @@ class TeleopWrapper:
             teleop_config.arm_left_controller = arm_teleop_method
             teleop_config.arm_right_controller = arm_teleop_method
             teleop_config.base_controller = base_teleop_method
-            teleop_config.interface_kwargs["spacemouse"] = {"arm_speed_scaledown": 0.01, "base_speed_scaledown": 0.01}
+            teleop_config.torso_controller = base_teleop_method
+            teleop_config.interface_kwargs["spacemouse"] = {
+                "arm_speed_scaledown": 0.01,
+                "base_speed_scaledown": 0.03,
+            }
+            patch_holonomic_teleop_trunk_and_camera(self.robot)
             teleop_interface = TeleopSystem(config=teleop_config, robot=self.robot, show_control_marker=False)
             teleop_interface.start()
         else:
@@ -519,6 +573,8 @@ class TeleopWrapper:
 
         # Reset for video saving
         self.teleop_frames = []
+        self.teleop_seg_frames = []
+        self.teleop_obs_info_list = []
         self.teleop_health_records = {}
         self.teleop_force_records = {}
         self.teleop_temperature_records = {}
@@ -701,8 +757,18 @@ class TeleopWrapper:
         damage_info = info.get("damage_info", {})
         self.record_forces_step(damage_info)
         self.record_temperature_step(damage_info)
-        frame = capture_viewer_rgb()
-        self.teleop_frames.append(frame)
+        if self.playback_health_tint:
+            frame, seg, sensor_info = capture_rgb(
+                camera=self.video_camera_name, env=self.env, return_seg=True,
+            )
+            self.teleop_frames.append(frame)
+            self.teleop_seg_frames.append(seg)
+            self.teleop_obs_info_list.append(
+                {self.video_camera_type: {self.video_camera_name: sensor_info}}
+            )
+        else:
+            frame = capture_rgb(camera=self.video_camera_name, env=self.env)
+            self.teleop_frames.append(frame)
 
     def on_episode_done(self):
         if self.save_video:
@@ -715,6 +781,11 @@ class TeleopWrapper:
                 overlay_layout=self.overlay_layout,
                 teleop_force_records=self.teleop_force_records,
                 teleop_temperature_records=self.teleop_temperature_records,
+                playback_health_tint=self.playback_health_tint,
+                teleop_seg_frames=self.teleop_seg_frames,
+                teleop_obs_info_list=self.teleop_obs_info_list,
+                video_camera_type=self.video_camera_type,
+                video_camera_name=self.video_camera_name,
             )
 
 
@@ -731,6 +802,7 @@ def main():
     env_config = build_env_config(task_cfg)
     save_to_hdf5 = not args.skip_hdf5_save
     
+    # if save_to_hdf5 and args.save_obs_to_hdf5 and getattr(task_cfg, "external_camera_configs", None):
     if save_to_hdf5 and args.save_obs_to_hdf5 and getattr(task_cfg, "external_camera_configs", None):
         env_config["env"]["external_sensors"] = build_external_sensors_config(
             task_cfg, task_cfg.robot_name, task_cfg.robot_type,
@@ -764,7 +836,7 @@ def main():
     reset_env(env, task_cfg, task_mod)
 
     setup_viewport_layout()
-    setup_panda_eef_visualization(robot, env.scene)
+    setup_robot_eef_visualization(robot, env.scene)
 
     # Setup teleop wrapper
     init_grasp = robot.is_grasping().value == IsGraspingState.TRUE
@@ -775,7 +847,7 @@ def main():
         task_mod=task_mod,
         init_grasp=init_grasp,
         **vars(args),
-    )
+    )       
 
     # Optional task-specific teleop key bindings (if a task module defines ``register_teleop_keys``).
     if hasattr(task_mod, "register_teleop_keys") and callable(task_mod.register_teleop_keys):

@@ -1,11 +1,12 @@
 """
-Task configuration for **place_bowl**.
+Task configuration for **fill_bowl**.
 
 Scene : house_single_floor (kitchen_0)
 Robot : FrankaMounted (franka0)
 Damage: mechanical (bowl + robot)
 """
 
+import pickle
 import numpy as np
 import torch as th
 import omnigibson as og
@@ -15,6 +16,7 @@ from omnigibson.robots import manipulation_robot
 from omnigibson.utils import transform_utils as T
 
 from oopsiebench.envs.behavior1k.base import TaskConfig
+from oopsiebench.envs.behavior1k.spatial_checks import gripper_far_from_object
 
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaMounted"
@@ -55,12 +57,14 @@ EXTERNAL_CAMERA_CONFIGS = {
         "horizontal_aperture": 15.0,
     },
 }
+INIT_STATE_PATH = "resources/init_states/fill_bowl.pkl"
+
 
 # ── Public entry point ───────────────────────────────────────────────────
 
 def get_task_config() -> TaskConfig:
     return TaskConfig(
-        task_name="place_bowl",
+        task_name="fill_bowl",
 
         # OG macros
         use_gpu_dynamics=True,
@@ -125,33 +129,38 @@ def get_task_config() -> TaskConfig:
         force_keys=["filtered_qs_forces", "impact_forces"],
 
         # Default paths
-        default_collect_hdf5="demos/behavior1k/teleop_data/place_bowl.hdf5",
-        default_playback_hdf5="demos/behavior1k/playback_data/place_bowl_playback.hdf5",
-        default_video_dir="demos/behavior1k/playback_videos/place_bowl",
+        default_collect_hdf5="demos/behavior1k/teleop_data/fill_bowl.hdf5",
+        default_playback_hdf5="demos/behavior1k/playback_data/fill_bowl_playback.hdf5",
+        default_video_dir="demos/behavior1k/playback_videos/fill_bowl",
     )
 
 
-_U_XY = 0.03
+_U_XY = 0.05
 _U_YAW = 0.12
-_U_ARM = 0.07
+_U_ARM = 0.2
 
 TRANSITION_SYSTEMS = ("water",)
 
 
 def reset(env):
     """Bump grasp force, settle, lock the place_mat, jitter robot, close gripper."""
+    if INIT_STATE_PATH is not None:
+        with open(INIT_STATE_PATH, "rb") as f:
+            state_flat_array = pickle.load(f)
+        og.sim.load_state(state_flat_array, serialized=True)
+    
     if not env.robots:
         return
     robot = env.robots[0]
 
     # Cache sink + water system for the completion check.
-    env._place_bowl_sink = env.scene.object_registry("category", "furniture_sink")
-    if env._place_bowl_sink is None:
+    env._fill_bowl_sink = env.scene.object_registry("category", "furniture_sink")
+    if env._fill_bowl_sink is None:
         for obj in getattr(env.scene, "objects", []) or []:
             if "sink" in (getattr(obj, "category", "") or "").lower():
-                env._place_bowl_sink = obj
+                env._fill_bowl_sink = obj
                 break
-    env._place_bowl_water = (
+    env._fill_bowl_water = (
         env.scene.get_system("water", force_init=True)
         if "water" in env.scene.available_systems
         else None
@@ -286,8 +295,8 @@ def reset(env):
 
 def task_completion_check(env):
     bowl = env.scene.object_registry("name", "bowl")
-    sink = getattr(env, "_place_bowl_sink", None)
-    water = getattr(env, "_place_bowl_water", None)
+    sink = getattr(env, "_fill_bowl_sink", None)
+    water = getattr(env, "_fill_bowl_water", None)
     if bowl is None or sink is None or water is None or not getattr(env, "robots", None):
         return False
     if object_states.Inside not in bowl.states or object_states.Filled not in bowl.states:
@@ -297,4 +306,6 @@ def task_completion_check(env):
     if not bowl.states[object_states.Filled].get_value(water):
         return False
     robot = env.robots[0]
-    return robot.is_grasping(candidate_obj=bowl).value == IsGraspingState.FALSE
+    not_grasping = robot.is_grasping(candidate_obj=bowl).value == IsGraspingState.FALSE
+    return not_grasping and gripper_far_from_object(robot, bowl)
+    

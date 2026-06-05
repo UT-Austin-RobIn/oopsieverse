@@ -3,9 +3,60 @@ OmniGibson-specific damage parameters for objects and robots.
 
 Each entry maps an OG object category to a parameter dict that controls
 which evaluators are active and their tuning constants.
+
+Robots use OG category ``agent``. Per-robot link lists use
+``damageable<robottype>_damageable_links`` (e.g. ``damageabletiago_damageable_links``).
+Per-robot evaluator tuning uses ``robot_overrides["Tiago"]`` (class ``DamageableTiago``),
+merged on top of the shared ``agent`` defaults.
 """
 
+from __future__ import annotations
+
+import copy
+
 from damagesim.omnigibson.evaluators import DAMAGE_EVALUATORS  # noqa: F401
+
+
+def _deep_merge_dict(base: dict, override: dict) -> dict:
+    out = copy.deepcopy(base)
+    for key, val in override.items():
+        if key in out and isinstance(out[key], dict) and isinstance(val, dict):
+            out[key] = _deep_merge_dict(out[key], val)
+        else:
+            out[key] = copy.deepcopy(val)
+    return out
+
+
+def robot_type_from_damageable_class(class_name: str) -> str:
+    """``DamageableTiago`` → ``Tiago`` (matches OG robot class names)."""
+    if class_name.startswith("Damageable"):
+        return class_name[len("Damageable") :]
+    return class_name
+
+
+def resolve_agent_damage_params(agent_params: dict, damageable_class_name: str) -> dict:
+    """
+    Build evaluator params for a damageable robot: shared ``agent`` defaults plus
+    ``robot_overrides[<RobotType>]`` when present.
+    """
+    resolved = {
+        k: copy.deepcopy(v)
+        for k, v in agent_params.items()
+        if not k.endswith("_damageable_links") and k != "robot_overrides"
+    }
+    robot_type = robot_type_from_damageable_class(damageable_class_name)
+    overrides = (agent_params.get("robot_overrides") or {}).get(robot_type)
+    if not overrides:
+        return resolved
+
+    for key, val in overrides.items():
+        if key == "damage_evaluators":
+            resolved[key] = list(val)
+        elif key in resolved and isinstance(resolved[key], dict) and isinstance(val, dict):
+            resolved[key] = _deep_merge_dict(resolved[key], val)
+        else:
+            resolved[key] = copy.deepcopy(val)
+    return resolved
 
 DAMAGEABLE_OBJECTS = {
     "default": {
@@ -37,7 +88,7 @@ DAMAGEABLE_OBJECTS = {
         "categories": ["agent", "plate"],
         "names": [],
     },
-    "place_bowl": {
+    "fill_bowl": {
         "categories": ["agent", "bowl"],
         "names": [],
     },
@@ -51,7 +102,8 @@ DAMAGEABLE_OBJECTS = {
     },
     "turn_on_faucet": {
         "categories": ["agent"],
-    "turn_on_stove": {
+    },
+    "heat_saucepot": {
         "categories": ["agent", "stove"],
         "names": [],
     },
@@ -62,7 +114,7 @@ DAMAGEABLE_OBJECTS = {
     "food_in_microwave": {
         "categories": ["agent", "microwave", "cupcake", "bowl"],
         "names": [],
-    },
+    }
 }
 
 PARAMS = {
@@ -90,7 +142,6 @@ PARAMS = {
 
     # ── Robots (OG category = "agent") ──────────────────────────────────
     "agent": {
-        # TODO: Add mechanical damage evaluator back, need to debug mech damage params
         "damage_evaluators": ["mechanical", "thermal", "electrical"],
         # dict_keys(['panda_link0', 'panda_link1', 'panda_link2', 'panda_link3', 'panda_link4', 'panda_link5', 'panda_link6', 'panda_link7', 'panda_hand', 'panda_leftfinger', 'panda_rightfinger', 'eef_link'])
         "damageablefrankapanda_damageable_links": [
@@ -152,6 +203,49 @@ PARAMS = {
             "damage_threshold": 10.0,
             "scale": 10.0,
             "water_system_name": "water",
+        },
+        # Per-robot evaluator tuning (merged over defaults above). Keys: Tiago, FrankaPanda, R1Pro, …
+        "robot_overrides": {
+            "Tiago": {
+                "mechanical": {
+                    "impact_damage_sensitivity": 0.01,
+                    "qs_damage_sensitivity": 1.0,
+                    "damage_threshold": 150.0,
+                    "damage_scale": 0.1,
+                    "part_config_overrides": {
+                        "gripper": {
+                            "impact_damage_sensitivity": 0.01,
+                            "qs_damage_sensitivity": 1.0,
+                            "damage_threshold": 150.0,
+                            "damage_scale": 0.1,
+                        },
+                        "base": {
+                            "impact_damage_sensitivity": 0.01,
+                            "qs_damage_sensitivity": 1.0,
+                            "damage_threshold": 500.0, # change later to 100.0
+                            "damage_scale": 0.1,
+                        },
+                        "arm": {
+                            "impact_damage_sensitivity": 0.01,
+                            "qs_damage_sensitivity": 1.0,
+                            "damage_threshold": 150.0,
+                            "damage_scale": 0.1,
+                        },
+                    },
+                },
+                "thermal": {
+                    "heating_threshold": 50.0,
+                    "cooling_threshold": -20.0,
+                    "scale": 0.01, # change later to 0.1
+                },
+                "electrical": {
+                    "damage_threshold": 10.0,
+                    "scale": 10.0,
+                    "water_system_name": "water",
+                },
+            },
+            # "FrankaPanda": { "mechanical": { ... } },
+            # "R1Pro": { "mechanical": { ... } },
         },
     },
 
@@ -357,6 +451,43 @@ PARAMS = {
             "damage_scale": 1.0,
         },
     },
+    "vase": {
+        "damage_evaluators": ["mechanical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 1.0,
+            "qs_damage_sensitivity": 0.5,
+            "damage_threshold": 50.0,
+            "damage_scale": 1.0,
+        },
+    },
+    "book": {
+        "damage_evaluators": ["mechanical", "electrical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 1.0,
+            "qs_damage_sensitivity": 0.5,
+            "damage_threshold": 1000.0,
+            "damage_scale": 1.0,
+        },
+        "electrical": {
+            "damage_threshold": 5.0, # change later to 20.0
+            "scale": 10.0,
+            "water_system_name": "water",
+        },
+    },
+    "comic_book": {
+        "damage_evaluators": ["mechanical", "electrical"],
+        "mechanical": {
+            "impact_damage_sensitivity": 1.0,
+            "qs_damage_sensitivity": 0.5,
+            "damage_threshold": 1000.0,
+            "damage_scale": 1.0,
+        },
+        "electrical": {
+            "damage_threshold": 5.0, # change later to 20.0
+            "scale": 10.0,
+            "water_system_name": "water",
+        },
+    },
 
     # ── Large appliances (sturdy, high threshold) ──────────────────────
     "fridge": {
@@ -494,8 +625,8 @@ PARAMS = {
         "damage_evaluators": ["mechanical"],
         "mechanical": {
             "impact_damage_sensitivity": 1.0,
-            "qs_damage_sensitivity": 0.5,
-            "damage_threshold": 80.0,
+            "qs_damage_sensitivity": 0.1,
+            "damage_threshold": 70.0,
             "damage_scale": 10.0,
         },
     },

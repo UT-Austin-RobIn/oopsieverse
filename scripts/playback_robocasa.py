@@ -39,8 +39,8 @@ from utils.misc_utils import (
     flush_current_file,
     save_rgb_camera_video,
     save_rgb_force_video,
-    save_rgb_health_video,
 )
+from damagesim.utils.visualization import save_rgb_health_video_with_overlay
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -450,12 +450,16 @@ def main():
                 forces_video_path = os.path.join(output_video_dir, f"{demo_name}_forces_video.mp4")
                 save_rgb_force_video(output_video_path=forces_video_path, imgs=imgs, target_objects=target_objects_forces, data=forces_by_object, forces_to_plot=force_keys)
 
-                health_video_path = os.path.join(output_video_dir, f"{demo_name}_health_video.mp4")
-                save_rgb_health_video(
+                health_video_path = os.path.join(
+                    output_video_dir, f"{demo_name}_health_overlay_video.mp4"
+                )
+                save_rgb_health_video_with_overlay(
                     output_video_path=health_video_path,
                     imgs=imgs,
                     target_objects=target_objects_health,
                     health=health_by_object,
+                    fps=30,
+                    panel_title="Health",
                 )
 
         f.close()
