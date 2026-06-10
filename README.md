@@ -185,6 +185,19 @@ pip install torch==2.9.1   # pick the version compatible with your CUDA
 3. Use **`pyspacemouse==1.1.4`** — version `2.0.0` is known not to work.
 </details>
 
+## Citation
+
+If you use OopsieVerse in your research, please cite:
+
+```bibtex
+@inproceedings{balaji2026oopsieverse,
+  title={OopsieVerse: A Safety Benchmark with Damage-Aware Simulation for Robot Manipulation},
+  author={Balaji, Arnav and Bahety, Arpit and Ambatipudi, Sriniket and Lam, Daniel and Xu, Junhong and Mart{\'\i}n-Mart{\'\i}n, Roberto},
+  booktitle={Robotics: Science and Systems (RSS), 2026},
+  year={2026}
+}
+```
+
 ## Acknowledgements
 
 OopsieVerse builds on [BEHAVIOR-1K / OmniGibson](https://behavior.stanford.edu/), [RoboCasa](https://robocasa.ai/), and [RoboSuite](https://robosuite.ai/).
