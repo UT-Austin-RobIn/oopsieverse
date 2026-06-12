@@ -6,6 +6,8 @@ Robot : Tiago (tiago0)
 Damage: mechanical only (task objects of interest)
 """
 
+import pickle
+
 import numpy as np
 import omnigibson as og
 import torch as th
@@ -63,7 +65,9 @@ VIEWER_CAMERA_ORN = [0.605172872543335, 0.14635765552520752, 0.18393288552761078
 
 EXTERNAL_CAMERA_CONFIGS = {
     "external_sensor_0": {
-        "position": [0.4859, -1.8219, 1.1402],
+        # Robot-mounted follow camera (rides with base_link). Original pose, pulled back
+        # ~0.8 m along the view axis so the full robot stays in frame while navigating.
+        "position": [0.4618, -2.5811, 1.3912],
         "orientation": [0.5857, -0.0093, -0.0129, 0.8103],
         "horizontal_aperture": 10.0,
     },
@@ -147,6 +151,9 @@ def get_task_config() -> TaskConfig:
             "swivel_chair@base_link",
         ],
         force_keys=["filtered_qs_forces", "impact_forces"],
+        # Let the scene settle on playback load before damage tracking starts, so the
+        # vase isn't destroyed by the teleport/impact artifact at step 0 (was 4).
+        post_playback_env_setup=lambda env: setattr(env, "playback_init_skip_steps", 30),
         default_collect_hdf5="demos/behavior1k/teleop_data/nav_to_table.hdf5",
         default_playback_hdf5="demos/behavior1k/playback_data/nav_to_table_playback.hdf5",
         default_video_dir="demos/behavior1k/playback_videos/nav_to_table",
@@ -156,9 +163,21 @@ def get_task_config() -> TaskConfig:
 _BOTTLE_U_XY = 0.03
 _LIFT_Z = 0.1
 
+INIT_STATE_PATH = "resources/init_states/nav_to_table.pkl"
+
 
 def reset(env):
-    """Snap the water bottle onto the breakfast_table top with light XY jitter."""
+    """Restore the saved init state (robot behind the pedestal table, vase on it),
+    then snap the water bottle onto the breakfast_table top with light XY jitter."""
+    # Restore the hand-authored arrangement. The harness has already called
+    # env.reset() before this, so loading the serialized sim state is enough
+    # (mirrors add_firewood / wipe_counter / open_drawer reset()).
+    with open(INIT_STATE_PATH, "rb") as f:
+        state_flat_array = pickle.load(f)
+    og.sim.load_state(state_flat_array, serialized=True)
+    for _ in range(5):
+        og.sim.step()
+
     try:
         bottle = env.scene.object_registry("name", "water_bottle")
         if bottle is None:
@@ -221,3 +240,34 @@ def task_completion_check(env):
         return False
     bottle_pos, _ = bottle.get_position_orientation()
     return (float(bottle_pos[2]) - start_z) >= _LIFT_Z
+
+
+def register_teleop_keys(env, kb):
+    """Teleop post-setup hook: show the robot's head camera in a docked side viewport.
+
+    Named ``register_teleop_keys`` because that is the only task hook teleop runs after
+    ``setup_viewport_layout`` (which hides the robot-camera viewport). UI-only; does not
+    affect HDF5 collection. ``kb`` is unused.
+    """
+    import omnigibson.lazy as lazy
+    from omnigibson.sensors import VisionSensor
+    from omnigibson.utils.ui_utils import dock_window
+
+    try:
+        cam = next((s for s in env.robots[0].sensors.values()
+                    if isinstance(s, VisionSensor)), None)
+        if cam is None:
+            print("[nav_to_table] no robot camera found; skipping head-camera viewport")
+            return
+        cam.viewer_visibility = True
+        dock_window(
+            space=lazy.omni.ui.Workspace.get_window("DockSpace"),
+            name=cam._viewport.name,
+            location=lazy.omni.ui.DockPosition.LEFT,
+            ratio=0.3,
+        )
+        for _ in range(5):
+            og.sim.render()
+        print(f"[nav_to_table] head camera '{cam.name}' shown in '{cam._viewport.name}'")
+    except Exception as e:  # viewport tweaks must never break teleop
+        print(f"[nav_to_table] could not show head-camera viewport: {e}")

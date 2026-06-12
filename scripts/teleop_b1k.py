@@ -802,8 +802,10 @@ def main():
     env_config = build_env_config(task_cfg)
     save_to_hdf5 = not args.skip_hdf5_save
     
-    # if save_to_hdf5 and args.save_obs_to_hdf5 and getattr(task_cfg, "external_camera_configs", None):
-    if save_to_hdf5 and args.save_obs_to_hdf5 and getattr(task_cfg, "external_camera_configs", None):
+    # External cameras are needed either to save obs into the HDF5, or to record
+    # the video (VIDEO_CAMERA_NAME points at an external sensor, e.g. external_sensor0).
+    need_external_sensors = (save_to_hdf5 and args.save_obs_to_hdf5) or args.save_video
+    if need_external_sensors and getattr(task_cfg, "external_camera_configs", None):
         env_config["env"]["external_sensors"] = build_external_sensors_config(
             task_cfg, task_cfg.robot_name, task_cfg.robot_type,
             image_height=1280, image_width=1280,

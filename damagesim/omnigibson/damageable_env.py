@@ -766,7 +766,8 @@ class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
         # We do this beacause playback has some artifacts which I havent' understood yet.
         # Due to these artifacts (object being loaded at a very different place and then teleoported suddenly
         # leading to high impact forces), the initial health values are not correct.
-        self.init_skip_steps = 4 # orginally 4
+        # Per-task override (set via TaskConfig.post_playback_env_setup); defaults to 4.
+        self.init_skip_steps = getattr(self, "playback_init_skip_steps", 4)
 
         
         # Grab episode data
@@ -930,7 +931,19 @@ class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
                     scene.clear_system(remove_sys_name)
                 for remove_obj_name in cur_transitions["objects"]["remove"]:
                     obj = scene.object_registry("name", remove_obj_name)
-                    scene.remove_object(obj)
+                    if obj is None:
+                        continue
+                    # The object's prim can already be expired — e.g. a particle-system
+                    # template (dust/water) whose system was re-initialized across
+                    # episodes (notably after discarding a trajectory and playing a
+                    # later one). Skip stale references instead of crashing.
+                    prim = getattr(obj, "prim", None)
+                    if prim is not None and not prim.IsValid():
+                        continue
+                    try:
+                        scene.remove_object(obj)
+                    except (RuntimeError, ValueError) as e:
+                        print(f"[playback] skip removing stale object '{remove_obj_name}': {e}")
                 for j, add_obj_info in enumerate(cur_transitions["objects"]["add"]):
                     obj = create_object_from_init_info(add_obj_info)
                     scene.add_object(obj)

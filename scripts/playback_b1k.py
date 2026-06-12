@@ -378,6 +378,7 @@ def run_visualize(args, task_cfg):
         save_rgb_force_video,
         save_rgb_temperature_video,
     )
+    from damagesim.omnigibson.params.damage_params import PARAMS
 
     f = h5py.File(args.playback_hdf5_path, "r")
     camera_type = "external"
@@ -468,6 +469,7 @@ def run_visualize(args, task_cfg):
                 temp_video_path = os.path.join(
                     output_dir, f"demo_{demo_idx}_temperature_video.mp4"
                 )
+                _th = PARAMS["agent"]["thermal"]
                 save_rgb_temperature_video(
                     output_video_path=temp_video_path,
                     imgs=imgs,
@@ -475,6 +477,10 @@ def run_visualize(args, task_cfg):
                     data=temperatures,
                     temperature_keys=tuple(temperature_plot_keys),
                     fps=30,
+                    thresholds=[
+                        (_th["heating_threshold"], "heating threshold", "red"),
+                        (_th["cooling_threshold"], "cooling threshold", "blue"),
+                    ],
                 )
                 print(f"  Saved temperature plot -> {temp_video_path}")
 
