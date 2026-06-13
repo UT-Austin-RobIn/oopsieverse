@@ -125,26 +125,26 @@ def build_external_sensors_config(
     sensors = []
     for name, cam_cfg in task_cfg.external_camera_configs.items():
         idx = name.split("_")[-1]
-        prim_path = (
-            f"/controllable__damageable{robot_type.lower()}"
-            f"__{robot_name}/base_link/external_sensor{idx}"
-        )
-        sensors.append(
-            {
-                "sensor_type": "VisionSensor",
-                "name": f"external_sensor{idx}",
-                "relative_prim_path": prim_path,
-                "modalities": ["rgb", "seg_instance"],
-                "sensor_kwargs": {
-                    "image_height": image_height,
-                    "image_width": image_width,
-                    "horizontal_aperture": cam_cfg.get("horizontal_aperture", 15.0),
-                },
-                "position": th.tensor(cam_cfg["position"], dtype=th.float32),
-                "orientation": th.tensor(cam_cfg["orientation"], dtype=th.float32),
-                "pose_frame": "world",
-            }
-        )
+        sensor = {
+            "sensor_type": "VisionSensor",
+            "name": f"external_sensor{idx}",
+            "modalities": ["rgb", "seg_instance"],
+            "sensor_kwargs": {
+                "image_height": image_height,
+                "image_width": image_width,
+                "horizontal_aperture": cam_cfg.get("horizontal_aperture", 15.0),
+            },
+            "position": th.tensor(cam_cfg["position"], dtype=th.float32),
+            "orientation": th.tensor(cam_cfg["orientation"], dtype=th.float32),
+            "pose_frame": "world",
+        }
+        # world_fixed -> leave at world level (stationary); else parent under base_link.
+        if not cam_cfg.get("world_fixed", False):
+            sensor["relative_prim_path"] = (
+                f"/controllable__damageable{robot_type.lower()}"
+                f"__{robot_name}/base_link/external_sensor{idx}"
+            )
+        sensors.append(sensor)
     return sensors
 
 

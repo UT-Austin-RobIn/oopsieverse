@@ -47,6 +47,17 @@ TASK_OBJECTS = {
         "orientation": [0.0, 0.0, 0.0, 1.0],
         "scale": [1.0, 1.0, 1.0],
     },
+    # Fixed barrier right of the pedestal (fixed_base keeps it out of the serialized state).
+    "coffee_table": {
+        "type": "DatasetObject",
+        "name": "coffee_table",
+        "category": "coffee_table",
+        "model": "fqluyq",
+        "position": [-0.4763, -1.2196, 0.2838],
+        "orientation": [0.0, 0.0, 1.0, 0.0],
+        "scale": [1.1712, 1.0266, 0.9481],
+        "fixed_base": True,
+    },
     "water_bottle": {
         "type": "DatasetObject",
         "name": "water_bottle",
@@ -64,27 +75,12 @@ VIEWER_CAMERA_POS = [1.5345655679702759, -2.3398592472076416, 1.3116816282272339
 VIEWER_CAMERA_ORN = [0.605172872543335, 0.14635765552520752, 0.18393288552761078, 0.7606010437011719]
 
 EXTERNAL_CAMERA_CONFIGS = {
+    # One stationary camera at the viewer pose (world_fixed) — the only one the video uses.
     "external_sensor_0": {
-        # Robot-mounted follow camera (rides with base_link). Original pose, pulled back
-        # ~0.8 m along the view axis so the full robot stays in frame while navigating.
-        "position": [0.4618, -2.5811, 1.3912],
-        "orientation": [0.5857, -0.0093, -0.0129, 0.8103],
-        "horizontal_aperture": 10.0,
-    },
-    "external_sensor_1": {
-        "position": [0.2522, 0.0470, 1.0696],
-        "orientation": [0.1991, -0.1991, -0.6785, 0.6785],
-        "horizontal_aperture": 30.0,
-    },
-    "external_sensor_2": {
-        "position": [-0.7765, -0.8203, 0.9939],
-        "orientation": [0.4566, -0.3285, -0.4831, 0.6710],
-        "horizontal_aperture": 30.0,
-    },
-    "external_sensor_3": {
-        "position": [1.7508, -0.0198, 1.1778],
-        "orientation": [0.3821, 0.4173, 0.6080, 0.5570],
-        "horizontal_aperture": 20.0,
+        "position": VIEWER_CAMERA_POS,
+        "orientation": VIEWER_CAMERA_ORN,
+        "horizontal_aperture": 20.995,  # matches the OG viewer FOV
+        "world_fixed": True,
     },
 }
 
@@ -229,6 +225,12 @@ def reset(env):
         env._nav_bottle_start_z = float(bottle_pos[2])
     except Exception:
         return
+
+
+def playback_reset(env):
+    """reset() (which seats the vase on the pedestal) isn't called during playback — re-apply
+    it so objects start arranged instead of teleporting in via the state replay."""
+    reset(env)
 
 
 def task_completion_check(env):
