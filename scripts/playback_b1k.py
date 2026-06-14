@@ -125,26 +125,26 @@ def build_external_sensors_config(
     sensors = []
     for name, cam_cfg in task_cfg.external_camera_configs.items():
         idx = name.split("_")[-1]
-        prim_path = (
-            f"/controllable__damageable{robot_type.lower()}"
-            f"__{robot_name}/base_link/external_sensor{idx}"
-        )
-        sensors.append(
-            {
-                "sensor_type": "VisionSensor",
-                "name": f"external_sensor{idx}",
-                "relative_prim_path": prim_path,
-                "modalities": ["rgb", "seg_instance"],
-                "sensor_kwargs": {
-                    "image_height": image_height,
-                    "image_width": image_width,
-                    "horizontal_aperture": cam_cfg.get("horizontal_aperture", 15.0),
-                },
-                "position": th.tensor(cam_cfg["position"], dtype=th.float32),
-                "orientation": th.tensor(cam_cfg["orientation"], dtype=th.float32),
-                "pose_frame": "world",
-            }
-        )
+        sensor = {
+            "sensor_type": "VisionSensor",
+            "name": f"external_sensor{idx}",
+            "modalities": ["rgb", "seg_instance"],
+            "sensor_kwargs": {
+                "image_height": image_height,
+                "image_width": image_width,
+                "horizontal_aperture": cam_cfg.get("horizontal_aperture", 15.0),
+            },
+            "position": th.tensor(cam_cfg["position"], dtype=th.float32),
+            "orientation": th.tensor(cam_cfg["orientation"], dtype=th.float32),
+            "pose_frame": "world",
+        }
+        # world_fixed -> leave at world level (stationary); else parent under base_link.
+        if not cam_cfg.get("world_fixed", False):
+            sensor["relative_prim_path"] = (
+                f"/controllable__damageable{robot_type.lower()}"
+                f"__{robot_name}/base_link/external_sensor{idx}"
+            )
+        sensors.append(sensor)
     return sensors
 
 
@@ -378,6 +378,7 @@ def run_visualize(args, task_cfg):
         save_rgb_force_video,
         save_rgb_temperature_video,
     )
+    from damagesim.omnigibson.params.damage_params import PARAMS
 
     f = h5py.File(args.playback_hdf5_path, "r")
     camera_type = "external"
@@ -468,6 +469,7 @@ def run_visualize(args, task_cfg):
                 temp_video_path = os.path.join(
                     output_dir, f"demo_{demo_idx}_temperature_video.mp4"
                 )
+                _th = PARAMS["agent"]["thermal"]
                 save_rgb_temperature_video(
                     output_video_path=temp_video_path,
                     imgs=imgs,
@@ -475,6 +477,10 @@ def run_visualize(args, task_cfg):
                     data=temperatures,
                     temperature_keys=tuple(temperature_plot_keys),
                     fps=30,
+                    thresholds=[
+                        (_th["heating_threshold"], "heating threshold", "red"),
+                        (_th["cooling_threshold"], "cooling threshold", "blue"),
+                    ],
                 )
                 print(f"  Saved temperature plot -> {temp_video_path}")
 

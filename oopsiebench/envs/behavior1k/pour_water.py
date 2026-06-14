@@ -356,6 +356,10 @@ def get_task_config() -> TaskConfig:
         target_objects_health=[ROBOT_NAME, "laptop"],
         target_objects_water_contacts=["laptop@link_0", "laptop@base_link"],
 
+        # reset() fills the glass via ~170 recorded env.step() calls; skip them on
+        # playback so the video starts with the glass already full (was 4).
+        post_playback_env_setup=lambda env: setattr(env, "playback_init_skip_steps", 170),
+
         # Default paths
         default_collect_hdf5="demos/behavior1k/teleop_data/pour_water.hdf5",
         default_playback_hdf5="demos/behavior1k/playback_data/pour_water_playback.hdf5",
