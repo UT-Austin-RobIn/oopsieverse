@@ -147,9 +147,6 @@ def get_task_config() -> TaskConfig:
             "swivel_chair@base_link",
         ],
         force_keys=["filtered_qs_forces", "impact_forces"],
-        # Let the scene settle on playback load before damage tracking starts, so the
-        # vase isn't destroyed by the teleport/impact artifact at step 0 (was 4).
-        post_playback_env_setup=lambda env: setattr(env, "playback_init_skip_steps", 30),
         default_collect_hdf5="demos/behavior1k/teleop_data/nav_to_table.hdf5",
         default_playback_hdf5="demos/behavior1k/playback_data/nav_to_table_playback.hdf5",
         default_video_dir="demos/behavior1k/playback_videos/nav_to_table",
