@@ -5,6 +5,8 @@ Scene : house_single_floor
 Robot : FrankaPanda (franka0)
 """
 
+from __future__ import annotations
+
 import pickle
 
 import numpy as np
@@ -15,9 +17,15 @@ from omnigibson.utils import transform_utils as T
 from omnigibson.utils.bddl_utils import get_system_name_by_synset
 
 from oopsiebench.envs.behavior1k.base import TaskConfig
+from oopsiebench.envs.behavior1k.spatial_checks import eef_world_position_or_raise
 
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaPanda"
+
+INIT_STATE_PATH = "resources/init_states/wipe_counter.pkl"
+
+# Particle systems to record in teleop HDF5 (not scene-default water).
+TRANSITION_SYSTEMS = ("dust",)
 
 # ── Task objects ─────────────────────────────────────────────────────────
 
@@ -51,75 +59,12 @@ EXTERNAL_CAMERA_CONFIGS = {
     },
 }
 
-INIT_STATE_PATH = "resources/init_states/wipe_counter.pkl"
-
-# Particle systems to record in teleop HDF5 (not scene-default water).
-TRANSITION_SYSTEMS = ("dust",)
-
-# ── Public entry point ───────────────────────────────────────────────────
-
-def get_task_config() -> TaskConfig:
-    return TaskConfig(
-        task_name="wipe_counter",
-        use_gpu_dynamics=False,
-        enable_transition_rules=False,
-        scene_config={
-            "scene_model": "house_single_floor",
-            "not_load_object_categories": ["ottoman"],
-            "load_room_instances": [
-                "kitchen_0", "dining_room_0", "entryway_0", "living_room_0",
-            ],
-        },
-        robot_name=ROBOT_NAME,
-        robot_type=ROBOT_TYPE,
-        robot_config={
-            "type": ROBOT_TYPE,
-            "name": ROBOT_NAME,
-            "position": [6.8, 0.2, 1.0],
-            "orientation": [0.0, 0.0, 1.0, 0.0],
-            "grasping_mode": "assisted",
-            "obs_modalities": ["rgb", "depth", "proprio"],
-            "action_normalize": False,
-            "self_collisions": True,
-            "controller_config": {
-                "arm_0": {
-                    "name": "InverseKinematicsController",
-                    "command_input_limits": None,
-                },
-                "gripper_0": {
-                    "name": "MultiFingerGripperController",
-                    "command_input_limits": (0.0, 1.0),
-                    "mode": "smooth",
-                },
-            },
-        },
-        task_objects=TASK_OBJECTS,
-        viewer_camera_pos=VIEWER_CAMERA_POS,
-        viewer_camera_orn=VIEWER_CAMERA_ORN,
-        external_camera_configs=EXTERNAL_CAMERA_CONFIGS,
-        target_objects_health_with_links= [
-            f"{ROBOT_NAME}@eef_link",
-            f"{ROBOT_NAME}@panda_hand",
-            f"{ROBOT_NAME}@panda_leftfinger",
-            f"{ROBOT_NAME}@panda_rightfinger",
-        ],
-        target_objects_health=[ROBOT_NAME],
-        target_objects_forces=[
-            f"{ROBOT_NAME}@eef_link",
-            f"{ROBOT_NAME}@panda_hand",
-            f"{ROBOT_NAME}@panda_leftfinger",
-            f"{ROBOT_NAME}@panda_rightfinger",
-        ],
-        force_keys=["filtered_qs_forces", "impact_forces"],
-        default_collect_hdf5="demos/behavior1k/teleop_data/wipe_counter.hdf5",
-        default_playback_hdf5="demos/behavior1k/playback_data/wipe_counter_playback.hdf5",
-        default_video_dir="demos/behavior1k/playback_videos/wipe_counter",
-    )
-
-
 _U_XY = 0.03
 _U_YAW = 0.12
 _U_ARM = 0.07
+
+# Gripper must be lifted this far above the wiped surface to finish (matches pick_egg).
+_LIFT_Z = 0.25
 
 _DIRT_SYNSETS = ("dust.n.01", "dirt.n.02")
 
@@ -225,6 +170,8 @@ def _spawn_counter_dirt(env):
             og.sim.render()
 
     env._wipe_counter_dirt = (dirt_system, group)
+    # Cache the wiped surface's top z so completion can require a gripper lift above it.
+    env._wipe_counter_surface_top_z = float(surface.aabb[1][2])
 
 
 def reset(env):
@@ -266,4 +213,70 @@ def task_completion_check(env):
     if cached is None:
         return False
     dirt_system, group = cached
-    return int(dirt_system.num_group_particles(group=group)) == 0
+    if int(dirt_system.num_group_particles(group=group)) != 0:
+        return False
+    # Also require the gripper to be lifted up off the counter (same height as pick_egg).
+    surface_top_z = getattr(env, "_wipe_counter_surface_top_z", None)
+    if surface_top_z is None or not getattr(env, "robots", None):
+        return False
+    eef_z = float(eef_world_position_or_raise(env.robots[0])[2])
+    return (eef_z - surface_top_z) >= _LIFT_Z
+
+
+def get_task_config() -> TaskConfig:
+    return TaskConfig(
+        task_name="wipe_counter",
+        use_gpu_dynamics=False,
+        enable_transition_rules=False,
+        scene_config={
+            "scene_model": "house_single_floor",
+            "not_load_object_categories": ["ottoman"],
+            "load_room_instances": [
+                "kitchen_0", "dining_room_0", "entryway_0", "living_room_0",
+            ],
+        },
+        robot_name=ROBOT_NAME,
+        robot_type=ROBOT_TYPE,
+        robot_config={
+            "type": ROBOT_TYPE,
+            "name": ROBOT_NAME,
+            "position": [6.8, 0.2, 1.0],
+            "orientation": [0.0, 0.0, 1.0, 0.0],
+            "grasping_mode": "assisted",
+            "obs_modalities": ["rgb", "depth", "proprio"],
+            "action_normalize": False,
+            "self_collisions": True,
+            "controller_config": {
+                "arm_0": {
+                    "name": "InverseKinematicsController",
+                    "command_input_limits": None,
+                },
+                "gripper_0": {
+                    "name": "MultiFingerGripperController",
+                    "command_input_limits": (0.0, 1.0),
+                    "mode": "smooth",
+                },
+            },
+        },
+        task_objects=TASK_OBJECTS,
+        viewer_camera_pos=VIEWER_CAMERA_POS,
+        viewer_camera_orn=VIEWER_CAMERA_ORN,
+        external_camera_configs=EXTERNAL_CAMERA_CONFIGS,
+        target_objects_health_with_links= [
+            f"{ROBOT_NAME}@eef_link",
+            f"{ROBOT_NAME}@panda_hand",
+            f"{ROBOT_NAME}@panda_leftfinger",
+            f"{ROBOT_NAME}@panda_rightfinger",
+        ],
+        target_objects_health=[ROBOT_NAME],
+        target_objects_forces=[
+            f"{ROBOT_NAME}@eef_link",
+            f"{ROBOT_NAME}@panda_hand",
+            f"{ROBOT_NAME}@panda_leftfinger",
+            f"{ROBOT_NAME}@panda_rightfinger",
+        ],
+        force_keys=["filtered_qs_forces", "impact_forces"],
+        default_collect_hdf5="demos/behavior1k/teleop_data/wipe_counter.hdf5",
+        default_playback_hdf5="demos/behavior1k/playback_data/wipe_counter_playback.hdf5",
+        default_video_dir="demos/behavior1k/playback_videos/wipe_counter",
+    )

@@ -1267,6 +1267,7 @@ def save_rgb_temperature_video(
     temperature_keys=("temperature",),
     fps=30,
     y_unit: str = "°C",
+    thresholds=None,
 ):
     """
     Save video with RGB frames alongside robot / link temperature histories.
@@ -1274,9 +1275,22 @@ def save_rgb_temperature_video(
     Same nested ``data`` layout as :func:`save_rgb_force_video`:
     ``data[qualified_link_name][metric_key][frame_idx]``.
     Values come from ``damage_info[obj][part]["thermal"][key]``.
+
+    Args:
+        thresholds: optional iterable of ``(value, label, color)`` (color optional)
+            drawn as horizontal reference lines (e.g. the heating/cooling damage
+            thresholds). Included in the y-range so they're always visible.
     """
     if not target_objects:
         raise ValueError("target_objects must be non-empty")
+
+    # Normalize thresholds to a list of (value, label, color).
+    norm_thresholds = []
+    for t in (thresholds or []):
+        val, label = t[0], t[1]
+        color = t[2] if len(t) > 2 else "red"
+        if val is not None and np.isfinite(float(val)):
+            norm_thresholds.append((float(val), label, color))
 
     first_key = temperature_keys[0]
     T = len(data[target_objects[0]][first_key])
@@ -1290,6 +1304,10 @@ def save_rgb_temperature_video(
             if fin.size:
                 ymin = min(ymin, float(fin.min()))
                 ymax = max(ymax, float(fin.max()))
+    # Keep threshold lines in view.
+    for val, _label, _color in norm_thresholds:
+        ymin = min(ymin, val)
+        ymax = max(ymax, val)
 
     if not np.isfinite(ymin) or not np.isfinite(ymax):
         ymin, ymax = 0.0, 120.0
@@ -1315,6 +1333,10 @@ def save_rgb_temperature_video(
     ax_temp.set_xlim(0, T / fps)
     ax_temp.set_ylim(ymin, ymax)
     ax_temp.grid(True)
+
+    # Horizontal damage-threshold reference lines.
+    for val, label, color in norm_thresholds:
+        ax_temp.axhline(val, ls="--", lw=1.5, color=color, alpha=0.8, label=label)
 
     temp_lines = {}
     for obj_name in target_objects:

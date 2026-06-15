@@ -1,5 +1,2 @@
-*.hdf5 filter=lfs diff=lfs merge=lfs -text
-
-# Doc site demo videos (MkDocs; use git lfs pull for binaries)
-docs/assets/videos/**/*.mp4 filter=lfs diff=lfs merge=lfs -text
-docs/assets/videos/**/*.webm filter=lfs diff=lfs merge=lfs -text
+# Git LFS was removed (storage budget). Doc videos are regular git blobs.
+# Test HDF5 demos are hosted on Hugging Face — see scripts/download_test_data.py

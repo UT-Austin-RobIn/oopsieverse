@@ -48,19 +48,24 @@ Integrated into both **BEHAVIOR-1K** (Omniverse) and **RoboCasa** (MuJoCo), Oops
 
 - **Linux** is recommended. BEHAVIOR-1K (OmniGibson) requires an **NVIDIA GPU** with a recent driver; RoboCasa runs on CPU/GPU and also supports macOS.
 - [**Conda / Miniconda**](https://docs.conda.io/en/latest/miniconda.html)
-- [**Git LFS**](https://git-lfs.com/) (demo `.hdf5` files and videos are stored with LFS)
 
 ### Steps
 
-1. **Clone the repository** (with LFS assets):
+1. **Clone the repository:**
 
    ```bash
    git clone https://github.com/UT-Austin-RobIn/oopsieverse.git
    cd oopsieverse
-   git lfs install && git lfs pull
    ```
 
-2. **Create the environment(s) and install the simulator(s) you need.** Each simulator gets its own conda environment (`oopsieverse_b1k` and/or `oopsieverse_robocasa`):
+2. **Download test HDF5 demos** (not stored in git; hosted on Hugging Face):
+
+   ```bash
+   pip install huggingface_hub
+   python scripts/download_test_data.py
+   ```
+
+3. **Create the environment(s) and install the simulator(s) you need.** Each simulator gets its own conda environment (`oopsieverse_b1k` and/or `oopsieverse_robocasa`):
 
    ```bash
    # BEHAVIOR-1K (OmniGibson)
@@ -73,14 +78,14 @@ Integrated into both **BEHAVIOR-1K** (Omniverse) and **RoboCasa** (MuJoCo), Oops
    python install.py --new_env --behavior1k --robocasa
    ```
 
-3. **Activate the environment and install OopsieVerse:**
+4. **Activate the environment and install OopsieVerse:**
 
    ```bash
    conda activate oopsieverse_b1k          # or: oopsieverse_robocasa
    pip install -e .
    ```
 
-4. **Verify the simulator install:**
+5. **Verify the simulator install:**
 
    ```bash
    # BEHAVIOR-1K

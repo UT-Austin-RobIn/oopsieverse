@@ -47,7 +47,7 @@ def on_page_markdown(markdown: str, *, page, config, **kwargs) -> str:
 
         hint = resolved.as_posix() if resolved is not None else href_raw
         missing.append(hint)
-        tip = html.escape(f"{kind} demo: file not present at {hint} (run git lfs pull if tracked).")
+        tip = html.escape(f"{kind} demo: file not present at {hint}.")
         return (
             f'<span class="oopsiebench-video-missing" role="note">'
             f'<abbr title="{tip}">Unavailable</abbr>'

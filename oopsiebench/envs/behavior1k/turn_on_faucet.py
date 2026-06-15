@@ -1,14 +1,12 @@
 """
 Task configuration for **turn_on_faucet**.
 
-Scene : ``Rs_int`` (interactive traversable), sink near the workspace center.
+Uses the native kitchen faucet in house_single_floor / kitchen_0 (``drop_in_sink_awvzkn_0``,
+the same sink fill_bowl fills from). The faucet starts OFF; the task is to reach its knob
+to turn it on, then back the gripper off.
 
-Lone object: furniture_sink ``czyfhq`` at a **large scale** in the middle of the navigable area.
-Spawn with ``fixed_base=False`` so it settles on the floor, then ``reset`` locks it with ``fixed_base=True``.
-
-Robot: **FrankaMounted** ``franka0`` on the floor **behind** the sink ( −Y ), facing the fixture so the
-arm can reach the lever. ``enable_transition_rules`` must stay **True** so ``ToggledOn`` can follow
-physical / affordance interactions (keyboard teleop toggle on the faucet).
+Scene : house_single_floor (kitchen_0)
+Robot : FrankaMounted (franka0)
 """
 
 from __future__ import annotations
@@ -17,101 +15,58 @@ import numpy as np
 import omnigibson as og
 import torch as th
 from omnigibson.object_states import ToggledOn
+from omnigibson.object_states import particle_modifier as _particle_modifier
 from omnigibson.utils import transform_utils as T
 
 from oopsiebench.envs.behavior1k.base import TaskConfig
-from oopsiebench.envs.behavior1k.spatial_checks import gripper_far_from_object
+from oopsiebench.envs.behavior1k.spatial_checks import eef_world_position_or_raise
+
+# Faster faucet water stream (set before the particle system reads the macros).
+_WATER_PARTICLES_PER_STEP = 25
+_WATER_STEPS_PER_EMIT = 1
+with _particle_modifier.m.unlocked():
+    _particle_modifier.m.MAX_PHYSICAL_PARTICLES_APPLIED_PER_STEP = _WATER_PARTICLES_PER_STEP
+    _particle_modifier.m.N_STEPS_PER_APPLICATION = _WATER_STEPS_PER_EMIT
 
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaMounted"
 
-# Enlarged sink (user request: scale *up* vs default 1,1,1).
-SINK_SCALE = [1, 1, 1.25]
+FAUCET_NAME = "drop_in_sink_awvzkn_0"  # native kitchen faucet (toggleable)
 
-# Near the middle of Rs_int’s main walkable pocket (floor plane ~ z = 0 for mounted robots).
-SINK_POSITION = [-1.05, -2.05, 0.02]
-SINK_ORIENTATION = [0.0, 0.0, 0.0, 1.0]
+ROBOT_POSITION = [5.7, -1.25, 0.0]
+ROBOT_ORIENTATION = [0.0, 0.0, -0.7071067811865476, 0.7071067811865476]
 
-# Mounted Franka behind the faucet approach (−Y), rotated to face +Y toward the sink / lever.
-ROBOT_POSITION = [-0.45, -2.05, 0.0]
-ROBOT_ORIENTATION = [0.0, 0.0, 1.0, 0.0]
-
-# ── Task objects ─────────────────────────────────────────────────────────
-
-TASK_OBJECTS = {
-    "sink": {
-        "type": "DatasetObject",
-        "name": "sink",
-        "category": "furniture_sink",
-        "model": "czyfhq",
-        "position": SINK_POSITION,
-        "orientation": SINK_ORIENTATION,
-        "scale": SINK_SCALE,
-        # Settle unconstrained first; ``reset`` enables fixed_base after physics steps.
-        "fixed_base": False,
-    },
-}
+# Stand-off toggle assist on the knob, and the retreat distance to finish.
+_TOGGLE_ASSIST_DIST = 0.07
+_GRIPPER_FAR_FROM_KNOB_M = 0.4
 
 # ── Cameras ──────────────────────────────────────────────────────────────
 
-# Eye/orientation from teleop TAB (`viewer_camera`).
-VIEWER_CAMERA_POS = [-0.7933, -1.0910,  1.8558]
-VIEWER_CAMERA_ORN = [-0.0039,  0.4483,  0.8938, -0.0079]
+VIEWER_CAMERA_POS = [6.764060974121094, -1.9225226640701294, 1.3960963487625122]
+VIEWER_CAMERA_ORN = [0.44636261463165283, 0.4237414598464966, 0.542643666267395, 0.5716130137443542]
 
 EXTERNAL_CAMERA_CONFIGS = {
     "external_sensor_0": {
         "position": VIEWER_CAMERA_POS,
         "orientation": VIEWER_CAMERA_ORN,
-        "horizontal_aperture": 18.0,
+        "horizontal_aperture": 15.0,
     },
 }
-
-
-# ── Reset ───────────────────────────────────────────────────────────────
-
-# Small XY nudges on later teleop reset retries (meters) to break sink/robot overlap.
-_RESET_SINK_XY_JITTER = (
-    (0.0, 0.0),
-    (0.02, 0.0),
-    (-0.02, 0.0),
-    (0.0, 0.02),
-    (0.0, -0.02),
-    (0.015, -0.015),
-)
 
 _U_XY = 0.05
 _U_YAW = 0.12
 _U_ARM = 0.2
 
 
-def _nudge_sink_for_retry(sink, attempt: int) -> None:
-    if attempt <= 0:
-        return
-    dx, dy = _RESET_SINK_XY_JITTER[attempt % len(_RESET_SINK_XY_JITTER)]
-    if dx == 0.0 and dy == 0.0:
-        return
-    try:
-        sink.fixed_base = False
-        pos, orn = sink.get_position_orientation()
-        pos = pos.clone()
-        pos[0] += dx
-        pos[1] += dy
-        sink.set_position_orientation(pos, orn)
-    except Exception:
-        pass
+def _faucet(env):
+    return env.scene.object_registry("name", FAUCET_NAME)
 
 
-def _try_set_faucet_off(env) -> None:
-    """Start episodes with water OFF when ``ToggledOn`` exists."""
-    try:
-        from omnigibson.object_states import ToggledOn
-    except Exception:
-        return
-
-    sink = env.scene.object_registry("name", "sink")
+def _set_faucet_off(env):
+    """Start episodes with the faucet OFF."""
+    sink = _faucet(env)
     if sink is None or not hasattr(sink, "states"):
         return
-
     try:
         st = sink.states.get(ToggledOn)
         if st is not None:
@@ -120,35 +75,42 @@ def _try_set_faucet_off(env) -> None:
         pass
 
 
+def _toggle_marker_pos(env):
+    """World position of the faucet's togglebutton marker (the knob), or None."""
+    sink = _faucet(env)
+    if sink is None or ToggledOn not in sink.states:
+        return None
+    try:
+        return sink.states[ToggledOn].link.get_position_orientation()[0]
+    except Exception:
+        return None
+
+
+def _assist_turn_on(env):
+    sink = _faucet(env)
+    if sink is None or ToggledOn not in sink.states or not getattr(env, "robots", None):
+        return
+    if bool(sink.states[ToggledOn].get_value()):
+        return  # already on
+    marker = _toggle_marker_pos(env)
+    if marker is None:
+        return
+    eef = eef_world_position_or_raise(env.robots[0])
+    marker = marker.reshape(-1)[:3].to(dtype=eef.dtype, device=eef.device)
+    if float(th.norm(eef[:3] - marker)) <= _TOGGLE_ASSIST_DIST:
+        try:
+            sink.states[ToggledOn].set_value(True)
+        except Exception:
+            pass
+
+
 def reset(env):
-    """Light settle, lock sink base, controllers sync + faucet OFF."""
+    """Faucet OFF, light robot pose/arm jitter, controllers sync."""
     if not getattr(env, "robots", None):
         return
-    attempt = int(getattr(env, "_reset_settle_attempt", 0))
     robot = env.robots[0]
-    sink = env.scene.object_registry("name", "sink") if getattr(env, "scene", None) else None
 
-    if sink is not None:
-        _nudge_sink_for_retry(sink, attempt)
-
-    robot.keep_still()
-    if sink is not None:
-        try:
-            sink.keep_still()
-        except Exception:
-            pass
-
-    for _ in range(15):
-        og.sim.step()
-
-    if sink is not None:
-        try:
-            sink.fixed_base = True
-            sink.keep_still()
-        except Exception:
-            pass
-
-    _try_set_faucet_off(env)
+    _set_faucet_off(env)
 
     pos, orn = robot.get_position_orientation()
     pos = pos.clone()
@@ -156,29 +118,46 @@ def reset(env):
     pos[1] += float(np.random.uniform(-_U_XY, _U_XY))
     euler = T.quat2euler(orn).clone()
     euler[2] = euler[2] + float(np.random.uniform(-_U_YAW, _U_YAW))
-    orn = T.euler2quat(euler)
-    robot.set_position_orientation(pos, orn)
+    robot.set_position_orientation(pos, T.euler2quat(euler))
+
     q = robot.get_joint_positions().clone()
     for arm_name in robot.arm_control_idx:
         idx = robot.arm_control_idx[arm_name]
         u = (th.rand(len(idx), device=q.device, dtype=q.dtype) * 2 - 1) * _U_ARM
         q[idx] = q[idx] + u
     robot.set_joint_positions(q)
-
+    robot.set_joint_velocities(th.zeros(robot.n_dof, device=q.device, dtype=q.dtype))
     robot.keep_still()
-    robot.set_joint_velocities(th.zeros(robot.n_dof))
+
     for ctrl_name in ("arm_0", "gripper_0"):
         ctrl = robot.controllers.get(ctrl_name)
         if ctrl is not None:
             ctrl.reset()
 
+    for _ in range(10):
+        og.sim.step()
+
+    _set_faucet_off(env)  # ensure it's still off after settling
+
 
 def task_completion_check(env):
-    sink = env.scene.object_registry("name", "sink")
+    # Flip the faucet on when the gripper reaches its knob (teleop assist).
+    _assist_turn_on(env)
+
+    sink = _faucet(env)
     if sink is None or not getattr(env, "robots", None) or ToggledOn not in sink.states:
         return False
-    faucet_on = bool(sink.states[ToggledOn].get_value())
-    return faucet_on and gripper_far_from_object(env.robots[0], sink, threshold=0.75)
+    if not bool(sink.states[ToggledOn].get_value()):
+        return False
+
+    # Distance from the gripper to the faucet *knob* (the button it presses), not the
+    # sink's transform origin — so the required gap is measured from what you touched.
+    marker = _toggle_marker_pos(env)
+    if marker is None:
+        return False
+    eef = eef_world_position_or_raise(env.robots[0])
+    marker = marker.reshape(-1)[:3].to(dtype=eef.dtype, device=eef.device)
+    return float(th.norm(eef[:3] - marker)) > _GRIPPER_FAR_FROM_KNOB_M
 
 
 def get_task_config() -> TaskConfig:
@@ -186,14 +165,14 @@ def get_task_config() -> TaskConfig:
         task_name="turn_on_faucet",
 
         use_gpu_dynamics=True,
+        # Must stay True so ToggledOn follows the robot touching the faucet knob.
         enable_transition_rules=True,
         physics_frequency=120.0,
 
         scene_config={
-            "type": "InteractiveTraversableScene",
-            "scene_model": "Rs_int",
-            "include_robots": False,
-            "load_task_relevant_only": True,
+            "scene_model": "house_single_floor",
+            "not_load_object_categories": ["ottoman"],
+            "load_room_instances": ["kitchen_0"],
         },
 
         robot_name=ROBOT_NAME,
@@ -220,7 +199,7 @@ def get_task_config() -> TaskConfig:
             },
         },
 
-        task_objects=TASK_OBJECTS,
+        task_objects={},
 
         viewer_camera_pos=VIEWER_CAMERA_POS,
         viewer_camera_orn=VIEWER_CAMERA_ORN,

@@ -6,17 +6,23 @@ Robot : FrankaPanda (franka0)
 Damage: mechanical + thermal
 """
 
+from __future__ import annotations
+
 import pickle
+
 import numpy as np
-import torch as th
 import omnigibson as og
-from omnigibson.utils import transform_utils as T
+import torch as th
 from omnigibson.controllers.controller_base import IsGraspingState
+from omnigibson.utils import transform_utils as T
+
 from oopsiebench.envs.behavior1k.base import TaskConfig
 from oopsiebench.envs.behavior1k.spatial_checks import gripper_far_from_object
 
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaPanda"
+
+INIT_STATE_PATH = "resources/init_states/add_firewood.pkl"
 
 # ── Task objects ────────────────────────────────────────────────────────
 
@@ -93,8 +99,65 @@ EXTERNAL_CAMERA_CONFIGS = {
     },
 }
 
-INIT_STATE_PATH = "resources/init_states/add_firewood.pkl"
-# ── Public entry point ──────────────────────────────────────────────────
+_U_XY = 0.03
+_U_YAW = 0.12
+_U_ARM = 0.07
+
+
+def reset(env):
+    """Small uniform noise on base xyz, yaw, and arm joints; settle briefly."""
+    # Load initial state
+    with open(INIT_STATE_PATH, "rb") as f:
+        state_flat_array = pickle.load(f)
+    og.sim.load_state(state_flat_array, serialized=True)
+
+    # Reset the robot's position and orientation
+    if not getattr(env, "robots", None):
+        return
+    robot = env.robots[0]
+    pos, orn = robot.get_position_orientation()
+    pos = pos.clone()
+    pos[0] += float(np.random.uniform(-_U_XY, _U_XY))
+    pos[1] += float(np.random.uniform(-_U_XY, _U_XY))
+    euler = T.quat2euler(orn).clone()
+    euler[2] = euler[2] + float(np.random.uniform(-_U_YAW, _U_YAW))
+    orn = T.euler2quat(euler)
+    robot.set_position_orientation(pos, orn)
+
+    # Reset the robot's arm joints
+    q = robot.get_joint_positions().clone()
+    for arm_name in robot.arm_control_idx:
+        idx = robot.arm_control_idx[arm_name]
+        u = (th.rand(len(idx), device=q.device, dtype=q.dtype) * 2 - 1) * _U_ARM
+        q[idx] = q[idx] + u
+    robot.set_joint_positions(q)
+    robot.set_joint_velocities(th.zeros(robot.n_dof, device=q.device, dtype=q.dtype))
+    robot.keep_still()
+
+    for _ in range(10):
+        og.sim.step()
+
+
+def task_completion_check(env):
+    target_object = env.scene.object_registry("name", "target_object")
+    fireplace = env.scene.object_registry("name", "fireplace")
+    robot = env.robots[0]
+    # Get positions
+    target_pos, _ = target_object.get_position_orientation()
+    fireplace_pos, _ = fireplace.get_position_orientation()
+
+    # Calculate xy distance only (ignore z)
+    distance_xy = th.norm((target_pos[:2] - fireplace_pos[:2])).item()
+
+    # Tolerance: log should be close to fireplace horizontally
+    tolerance_xy = 0.25  # 25cm horizontal tolerance
+
+    log_within_tolerance = distance_xy < tolerance_xy
+    gripper_open = robot.is_grasping(candidate_obj=target_object).value == IsGraspingState.FALSE
+    gripper_far = gripper_far_from_object(robot, target_object)
+
+    return log_within_tolerance and gripper_open and gripper_far
+
 
 def get_task_config() -> TaskConfig:
     return TaskConfig(
@@ -110,6 +173,15 @@ def get_task_config() -> TaskConfig:
             "scene_model": "Rs_int",
             "include_robots": False,
             "load_task_relevant_only": True,
+            "load_object_categories": [
+                "breakfast_table", "coffee_table", "straight_chair", "swivel_chair", "bed",
+                "bottom_cabinet", "top_cabinet", "bookcase", "countertop",
+                "dishwasher", "fridge", "oven", "microwave", "furniture_sink",
+                "pedestal_sink", "shower_stall", "toilet", "standing_tv", "loudspeaker",
+                "pot_plant", "mirror", "floor_lamp", "table_lamp",
+                "towel_rack", "public_trash_can",
+                "electric_switch", "openable_window",
+            ],
         },
 
         # Robot
@@ -180,59 +252,3 @@ def get_task_config() -> TaskConfig:
         default_playback_hdf5="demos/behavior1k/playback_data/add_firewood_playback.hdf5",
         default_video_dir="demos/behavior1k/playback_videos/add_firewood",
     )
-
-_U_XY = 0.03
-_U_YAW = 0.12
-_U_ARM = 0.07
-
-def reset(env):
-    """Small uniform noise on base xyz, yaw, and arm joints; settle briefly."""
-    
-    # Load initial state
-    with open(INIT_STATE_PATH, "rb") as f: state_flat_array = pickle.load(f)
-    og.sim.load_state(state_flat_array, serialized=True)
-    
-    # Reset the robot's position and orientation
-    if not getattr(env, "robots", None):
-        return
-    robot = env.robots[0]
-    pos, orn = robot.get_position_orientation()
-    pos = pos.clone()
-    pos[0] += float(np.random.uniform(-_U_XY, _U_XY))
-    pos[1] += float(np.random.uniform(-_U_XY, _U_XY))
-    euler = T.quat2euler(orn).clone()
-    euler[2] = euler[2] + float(np.random.uniform(-_U_YAW, _U_YAW))
-    orn = T.euler2quat(euler)
-    robot.set_position_orientation(pos, orn)
-
-    # Reset the robot's arm joints
-    q = robot.get_joint_positions().clone()
-    for arm_name in robot.arm_control_idx:
-        idx = robot.arm_control_idx[arm_name]
-        u = (th.rand(len(idx), device=q.device, dtype=q.dtype) * 2 - 1) * _U_ARM
-        q[idx] = q[idx] + u
-    robot.set_joint_positions(q)
-    robot.set_joint_velocities(th.zeros(robot.n_dof, device=q.device, dtype=q.dtype))
-    robot.keep_still()
-    
-    for _ in range(10): og.sim.step()
-
-def task_completion_check(env):
-    target_object = env.scene.object_registry("name", "target_object")
-    fireplace = env.scene.object_registry("name", "fireplace")
-    robot = env.robots[0]
-    # Get positions
-    target_pos, _ = target_object.get_position_orientation()
-    fireplace_pos, _ = fireplace.get_position_orientation()
-    
-    # Calculate xy distance only (ignore z)
-    distance_xy = th.norm((target_pos[:2] - fireplace_pos[:2])).item()
-    
-    # Tolerance: log should be close to fireplace horizontally
-    tolerance_xy = 0.25  # 25cm horizontal tolerance
-    
-    log_within_tolerance = distance_xy < tolerance_xy
-    gripper_open = robot.is_grasping(candidate_obj=target_object).value == IsGraspingState.FALSE
-    gripper_far = gripper_far_from_object(robot, target_object)
-
-    return log_within_tolerance and gripper_open and gripper_far

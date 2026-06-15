@@ -22,3 +22,6 @@ teleop_demos/
 
 # MkDocs local build output
 site/
+
+# Test/demo HDF5 (hosted on Hugging Face; use scripts/download_test_data.py)
+oopsiebench/test_data/**/*.hdf5

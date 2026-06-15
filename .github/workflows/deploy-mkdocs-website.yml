@@ -31,7 +31,6 @@ jobs:
         with:
           ref: main
           path: main
-          lfs: true
 
       - name: Set production site URL (subpath)
         id: site
