@@ -2,19 +2,28 @@
 
 ## Teleoperation (Robocasa)
 ```bash
+python scripts/teleop_robocasa.py \
+  --env open_single_door \
+  --device keyboard \
+  --health-hud
 ```
 
 ## Playback (Robocasa)
 ```bash
+python scripts/playback_robocasa.py \
+  --input oopsiebench/test_data/robocasa/open_single_door_unsafe.hdf5 \
+  --output demos/robocasa/playback_data/open_single_door_unsafe.hdf5 \
+  --env open_single_door \
+  --playback --visualize --metrics
 ```
 
 ## Teleoperation (Behavior-1K)
 
 ```bash
-python scripts/teleop_b1k.py 
-  --task_name shelve_item 
-  --teleop_device keyboard
-  --live_feedback 
+python scripts/teleop_b1k.py \
+  --task_name shelve_item \
+  --teleop_device keyboard \
+  --live_feedback \
   --save_video
 ```
 

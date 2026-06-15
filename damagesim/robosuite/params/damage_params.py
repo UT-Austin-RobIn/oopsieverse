@@ -80,7 +80,7 @@ DAMAGEABLE_OBJECTS = {
         "names": ["stool_obstacle", "bowl"],
     },
     "wipe_counter": {
-        "categories": ["agent", "sink", "counter"],
+        "categories": ["agent"],
         "names": ["sponge"],
     },
 }
