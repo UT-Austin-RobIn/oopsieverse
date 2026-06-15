@@ -1,5 +1,5 @@
-Behavior-1K (OmniGibson) demo videos (Git LFS)
-==============================================
+Behavior-1K (OmniGibson) demo videos
+====================================
 
 Two MP4s per task name:
 
@@ -8,4 +8,4 @@ Two MP4s per task name:
 
 Examples: shelve_item_unsafe.mp4, shelve_item_safe.mp4
 
-After clone:  git lfs install && git lfs pull
+Tracked in regular git (no Git LFS).
