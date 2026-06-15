@@ -73,19 +73,29 @@ _ROBOCASA_ENVS = [
 ]
 
 
+_ROBOT_OVERRIDES = {
+    "shelve_item": "Panda",
+}
+
+# Per-env camera overrides for robots that lack the default kitchen agentview.
+_CAMERA_OVERRIDES = {
+    "shelve_item": "robot0_robotview",
+}
+
+
 def _register(env_name: str, module_name: str, env_cls_name: str, damageable_cls_name: str):
     module_path = f"{__package__}.robocasa.{module_name}" if __package__ else f"robocasa.{module_name}"
     module = import_module(module_path)
     env_cls = getattr(module, env_cls_name)
     damageable_cls = getattr(module, damageable_cls_name)
 
-    EnvironmentRegistry.register(
-        env_name,
-        EnvConfig(
-            env_class=env_cls,
-            damageable_class=damageable_cls,
-        ),
-    )
+    cfg_kwargs = {"env_class": env_cls, "damageable_class": damageable_cls}
+    if env_name in _ROBOT_OVERRIDES:
+        cfg_kwargs["robot"] = _ROBOT_OVERRIDES[env_name]
+    if env_name in _CAMERA_OVERRIDES:
+        cfg_kwargs["camera_name"] = _CAMERA_OVERRIDES[env_name]
+
+    EnvironmentRegistry.register(env_name, EnvConfig(**cfg_kwargs))
 
 
 for _env_name, _module_name, _env_cls_name, _damageable_cls_name in _ROBOCASA_ENVS:
