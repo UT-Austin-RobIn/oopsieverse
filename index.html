@@ -319,6 +319,25 @@
       border-radius: 999px; background: var(--health-grad);
     }
     .abstract-card p { font-size: 1.06rem; line-height: 1.8; color: var(--text-soft); text-align: justify; margin: 0; }
+    /* Abstract + showcase side-by-side */
+    .abstract-layout {
+      max-width: 1320px; margin: 0 auto; display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 2.2rem; align-items: center;
+    }
+    .abstract-layout .abstract-card { max-width: none; margin: 0; padding: 1.9rem 2rem; }
+    .abstract-layout .abstract-card p { font-size: 0.97rem; line-height: 1.6; }
+    .abstract-layout .abstract-card p + p { margin-top: 0.85rem; }
+    .abstract-showcase {
+      position: relative; border-radius: var(--radius-lg); overflow: hidden;
+      box-shadow: var(--shadow-md); border: 1px solid var(--border);
+      background: #000; aspect-ratio: 16 / 9; width: 100%;
+    }
+    .abstract-showcase video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .abstract-showcase .abstract-watch-btn { left: auto; right: 1rem; }
+    @media (max-width: 900px) {
+      .abstract-layout { grid-template-columns: 1fr; }
+    }
 
     /* ============================================================
        DamageSim
@@ -836,7 +855,7 @@
     /* Hero box matches the video's aspect ratio (2112x1200), so `cover`
        shows the whole frame with clean, flush edges and no bars. */
     .ov-hero {
-      height: clamp(540px, 56.82vw, 980px);
+      width: 100%; height: 56.25vw;
       display: flex; align-items: center; justify-content: center;
       padding: 3rem 1.5rem; overflow: hidden;
     }
@@ -856,7 +875,7 @@
       background: linear-gradient(to bottom, transparent, var(--bg)); pointer-events: none;
     }
     .hero-inner { position: relative; z-index: 2; text-align: center; max-width: 900px; }
-    @media (max-width: 768px) { .ov-hero { height: auto; min-height: 70vh; } }
+    @media (max-width: 768px) { .ov-hero { aspect-ratio: auto; height: auto; min-height: 70vh; } }
 
     /* Hero text on video: light + legible */
     .ov-hero .hero-title { color: #fff; -webkit-text-fill-color: #fff; text-shadow: 0 2px 22px rgba(0,0,0,.5); }
@@ -987,13 +1006,10 @@
 
   <!-- ================= HERO (video background) ================= -->
   <header class="ov-hero" id="top">
-    <video class="hero-bg-video" autoplay muted loop playsinline poster="static/images/showcase_poster.jpg">
-      <source src="static/videos/showcase.mp4" type="video/mp4">
+    <video class="hero-bg-video" autoplay muted loop playsinline>
+      <source src="static/videos/hero_collage.mp4?v=2" type="video/mp4">
     </video>
     <div class="hero-scrim" aria-hidden="true"></div>
-    <button type="button" class="hero-watch-btn" id="openShowcase" aria-label="Watch showcase fullscreen" title="Watch showcase">
-      <i class="fas fa-expand"></i>
-    </button>
     <div class="hero-inner">
     <h1 class="hero-title">OopsieVerse</h1>
     <p class="hero-subtitle">A Safety Benchmark with Damage-Aware Simulation for Robot Manipulation</p>
@@ -1042,20 +1058,25 @@
   <section class="section tinted">
     <div class="sec-head reveal">
       <span class="sec-eyebrow">Overview</span>
-      <h2 class="sec-title"><span class="accent-underline">Abstract</span></h2>
+      <h2 class="sec-title"><span class="accent-underline">What is OopsieVerse?</span></h2>
     </div>
-    <div class="abstract-card reveal">
-      <p class="abstract-lead">What if your home robot finishes the job — but breaks your kitchen in the process?</p>
-      <p>
-        Robots are getting better at manipulating everyday objects, but task success alone is not enough. A robot that picks up an egg while cracking it, or pours water while spilling half of it, is not ready for real homes. The missing piece is safety — and today's simulators barely measure it.
-      </p>
-      <p>
-        OopsieVerse tackles this head on: a unified, damage-aware simulation framework for household manipulation. Instead of only rewarding task completion, it augments the standard decision-making setup with explicit damage signals and user-defined safety preferences. At its heart is DamageSim, a simulator-agnostic layer that converts physical signals like contact forces, temperature changes, and liquid interactions into measurable mechanical, thermal, or fluid damage. Paired with a benchmark suite of household tasks, OopsieVerse cleanly separates "did the robot succeed?" from "did it do so safely?"
-      </p>
-      <p>
-        Integrated into both BEHAVIOR-1K (Omniverse) and RoboCasa (MuJoCo), OopsieVerse supports safer data collection, damage-aware imitation and reinforcement learning, and safety benchmarking of Vision-Language-Action policies — for improved sim-to-real transfer of safer behaviors.
-      </p>
-    </div>
+    <div class="abstract-layout reveal">
+      <div class="abstract-card">
+        <p class="abstract-lead">What if your home robot finishes the job but breaks your kitchen in the process?</p>
+        <p>
+          Robots keep getting better at handling everyday objects, but finishing the task isn't the whole story. A robot that picks up an egg and cracks it, or pours a glass of water and spills half of it, still isn't ready for a real home. Safety is the part that's missing, and today's simulators barely measure it.
+        </p>
+        <p>
+          OopsieVerse is a unified, damage-aware simulation framework for household manipulation. At its core, DamageSim turns physical signals like contact forces, heat, and liquid into measurable mechanical, thermal, and fluid damage, so the benchmark can score not just whether a robot finished the task, but whether it did so safely. It runs in both BEHAVIOR-1K and RoboCasa, and supports safer data collection, damage-aware imitation and reinforcement learning, and Vision-Language-Action safety evaluation.
+        </p>
+      </div>
+      <div class="abstract-showcase">
+        <video autoplay muted loop playsinline poster="static/images/showcase_poster.jpg">
+          <source src="static/videos/showcase.mp4" type="video/mp4">
+        </video>
+        <button type="button" class="hero-watch-btn abstract-watch-btn" id="openShowcase" aria-label="Watch showcase fullscreen" title="Watch showcase"><i class="fas fa-expand"></i></button>
+      </div>
+    </div><!-- /abstract-layout -->
   </section>
 
   <!-- ================= WHAT'S INSIDE / PILLARS ================= -->
