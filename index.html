@@ -256,7 +256,7 @@
     /* Teaser */
     .teaser-wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 1.5rem 1rem; }
     .media-frame {
-      border-radius: var(--radius-lg); overflow: hidden; background: #000;
+      border-radius: var(--radius-lg); overflow: hidden; background: #fff;
       box-shadow: var(--shadow-lg); border: 1px solid var(--border);
     }
     .media-frame video { width: 100%; height: auto; display: block; }
@@ -339,7 +339,7 @@
     .dmg-card.therm { --dmg: var(--dmg-therm); }
     .dmg-card.fluid { --dmg: var(--dmg-fluid); }
     .dmg-card .dmg-top { height: 4px; background: var(--dmg); }
-    .dmg-card video { width: 100%; height: auto; display: block; background: #000; }
+    .dmg-card video { width: 100%; height: auto; display: block; background: #fff; }
     .damagesim-caption {
       text-align: center; font-weight: 600; font-size: .98rem; color: var(--text);
       padding: .85rem .5rem; display: flex; align-items: center; justify-content: center; gap: .5rem;
@@ -353,7 +353,7 @@
       text-align: center; font-family: var(--font-display); font-weight: 600;
       font-size: 1.4rem; line-height: 1.35; margin-bottom: 1.1rem; color: var(--text);
     }
-    .method-frame { border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-md); border: 1px solid var(--border); background: #000; }
+    .method-frame { border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-md); border: 1px solid var(--border); background: #fff; }
     .method-frame video { width: 100%; height: auto; display: block; }
 
     .damagesim-sim-row {
@@ -365,7 +365,7 @@
       border-radius: 12px; padding: 1.1rem 1.3rem; margin: 0;
     }
     .sim-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); }
-    .sim-card video { width: 100%; height: auto; display: block; background: #000; }
+    .sim-card video { width: 100%; height: auto; display: block; background: #fff; }
     .damagesim-sim-label {
       text-align: center; font-weight: 700; font-size: 1rem; color: var(--text);
       padding: .7rem .5rem; display: flex; align-items: center; justify-content: center; gap: .5rem;
@@ -393,7 +393,7 @@
     .oopsiebench-tile:hover { transform: scale(1.45); z-index: 5; box-shadow: var(--shadow-lg); }
     .oopsiebench-tile .video-box {
       width: 100%; padding-top: 100%; position: relative; overflow: hidden;
-      border-radius: 12px; border: 1px solid var(--border); background: #000;
+      border-radius: 12px; border: 1px solid var(--border); background: #fff;
     }
     .oopsiebench-tile .video-box video {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; display: block;
@@ -419,8 +419,8 @@
       padding: 2rem; background: rgba(5,7,12,.88); backdrop-filter: blur(4px); cursor: pointer;
     }
     .oopsiebench-modal.is-active { display: flex; }
-    .oopsiebench-modal-content { position: relative; max-width: 90vw; max-height: 85vh; cursor: default; }
-    .oopsiebench-modal-content video { display: block; width: 100%; max-height: 80vh; border-radius: 14px; box-shadow: 0 8px 40px rgba(0,0,0,.6); }
+    .oopsiebench-modal-content { position: relative; cursor: default; display: flex; flex-direction: column; align-items: center; max-width: 92vw; max-height: 88vh; }
+    .oopsiebench-modal-content video { display: block; width: auto; height: auto; max-width: 90vw; max-height: 78vh; border-radius: 14px; box-shadow: 0 8px 40px rgba(0,0,0,.6); }
     .oopsiebench-modal-caption { margin-top: .85rem; text-align: center; font-weight: 600; font-size: 1.15rem; color: #fff; font-family: var(--font-display); }
     .oopsiebench-modal-close {
       position: absolute; top: -14px; right: -14px; width: 42px; height: 42px; border: none; border-radius: 50%;
@@ -447,8 +447,24 @@
     .seg-tabs button:hover { color: var(--text); }
     .seg-tabs button.is-active { color: var(--accent-ink); background: var(--accent); box-shadow: var(--shadow-accent); }
 
-    .usecase-panel { display: none; }
-    .usecase-panel.is-active { display: block; animation: fadeUp .4s ease both; }
+    /* Use cases: one scrollable page with a clickable index (no tabs) */
+    .usecase-panel { display: block; scroll-margin-top: 90px; }
+    .usecase-panel + .usecase-panel { margin-top: 3.5rem; padding-top: 2.5rem; border-top: 1px solid var(--border); }
+    .usecase-item-title { display: flex; align-items: center; gap: .7rem; font-family: var(--font-sans); font-weight: 700; font-size: 1.5rem; line-height: 1.2; color: var(--text); margin: 0 0 1.1rem; }
+    .usecase-num { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; flex: 0 0 auto; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 1rem; font-weight: 700; box-shadow: var(--shadow-accent); }
+    .usecase-index { display: flex; flex-wrap: nowrap; justify-content: center; gap: .5rem; max-width: 100%; margin: 1.8rem auto 0; padding-bottom: .3rem; overflow-x: auto; }
+    .uc-chip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: .5rem; padding: .4rem .95rem .4rem .4rem; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-soft); font-family: var(--font-sans); font-weight: 600; font-size: .88rem; line-height: 1; white-space: nowrap; text-decoration: none; transition: color .15s, border-color .15s, background .15s, transform .12s; }
+    .uc-chip:hover { color: var(--text); border-color: var(--uc-color); background: var(--surface); transform: translateY(-1px); }
+    .uc-chip-num { display: inline-flex; align-items: center; justify-content: center; width: 1.5rem; height: 1.5rem; flex: 0 0 auto; border-radius: 999px; background: var(--uc-color, var(--accent)); color: #fff; font-size: .78rem; font-weight: 700; }
+    .uc-chip:nth-child(1), .usecase-panel:nth-of-type(1) .usecase-num { --uc-color: #4f46e5; }
+    .uc-chip:nth-child(2), .usecase-panel:nth-of-type(2) .usecase-num { --uc-color: #0ea5e9; }
+    .uc-chip:nth-child(3), .usecase-panel:nth-of-type(3) .usecase-num { --uc-color: #f59e0b; }
+    .uc-chip:nth-child(4), .usecase-panel:nth-of-type(4) .usecase-num { --uc-color: #e11d48; }
+    .uc-chip:nth-child(5), .usecase-panel:nth-of-type(5) .usecase-num { --uc-color: #16a34a; }
+    .usecase-num { background: var(--uc-color, var(--accent)); color: #fff; }
+    .usecase-backtop-wrap { text-align: center; margin-top: 2.5rem; }
+    .usecase-backtop { display: inline-block; font-size: .9rem; font-weight: 600; color: var(--text-soft); text-decoration: none; padding: .5rem 1rem; border: 1px solid var(--border); border-radius: 999px; transition: color .15s, border-color .15s; }
+    .usecase-backtop:hover { color: var(--accent); border-color: var(--accent); }
     .usecase-content-wrapper { margin-top: 1.8rem; }
     .usecase-content-inner { max-width: 960px; margin: 0 auto; }
     .usecase-content-inner .content { font-size: 1.05rem; line-height: 1.75; color: var(--text-soft); }
@@ -476,7 +492,7 @@
     .il-video-grid .video-row { margin-bottom: .7rem; position: relative; }
     .il-video-grid .video-box {
       position: relative; width: 100%; padding-top: 100%; border-radius: 12px; overflow: hidden;
-      box-shadow: var(--shadow-sm); background: #000; border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm); background: #fff; border: 1px solid var(--border);
     }
     .il-video-grid .video-box video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 
@@ -485,7 +501,7 @@
     .vla-video-grid .carousel-cell { margin: 0; text-align: center; }
     .vla-video-grid .video-box {
       width: 100%; padding-top: 100%; position: relative; overflow: hidden;
-      border-radius: 12px; border: 1px solid var(--border); background: #000; box-shadow: var(--shadow-sm);
+      border-radius: 12px; border: 1px solid var(--border); background: #fff; box-shadow: var(--shadow-sm);
     }
     .vla-video-grid .video-box video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
     .vla-video-grid .carousel-cell p { margin-top: .5rem; font-weight: 600; font-size: .9rem; color: var(--text); }
@@ -508,7 +524,7 @@
     .sim2real-video-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2rem; margin-top: 1.6rem; }
     .sim2real-video-grid .video-box {
       position: relative; width: 100%; padding-top: 100%; border-radius: 12px; overflow: hidden;
-      box-shadow: var(--shadow-sm); background: #000; border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm); background: #fff; border: 1px solid var(--border);
     }
     .sim2real-video-grid .video-box video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
     .sim2real-caption { margin-top: .55rem; font-weight: 600; text-align: center; font-size: .92rem; color: var(--text); }
@@ -642,10 +658,10 @@
       --font-display: 'IBM Plex Sans', system-ui, sans-serif;
       --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
 
-      --bg: #f4f4f1;
-      --bg-alt: #eeeee8;
+      --bg: #ffffff;
+      --bg-alt: #f6f6f5;
       --surface: #ffffff;
-      --surface-2: #faf9f6;
+      --surface-2: #fafafa;
       --text: #16181c;
       --text-soft: #3c3e44;
       --text-muted: #76787f;
@@ -736,7 +752,8 @@
     .dmg-card, .sim-card, .abstract-card, .media-frame, .method-frame {
       box-shadow: none; border: 1px solid var(--border-strong);
     }
-    .media-frame, .method-frame { border-radius: var(--radius); }
+    /* Hook (teaser) video + DamageSim animation: no outline so they blend into the white page */
+    .media-frame, .method-frame { border-radius: var(--radius); border: none; box-shadow: none; }
     .dmg-card:hover, .sim-card:hover { transform: translateY(-3px); box-shadow: none; border-color: var(--text); }
     .dmg-card .dmg-top { height: 3px; }
     .damagesim-caption .ico { border-radius: 4px; }
@@ -804,7 +821,7 @@
        Showcase opener + section pillars + scroll-snap
        ============================================================ */
     /* Full-bleed cinematic showcase */
-    .showcase-full { position: relative; width: 100%; margin: 0; background: #000; line-height: 0; overflow: hidden; }
+    .showcase-full { position: relative; width: 100%; margin: 0; background: #fff; line-height: 0; overflow: hidden; }
     .showcase-full video { display: block; width: 100%; height: clamp(360px, 74vh, 800px); object-fit: cover; }
     .showcase-tag {
       position: absolute; left: 1.1rem; top: 1.1rem; line-height: 1;
@@ -879,7 +896,7 @@
     }
     .showcase-modal.is-active { display: flex; }
     .showcase-modal-content { position: relative; width: min(1120px, 94vw); cursor: default; }
-    .showcase-modal-content video { display: block; width: 100%; max-height: 84vh; border-radius: 10px; background: #000; box-shadow: 0 8px 44px rgba(0,0,0,.6); }
+    .showcase-modal-content video { display: block; width: 100%; max-height: 84vh; border-radius: 10px; background: #fff; box-shadow: 0 8px 44px rgba(0,0,0,.6); }
     .showcase-modal-close {
       position: absolute; top: -14px; right: -14px; width: 42px; height: 42px; border: none; border-radius: 50%;
       background: #fff; color: #333; font-size: 1.5rem; line-height: 1; cursor: pointer;
@@ -1237,16 +1254,6 @@
       </div>
 
       <p class="oopsiebench-hint"><i class="fas fa-up-right-and-down-left-from-center"></i> &nbsp;Click a tile to enlarge.</p>
-
-      <div id="oopsiebenchModal" class="oopsiebench-modal" aria-hidden="true">
-        <div class="oopsiebench-modal-content" onclick="event.stopPropagation()">
-          <button type="button" class="oopsiebench-modal-nav prev" id="oopsiebenchModalPrev" aria-label="Previous task">&#8249;</button>
-          <button type="button" class="oopsiebench-modal-close" id="oopsiebenchModalClose" aria-label="Close">×</button>
-          <video id="oopsiebenchModalVideo" controls muted loop playsinline></video>
-          <p class="oopsiebench-modal-caption" id="oopsiebenchModalCaption"></p>
-          <button type="button" class="oopsiebench-modal-nav next" id="oopsiebenchModalNext" aria-label="Next task">&#8250;</button>
-        </div>
-      </div>
     </div>
   </section>
 
@@ -1269,22 +1276,21 @@
     <div class="container is-max-desktop">
       <div class="sec-head reveal">
         <span class="sec-eyebrow">Experiments</span>
-        <h2 class="sec-title" style="max-width: 880px; margin-left: auto; margin-right: auto;">How can OopsieVerse enable <span class="accent-underline">safer policy learning and evaluation</span>?</h2>
+        <h2 class="sec-title" style="max-width: 880px; margin-left: auto; margin-right: auto;">What can you do with <span class="accent-underline">OopsieVerse</span>?</h2>
       </div>
 
-      <div class="usecase-tabs-wrapper reveal">
-        <div class="seg-tabs usecase-tabs" aria-label="Use case tabs">
-          <button type="button" class="is-active" data-usecase="safety" aria-controls="usecase-panel-safety">Safety-aware data collection</button>
-          <button type="button" data-usecase="il" aria-controls="usecase-panel-il">IL</button>
-          <button type="button" data-usecase="rl" aria-controls="usecase-panel-rl">RL</button>
-          <button type="button" data-usecase="vla" aria-controls="usecase-panel-vla">VLA evals</button>
-          <button type="button" data-usecase="sim2real" aria-controls="usecase-panel-sim2real">Sim2Real</button>
-        </div>
-      </div>
+      <nav class="usecase-index reveal" aria-label="Use case index">
+        <a class="uc-chip" href="#uc-safety"><span class="uc-chip-num">1</span>Safe data collection</a>
+        <a class="uc-chip" href="#uc-il"><span class="uc-chip-num">2</span>Imitation learning</a>
+        <a class="uc-chip" href="#uc-rl"><span class="uc-chip-num">3</span>Reinforcement learning</a>
+        <a class="uc-chip" href="#uc-vla"><span class="uc-chip-num">4</span>VLA evaluations</a>
+        <a class="uc-chip" href="#uc-sim2real"><span class="uc-chip-num">5</span>Sim2Real</a>
+      </nav>
 
       <div class="usecase-content-wrapper">
         <div class="usecase-content-inner">
-      <div id="usecase-panel-safety" class="usecase-panel is-active" data-usecase-panel="safety">
+      <div id="uc-safety" class="usecase-panel">
+        <h3 class="usecase-item-title"><span class="usecase-num">1</span> Safety-aware data collection</h3>
         <div class="content has-text-justified">
           OopsieVerse can provide real-time safety feedback during data collection, enabling data collectors to collect safer data.
             This feedback is provided in two ways: (1) damage-based coloration and (2) health bars of tracked objects.
@@ -1300,7 +1306,8 @@
         </div>
       </div>
 
-      <div id="usecase-panel-il" class="usecase-panel" data-usecase-panel="il">
+      <div id="uc-il" class="usecase-panel">
+        <h3 class="usecase-item-title"><span class="usecase-num">2</span> Imitation learning (IL)</h3>
         <div class="content has-text-justified" style="margin-top: 0.75rem;">
           Many real-world (or sim-collected) demonstration datasets mix safe and unsafe behavior. Using DamageSim, we can automatically flag trajectories that incur damage and filter them out to construct a dataset of only safe demonstrations. In the videos below, the top row shows an IL policy trained on the full dataset (including unsafe trajectories), while the bottom row shows a policy trained on the filtered safe-only demonstrations.
         </div>
@@ -1402,7 +1409,8 @@
         </div>
       </div>
 
-      <div id="usecase-panel-rl" class="usecase-panel" data-usecase-panel="rl">
+      <div id="uc-rl" class="usecase-panel">
+        <h3 class="usecase-item-title"><span class="usecase-num">3</span> Reinforcement learning (RL)</h3>
         <div class="content has-text-justified" style="margin-top: 0.75rem;">
           DamageSim lets us turn physically-grounded damage signals into a shaping reward that penalizes harmful interactions.
           Combined with the task reward, this yields a learning signal that encourages agents to complete the task while minimizing damage.
@@ -1425,7 +1433,8 @@
         </div>
       </div>
 
-      <div id="usecase-panel-vla" class="usecase-panel" data-usecase-panel="vla">
+      <div id="uc-vla" class="usecase-panel">
+        <h3 class="usecase-item-title"><span class="usecase-num">4</span> VLA evaluations</h3>
         <div class="content has-text-justified" style="margin-top: 0.75rem;">
           We evaluate the safety of modern manipulation policies by benchmarking <a href="https://github.com/NVIDIA/Isaac-GR00T">GR00T</a>, a state-of-the-art Vision-Language-Action model
           from NVIDIA. Even when GR00T achieves high task success, it frequently causes damage, resulting in much lower safe success
@@ -1521,7 +1530,8 @@
         </div>
       </div>
 
-      <div id="usecase-panel-sim2real" class="usecase-panel" data-usecase-panel="sim2real">
+      <div id="uc-sim2real" class="usecase-panel">
+        <h3 class="usecase-item-title"><span class="usecase-num">5</span> Sim2Real transfer</h3>
         <div class="content has-text-justified" style="margin-top: 0.75rem;">
           Our ultimate goal is safe real-world robot behavior, so we test whether policies trained with OopsieVerse transfer safely to real world.
           Compared to a baseline IL policy trained on all data, a damage-aware IL policy trained on health-filtered episodes behaves
@@ -1566,9 +1576,8 @@
       </div>
         </div>
       </div>
-      <div class="usecase-nav">
-        <button type="button" id="usecaseArrowPrev" class="carousel-btn" aria-label="Previous section"><span class="arrow">&#8249;</span> Previous</button>
-        <button type="button" id="usecaseArrowNext" class="carousel-btn" aria-label="Next section">Next <span class="arrow">&#8250;</span></button>
+      <div class="usecase-backtop-wrap">
+        <a class="usecase-backtop" href="#use-cases">&#8593; Back to top</a>
       </div>
     </div>
   </section>
@@ -1599,6 +1608,17 @@
       <video id="showcaseModalVideo" controls playsinline>
         <source src="static/videos/showcase.mp4" type="video/mp4">
       </video>
+    </div>
+  </div>
+
+  <!-- OopsieBench task video modal: direct child of <body> so position:fixed centers on the viewport (not trapped in a transformed .page ancestor) -->
+  <div id="oopsiebenchModal" class="oopsiebench-modal" aria-hidden="true">
+    <div class="oopsiebench-modal-content" onclick="event.stopPropagation()">
+      <button type="button" class="oopsiebench-modal-nav prev" id="oopsiebenchModalPrev" aria-label="Previous task">&#8249;</button>
+      <button type="button" class="oopsiebench-modal-close" id="oopsiebenchModalClose" aria-label="Close">×</button>
+      <video id="oopsiebenchModalVideo" controls muted loop playsinline></video>
+      <p class="oopsiebench-modal-caption" id="oopsiebenchModalCaption"></p>
+      <button type="button" class="oopsiebench-modal-nav next" id="oopsiebenchModalNext" aria-label="Next task">&#8250;</button>
     </div>
   </div>
 
@@ -1693,7 +1713,12 @@
         });
         var navLinks = Array.prototype.slice.call(document.querySelectorAll('.ov-links a.nav-link'), 0);
 
-        function keyFromHash(h) { return routes.hasOwnProperty(h) ? routes[h] : 'home'; }
+        function keyFromHash(h) {
+          if (routes.hasOwnProperty(h)) return routes[h];
+          // In-page anchors within the Use Cases page (e.g. #uc-il) stay on that page.
+          if (h && h.indexOf('#uc-') === 0) return 'usecases';
+          return 'home';
+        }
 
         function show(key, noScroll) {
           if (!pages[key]) key = 'home';
@@ -1921,68 +1946,7 @@
       }
       updateCarouselButtons();
 
-      // Use-case tabs + arrow nav
-      (function() {
-        var usecaseOrder = ['safety', 'il', 'rl', 'vla', 'sim2real'];
-        var prevBtn = document.getElementById('usecaseArrowPrev');
-        var nextBtn = document.getElementById('usecaseArrowNext');
-
-        function setActiveUsecase(key) {
-          var tabs = Array.prototype.slice.call(document.querySelectorAll('[data-usecase]'), 0);
-          var panels = Array.prototype.slice.call(document.querySelectorAll('[data-usecase-panel]'), 0);
-
-          tabs.forEach(function(a) {
-            var isActive = a.dataset.usecase === key;
-            a.classList.toggle('is-active', isActive);
-          });
-
-          panels.forEach(function(p) {
-            p.classList.toggle('is-active', p.dataset.usecasePanel === key);
-          });
-
-          updateUsecaseArrows();
-
-          window.requestAnimationFrame(function() {
-            var track = document.getElementById('carouselTrack');
-            if (track) {
-              var shiftPct = carouselPos * (100 / visibleCols);
-              track.style.transform = 'translateX(-' + shiftPct + '%)';
-              updateCarouselButtons();
-            }
-          });
-        }
-
-        function updateUsecaseArrows() {
-          var activePanel = document.querySelector('.usecase-panel.is-active');
-          var key = activePanel ? activePanel.dataset.usecasePanel : 'safety';
-          var idx = usecaseOrder.indexOf(key);
-          if (idx < 0) idx = 0;
-          if (prevBtn) prevBtn.style.display = idx <= 0 ? 'none' : 'inline-flex';
-          if (nextBtn) nextBtn.style.display = idx >= usecaseOrder.length - 1 ? 'none' : 'inline-flex';
-        }
-
-        var tabLinks = Array.prototype.slice.call(document.querySelectorAll('[data-usecase]'), 0);
-        tabLinks.forEach(function(a) {
-          a.addEventListener('click', function() {
-            setActiveUsecase(a.dataset.usecase);
-          });
-        });
-
-        if (prevBtn) prevBtn.addEventListener('click', function() {
-          var activePanel = document.querySelector('.usecase-panel.is-active');
-          var key = activePanel ? activePanel.dataset.usecasePanel : 'safety';
-          var idx = usecaseOrder.indexOf(key);
-          if (idx > 0) setActiveUsecase(usecaseOrder[idx - 1]);
-        });
-        if (nextBtn) nextBtn.addEventListener('click', function() {
-          var activePanel = document.querySelector('.usecase-panel.is-active');
-          var key = activePanel ? activePanel.dataset.usecasePanel : 'safety';
-          var idx = usecaseOrder.indexOf(key);
-          if (idx >= 0 && idx < usecaseOrder.length - 1) setActiveUsecase(usecaseOrder[idx + 1]);
-        });
-
-        updateUsecaseArrows();
-      })();
+      // Use cases are now a single scrollable page with an index — no tab/arrow JS needed.
 
       // VLA mini-carousels (each tile cycles through 3 eval clips)
       (function() {
