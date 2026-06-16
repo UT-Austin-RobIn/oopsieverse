@@ -945,6 +945,41 @@
     .pillar:hover .p-arrow { color: var(--text); transform: translateX(3px); }
     @media (max-width: 820px) { .pillars { grid-template-columns: 1fr; } }
 
+    /* Venue line in the hero (under authors / affiliation) */
+    .hero-venue {
+      display: inline-flex; align-items: center; gap: .55rem;
+      margin: 1.15rem auto 0; font-family: var(--font-mono); font-weight: 600;
+      font-size: .8rem; letter-spacing: .16em; text-transform: uppercase;
+      color: rgba(255,255,255,.9); text-shadow: 0 1px 10px rgba(0,0,0,.55);
+    }
+    .hero-venue .venue-pip {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--health-grad); box-shadow: 0 0 8px rgba(255,255,255,.35);
+    }
+    /* Subtle icon on the Explore pillars */
+    .p-icon { color: var(--accent); margin-right: .5rem; font-size: .85em; opacity: .8; }
+    /* Citation / BibTeX block */
+    .cite-card {
+      position: relative; max-width: 920px; margin: 0 auto;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 1.2rem 1.4rem;
+    }
+    .cite-head { display: flex; align-items: center; justify-content: flex-end; margin-bottom: .7rem; }
+    .cite-copy {
+      display: inline-flex; align-items: center; gap: .4rem;
+      font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .06em;
+      font-size: .7rem; color: var(--text); cursor: pointer;
+      background: var(--bg-alt); border: 1px solid var(--border-strong);
+      border-radius: 6px; padding: .4rem .7rem;
+      transition: background .2s ease, color .2s ease, border-color .2s ease;
+    }
+    .cite-copy:hover { background: var(--text); color: var(--bg); border-color: var(--text); }
+    .cite-bibtex {
+      margin: 0; overflow-x: auto; padding: .2rem 0 0;
+      font-family: var(--font-mono); font-size: .82rem; line-height: 1.65;
+      color: var(--text-soft); white-space: pre;
+    }
+
     /* ---- Separate "pages": one section view at a time ---- */
     .page { display: none; }
     .page.is-active { display: block; animation: pageIn .4s ease both; }
@@ -994,6 +1029,12 @@
       </div>
     </div>
     <div class="ov-nav-actions">
+      <a href="static/pdfs/oopsieverse.pdf" class="nav-github" target="_blank" rel="noopener noreferrer" aria-label="Paper" title="Paper">
+        <i class="fas fa-file-pdf"></i>
+      </a>
+      <a href="https://robin-lab.cs.utexas.edu/oopsieverse/documentation/" class="nav-github" target="_blank" rel="noopener noreferrer" aria-label="Documentation" title="Documentation">
+        <i class="fas fa-book"></i>
+      </a>
       <a href="https://github.com/UT-Austin-RobIn/oopsieverse" class="nav-github" target="_blank" rel="noopener noreferrer" aria-label="GitHub repository">
         <i class="fab fa-github"></i>
       </a>
@@ -1026,6 +1067,8 @@
       University of Texas at Austin
       <span class="eql"><strong>*</strong>Equal contribution; order by dice roll</span>
     </div>
+
+    <div class="hero-venue"><span class="venue-pip" aria-hidden="true"></span>Robotics: Science and Systems (RSS) 2026</div>
 
     <div class="hero-actions">
       <a href="static/pdfs/oopsieverse.pdf" target="_blank" class="btn btn-primary">
@@ -1085,23 +1128,59 @@
     <div class="pillars">
       <a class="pillar" href="#damagesim">
         <span class="p-idx">01</span>
-        <span class="p-name">DamageSim</span>
+        <span class="p-name"><i class="p-icon fas fa-heart-crack" aria-hidden="true"></i>DamageSim</span>
         <p class="p-desc">A simulator-agnostic plugin that turns contact forces, heat, and liquid exposure into measurable mechanical, thermal, and fluid damage.</p>
         <span class="p-arrow">Explore &rarr;</span>
       </a>
       <a class="pillar" href="#oopsiebench">
         <span class="p-idx">02</span>
-        <span class="p-name">OopsieBench</span>
+        <span class="p-name"><i class="p-icon fas fa-kitchen-set" aria-hidden="true"></i>OopsieBench</span>
         <p class="p-desc">A suite of 32 household tasks that contrast easy-but-risky strategies with safer, more careful ones.</p>
         <span class="p-arrow">Explore &rarr;</span>
       </a>
       <a class="pillar" href="#use-cases">
         <span class="p-idx">03</span>
-        <span class="p-name">Use Cases</span>
+        <span class="p-name"><i class="p-icon fas fa-share-nodes" aria-hidden="true"></i>Use Cases</span>
         <p class="p-desc">Safer data collection, damage-aware imitation and reinforcement learning, VLA safety evals, and sim-to-real transfer.</p>
         <span class="p-arrow">Explore &rarr;</span>
       </a>
     </div>
+  </section>
+
+  <!-- ================= CITATION ================= -->
+  <section class="section tinted" id="citation">
+    <div class="sec-head reveal">
+      <span class="sec-eyebrow">Cite</span>
+      <h2 class="sec-title"><span class="accent-underline">BibTeX</span></h2>
+    </div>
+    <div class="cite-card reveal">
+      <div class="cite-head">
+        <button type="button" class="cite-copy" id="citeCopy" aria-label="Copy BibTeX to clipboard">
+          <i class="fas fa-copy" aria-hidden="true"></i><span>Copy</span>
+        </button>
+      </div>
+      <pre class="cite-bibtex"><code id="citeBibtex">@inproceedings{balaji2026oopsieverse,
+  title={OopsieVerse: A Safety Benchmark with Damage-Aware Simulation for Robot Manipulation},
+  author={Balaji, Arnav and Bahety, Arpit and Ambatipudi, Sriniket and Lam, Daniel and Xu, Junhong and Mart{\'\i}n-Mart{\'\i}n, Roberto},
+  booktitle={Robotics: Science and Systems (RSS), 2026},
+  year={2026}
+}</code></pre>
+    </div>
+    <script>
+      (function () {
+        var btn = document.getElementById('citeCopy');
+        var code = document.getElementById('citeBibtex');
+        if (!btn || !code) return;
+        btn.addEventListener('click', function () {
+          navigator.clipboard.writeText(code.textContent).then(function () {
+            var label = btn.querySelector('span');
+            var prev = label.textContent;
+            label.textContent = 'Copied!';
+            setTimeout(function () { label.textContent = prev; }, 1500);
+          });
+        });
+      })();
+    </script>
   </section>
 
   </div><!-- /page-home -->
