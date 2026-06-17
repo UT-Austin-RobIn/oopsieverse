@@ -249,6 +249,12 @@ def playback_reset(env):
     _place_saucepot(env)
 
 
+def playback_step(env):
+    """Re-apply the burner toggle each step — task_completion_check (which calls
+    _assist_turn_on in teleop) isn't run during playback."""
+    _assist_turn_on(env)
+
+
 def task_completion_check(env):
     # Toggle the burner on when the gripper reaches the right-most knob (teleop assist).
     _assist_turn_on(env)

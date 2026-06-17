@@ -159,6 +159,20 @@ def reset(env):
     for _ in range(10): og.sim.step()
 
 
+def playback_reset(env):
+    """Seat the fixed-base microwave on the counter — reset() isn't run during
+    playback, so without this it stays at its raw (floating) spawn pose."""
+    microwave = env.scene.object_registry("name", "microwave")
+    if microwave is None:
+        return
+    try:
+        _seat_on_counter(env, microwave)
+    except RuntimeError as e:
+        print(e)
+    if hasattr(microwave, "keep_still"):
+        microwave.keep_still()
+
+
 def task_completion_check(env):
     # Check if any of the drawers are fully open
     microwave = env.scene.object_registry("name", "microwave")

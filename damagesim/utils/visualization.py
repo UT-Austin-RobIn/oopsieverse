@@ -248,8 +248,29 @@ def update_live_health_bars(
 # Video saving utilities
 # ═══════════════════════════════════════════════════════════════════════
 
-# Optional per-object display overrides (empty by default; auto-formatting is used instead).
-OBJ_NAME_DISPLAY_NAME_MAPPING: Dict[str, str] = {}
+# Exact per-object display overrides (checked before the prefix rules below).
+OBJ_NAME_DISPLAY_NAME_MAPPING: Dict[str, str] = {
+    "sink_1_main_group": "Faucet",
+    "sink_right_group": "Faucet",
+    "distr_object": "Coffee Dispenser",
+    "bottom_cabinet_bamfsz_1": "Drawer",
+}
+
+# Prefix rules collapsing layout-suffixed RoboCasa fixture names (e.g.
+# "microwave_main_group_1") to one label. Most-specific first; case-insensitive.
+OBJ_NAME_PREFIX_DISPLAY_RULES = [
+    ("microwave_housing", "Microwave Housing"),
+    ("microwave", "Microwave"),
+    ("stovetop", "Stove"),
+    ("stove", "Stove"),
+    ("coffee_machine", "Coffee Machine"),
+    ("counter", "Counter"),
+    ("sink", "Sink"),
+    ("drawer", "Drawer"),
+    ("cabinet", "Cabinet"),
+    ("stool", "Stool"),
+    ("panda", "Robot"),
+]
 
 
 def format_object_display_name(obj_name: str) -> str:
@@ -275,9 +296,13 @@ def resolve_object_display_name(
     obj_name: str,
     overrides: Optional[Dict[str, str]] = None,
 ) -> str:
-    """Return an override when present, otherwise :func:`format_object_display_name`."""
+    """Return a display label: exact override → prefix rule → auto-formatted name."""
     if overrides and obj_name in overrides:
         return overrides[obj_name]
+    lowered = obj_name.lower()
+    for prefix, label in OBJ_NAME_PREFIX_DISPLAY_RULES:
+        if lowered.startswith(prefix):
+            return label
     return format_object_display_name(obj_name)
 
 
