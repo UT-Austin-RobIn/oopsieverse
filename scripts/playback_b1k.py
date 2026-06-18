@@ -252,6 +252,42 @@ def extract_temperature_from_hdf5(
     return temps
 
 
+def extract_water_contacts_from_hdf5(
+    f: h5py.File,
+    demo_key: str,
+    target_objects_water_contacts: List[str],
+    contact_keys: List[str],
+):
+    """
+    Read per-link water-contact counts from HDF5 ``info/damage_info``
+    (``damage_info[obj][part]["electrical"][key]``). Uses 0.0 when missing.
+    """
+    contacts: Dict[str, Dict[str, List[float]]] = dict()
+    for obj_name in target_objects_water_contacts:
+        contacts[obj_name] = dict()
+        for key in contact_keys:
+            contacts[obj_name][key] = []
+    for i in range(len(f[f"data/{demo_key}/info/damage_info"])):
+        damage_info = json.loads(f[f"data/{demo_key}/info/damage_info"][i].decode("utf-8"))
+        for obj_name in target_objects_water_contacts:
+            parts = obj_name.split("@", 1)
+            if len(parts) != 2:
+                for key in contact_keys:
+                    contacts[obj_name][key].append(0.0)
+                continue
+            obj_key, link_key = parts
+            link_info = damage_info.get(obj_key, {}).get(link_key, {})
+            electrical = link_info.get("electrical", {})
+            for key in contact_keys:
+                raw = electrical.get(key)
+                try:
+                    val = float(raw) if raw is not None else 0.0
+                except (TypeError, ValueError):
+                    val = 0.0
+                contacts[obj_name][key].append(val)
+    return contacts
+
+
 def overlay_health_on_frames(
     f: h5py.File,
     demo_key: str,
@@ -377,6 +413,7 @@ def run_visualize(args, task_cfg):
         save_rgb_health_video_with_overlay,
         save_rgb_force_video,
         save_rgb_temperature_video,
+        save_rgb_water_contact_video,
     )
     from damagesim.omnigibson.params.damage_params import PARAMS
 
@@ -425,9 +462,9 @@ def run_visualize(args, task_cfg):
             health,
         )
 
-        # # Plain camera video (with health tint)
-        # cam_path = os.path.join(output_dir, f"demo_{demo_idx}_camera_video.mp4")
-        # save_rgb_camera_video(output_video_path=cam_path, imgs=imgs, fps=30)
+        # Health-coloring only: the sim video with damage tint, no health bars.
+        color_path = os.path.join(output_dir, f"demo_{demo_idx}_health_color_video.mp4")
+        save_rgb_camera_video(output_video_path=color_path, imgs=imgs, fps=30)
 
         # Health overlay bars
         overlay_path = os.path.join(
@@ -483,6 +520,38 @@ def run_visualize(args, task_cfg):
                     ],
                 )
                 print(f"  Saved temperature plot -> {temp_video_path}")
+
+        # Water-contact plot for fluid tasks (objects in contact with liquid).
+        target_objects_water_contacts = getattr(task_cfg, "target_objects_water_contacts", None) or []
+        if target_objects_water_contacts:
+            contact_keys = ["particle_count"]
+            water = extract_water_contacts_from_hdf5(
+                f, demo_key, target_objects_water_contacts, contact_keys
+            )
+            n_frames = len(imgs)
+            has_water = False
+            for obj_name in target_objects_water_contacts:
+                for k in contact_keys:
+                    arr = water.get(obj_name, {}).get(k, [])
+                    if len(arr) > n_frames:
+                        water[obj_name][k] = arr[:n_frames]
+                    elif len(arr) < n_frames:
+                        water[obj_name][k] = arr + [0.0] * (n_frames - len(arr))
+                    if len(water[obj_name][k]) == n_frames:
+                        has_water = True
+            if has_water:
+                water_video_path = os.path.join(
+                    output_dir, f"demo_{demo_idx}_water_contact_video.mp4"
+                )
+                save_rgb_water_contact_video(
+                    output_video_path=water_video_path,
+                    imgs=imgs,
+                    target_objects=target_objects_water_contacts,
+                    data=water,
+                    contact_keys=tuple(contact_keys),
+                    fps=30,
+                )
+                print(f"  Saved water-contact plot -> {water_video_path}")
 
 
     f.close()

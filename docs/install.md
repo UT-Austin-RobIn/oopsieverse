@@ -51,6 +51,18 @@ python -m omnigibson.examples.robots.all_robots_visualizer
 ```bash
 python -m robocasa.demos.demo_kitchen_scenes
 ```
+
+## 5. Download demonstrations
+
+Pull the pre-collected safe/unsafe teleop demos from Hugging Face into `oopsiebench/demos/`:
+
+```bash
+python scripts/download_demos.py                  # both simulators
+python scripts/download_demos.py --sim robocasa   # or just one (robocasa / behavior1k)
+```
+
+Then head to the [Quickstart](quickstart.md) to browse and replay them.
+
 <!-- 
 !!! tip "Docs-only dependencies"
 

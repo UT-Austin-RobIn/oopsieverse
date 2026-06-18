@@ -25,3 +25,9 @@ site/
 
 # Test/demo HDF5 (hosted on Hugging Face; use scripts/download_test_data.py)
 oopsiebench/test_data/**/*.hdf5
+
+# Maintainer-only scripts (must not ship to users)
+scripts/upload_demos_hf.py
+scripts/export_docs_videos.sh
+scripts/migrate_off_git_lfs.sh
+scripts/teleop_wine_glass_drop_load.py

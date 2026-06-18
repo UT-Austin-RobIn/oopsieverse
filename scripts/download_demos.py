@@ -15,7 +15,6 @@ Usage:
     python scripts/download_demos.py                       # default: both (all)
     python scripts/download_demos.py --sim robocasa
     python scripts/download_demos.py --sim behavior1k
-    python scripts/download_demos.py --sim both --yes      # skip the confirmation prompt
 
 The dataset is public, so no login/token is required.
 """
@@ -52,9 +51,6 @@ def main():
         "--sim", default="both",
         choices=["robocasa", "behavior1k", "both"],
         help="which simulator's data to download (default: both = all)")
-    parser.add_argument(
-        "-y", "--yes", action="store_true",
-        help="skip the confirmation prompt and download immediately")
     args = parser.parse_args()
 
     sims = list(SIMS) if args.sim == "both" else [args.sim]
@@ -81,11 +77,10 @@ def main():
     print(f"  from: https://huggingface.co/datasets/{REPO_ID}")
     print(f"  into: {LOCAL_DIR}\n")
 
-    if not args.yes:
-        resp = input("Proceed with download? [y/N] ").strip().lower()
-        if resp not in ("y", "yes"):
-            print("Aborted. Nothing was downloaded.")
-            return
+    resp = input("Proceed with download? [y/N] ").strip().lower()
+    if resp not in ("y", "yes"):
+        print("Aborted. Nothing was downloaded.")
+        return
 
     snapshot_download(
         repo_id=REPO_ID,

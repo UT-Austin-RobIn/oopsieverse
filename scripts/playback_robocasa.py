@@ -342,10 +342,20 @@ def main():
         src_f.close()
         playback_hdf5_file.close()
 
+        # Release the MuJoCo / GL context cleanly once replay is done.
+        try:
+            env.close()
+        except Exception:
+            pass
+
 
     if args.visualize or args.metrics:
         f = h5py.File(args.output, "r")
-        output_video_dir = f"demos/robocasa/playback_videos/{os.path.splitext(os.path.basename(args.output))[0]}"
+        # Sit videos next to the playback HDF5: <output_parent>/playback_videos/<name>.
+        _out_base = os.path.splitext(os.path.basename(args.output))[0]
+        output_video_dir = os.path.join(
+            os.path.dirname(os.path.dirname(args.output)) or ".", "playback_videos", _out_base
+        )
         os.makedirs(output_video_dir, exist_ok=True)
 
         final_obj_healths = defaultdict(list)
@@ -424,9 +434,10 @@ def main():
 
                 imgs = np.array(new_imgs)
 
-                # Save camera video
-                camera_video_path = os.path.join(output_video_dir, f"{demo_name}_camera_video.mp4")
-                save_rgb_camera_video(output_video_path=camera_video_path, imgs=imgs)
+                # Health-coloring only: the sim video with damage tint, no health bars.
+                color_video_path = os.path.join(output_video_dir, f"{demo_name}_health_color_video.mp4")
+                save_rgb_camera_video(output_video_path=color_video_path, imgs=imgs)
+                print(f"  Saved health color video   -> {color_video_path}")
 
                 # Save force video
                 data = {}
@@ -449,6 +460,7 @@ def main():
 
                 forces_video_path = os.path.join(output_video_dir, f"{demo_name}_forces_video.mp4")
                 save_rgb_force_video(output_video_path=forces_video_path, imgs=imgs, target_objects=target_objects_forces, data=forces_by_object, forces_to_plot=force_keys)
+                print(f"  Saved forces video        -> {forces_video_path}")
 
                 health_video_path = os.path.join(
                     output_video_dir, f"{demo_name}_health_overlay_video.mp4"
@@ -461,8 +473,12 @@ def main():
                     fps=30,
                     panel_title="Health",
                 )
+                print(f"  Saved health overlay video -> {health_video_path}")
 
         f.close()
+
+        if args.visualize:
+            print(f"\nVideos saved to {output_video_dir}")
 
     if args.metrics:
         print(f"\n{'='*40}")
@@ -479,3 +495,9 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # Force a clean exit code: the MuJoCo / GL context teardown can crash the
+    # interpreter on shutdown even when playback succeeded. Flush first so no
+    # output is lost, then exit hard with status 0.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)

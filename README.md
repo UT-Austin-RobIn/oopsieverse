@@ -97,6 +97,29 @@ Integrated into both **BEHAVIOR-1K** (Omniverse) and **RoboCasa** (MuJoCo), Oops
 
 ## Usage
 
+### Download demonstrations
+
+Pre-collected **safe/unsafe** teleop demonstrations are hosted on Hugging Face. Download them into `oopsiebench/demos/`:
+
+```bash
+python scripts/download_demos.py                  # both simulators
+python scripts/download_demos.py --sim robocasa   # or just one (robocasa / behavior1k)
+```
+
+### Quickstart: browse & visualize demos
+
+The quickstart scripts interactively list the downloaded tasks, let you pick one (safe/unsafe), and replay it into a health-overlay video — the fastest way to see OopsieVerse in action:
+
+```bash
+conda activate oopsieverse            # BEHAVIOR-1K
+python scripts/quickstart_b1k.py
+
+conda activate oopsieverse_robocasa   # RoboCasa
+python scripts/quickstart_robocasa.py
+```
+
+### Manual workflow
+
 OopsieVerse uses a two-stage workflow:
 
 1. **Teleoperate** to collect demonstrations, optionally with live damage feedback. Trajectories are saved to an HDF5 file.

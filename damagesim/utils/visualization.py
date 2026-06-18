@@ -1293,6 +1293,8 @@ def save_rgb_temperature_video(
     fps=30,
     y_unit: str = "°C",
     thresholds=None,
+    title: str = "Temperature History",
+    ylabel: Optional[str] = None,
 ):
     """
     Save video with RGB frames alongside robot / link temperature histories.
@@ -1352,9 +1354,9 @@ def save_rgb_temperature_video(
     video_im = ax_video.imshow(imgs[0][:, :, :3])
 
     ax_temp = fig.add_subplot(gs[0, 1])
-    ax_temp.set_title("Temperature History")
+    ax_temp.set_title(title)
     ax_temp.set_xlabel("Time (s)")
-    ax_temp.set_ylabel(f"Temperature ({y_unit})")
+    ax_temp.set_ylabel(ylabel if ylabel is not None else f"Temperature ({y_unit})")
     ax_temp.set_xlim(0, T / fps)
     ax_temp.set_ylim(ymin, ymax)
     ax_temp.grid(True)
@@ -1413,6 +1415,32 @@ def save_rgb_temperature_video(
 
     ani.save(output_video_path, writer=writer)
     plt.close(fig)
+
+
+def save_rgb_water_contact_video(
+    output_video_path,
+    imgs,
+    target_objects,
+    data,
+    contact_keys=("particle_count",),
+    fps=30,
+):
+    """RGB frames alongside per-link water-contact (fluid particle) counts.
+
+    Same nested ``data`` layout as :func:`save_rgb_temperature_video`:
+    ``data[qualified_link_name][metric_key][frame_idx]`` — values come from
+    ``damage_info[obj][part]["electrical"]["particle_count"]``.
+    """
+    save_rgb_temperature_video(
+        output_video_path=output_video_path,
+        imgs=imgs,
+        target_objects=target_objects,
+        data=data,
+        temperature_keys=contact_keys,
+        fps=fps,
+        title="Water Contact History",
+        ylabel="Particles in contact",
+    )
 
 
 def render_health_bar_overlay(
