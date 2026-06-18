@@ -399,6 +399,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#5-download-demonstrations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Download demonstrations
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -585,6 +596,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#5-download-demonstrations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Download demonstrations
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -639,6 +661,12 @@
 <p><strong>RoboCasa (example demo):</strong></p>
 <div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>robocasa.demos.demo_kitchen_scenes
 </code></pre></div>
+<h2 id="5-download-demonstrations">5. Download demonstrations</h2>
+<p>Pull the pre-collected safe/unsafe teleop demos from Hugging Face into <code>oopsiebench/demos/</code>:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>scripts/download_demos.py<span class="w">                  </span><span class="c1"># both simulators</span>
+python<span class="w"> </span>scripts/download_demos.py<span class="w"> </span>--sim<span class="w"> </span>robocasa<span class="w">   </span><span class="c1"># or just one (robocasa / behavior1k)</span>
+</code></pre></div>
+<p>Then head to the <a href="../quickstart/">Quickstart</a> to browse and replay them.</p>
 <!-- 
 !!! tip "Docs-only dependencies"
 
