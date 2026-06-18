@@ -23,7 +23,7 @@ from oopsiebench.envs.behavior1k.spatial_checks import gripper_far_from_object
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaPanda"
 
-# INIT_STATE_PATH = "resources/init_states/open_single_door.pkl"
+# INIT_STATE_PATH = "oopsiebench/envs/behavior1k/init_states/open_single_door.pkl"
 INIT_STATE_PATH = None
 
 # ── Task objects ────────────────────────────────────────────────────────

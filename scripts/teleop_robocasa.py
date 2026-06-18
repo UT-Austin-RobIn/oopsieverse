@@ -34,10 +34,10 @@ import numpy as np
 from robosuite.controllers import load_composite_controller_config
 from robosuite.wrappers import DataCollectionWrapper
 from robosuite.devices import Keyboard, SpaceMouse
-from utils.io_utils import ContinuousGripperKeyboard, ContinuousGripperSpaceMouse
+from damagesim.robosuite.io_utils import ContinuousGripperKeyboard, ContinuousGripperSpaceMouse
 
 from envs.registry import EnvironmentRegistry
-from utils.misc_utils import process_traj_to_hdf5, flush_current_file
+from damagesim.utils.misc_utils import process_traj_to_hdf5, flush_current_file
 from damagesim.robosuite.utils import apply_gripper_finger_geom_friction
 from damagesim.utils.visualization import render_health_bar_overlay, OBJ_NAME_DISPLAY_NAME_MAPPING
 
@@ -653,7 +653,7 @@ def create_device(device_type, env, continuous_gripper=False):
             Also patches PandaGripper to use position-based control.
     """
     if continuous_gripper:
-        from utils.io_utils import patch_gripper_for_position_control
+        from damagesim.robosuite.io_utils import patch_gripper_for_position_control
         patch_gripper_for_position_control()
 
     if device_type == "keyboard":

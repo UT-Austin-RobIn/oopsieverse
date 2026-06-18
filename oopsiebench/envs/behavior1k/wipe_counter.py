@@ -22,7 +22,7 @@ from oopsiebench.envs.behavior1k.spatial_checks import eef_world_position_or_rai
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaPanda"
 
-INIT_STATE_PATH = "resources/init_states/wipe_counter.pkl"
+INIT_STATE_PATH = "oopsiebench/envs/behavior1k/init_states/wipe_counter.pkl"
 
 # Particle systems to record in teleop HDF5 (not scene-default water).
 TRANSITION_SYSTEMS = ("dust",)

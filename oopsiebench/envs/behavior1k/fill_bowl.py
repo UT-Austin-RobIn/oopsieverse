@@ -57,7 +57,7 @@ EXTERNAL_CAMERA_CONFIGS = {
         "horizontal_aperture": 15.0,
     },
 }
-INIT_STATE_PATH = "resources/init_states/fill_bowl.pkl"
+INIT_STATE_PATH = "oopsiebench/envs/behavior1k/init_states/fill_bowl.pkl"
 
 
 # ── Public entry point ───────────────────────────────────────────────────

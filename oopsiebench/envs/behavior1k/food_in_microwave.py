@@ -23,7 +23,7 @@ from oopsiebench.envs.behavior1k.spatial_checks import gripper_far_from_object
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaPanda"
 
-# INIT_STATE_PATH = "resources/init_states/food_in_microwave.pkl"
+# INIT_STATE_PATH = "oopsiebench/envs/behavior1k/init_states/food_in_microwave.pkl"
 INIT_STATE_PATH = None
 
 # Applied in reset() — not via link_physics_materials in TASK_OBJECTS, which mutates

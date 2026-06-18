@@ -56,7 +56,7 @@ from damagesim.utils.visualization import (
     save_rgb_temperature_video,
     apply_playback_health_tint_to_frames,
 )
-from utils.misc_utils import setup_viewport_layout, setup_robot_eef_visualization
+from damagesim.utils.misc_utils import setup_viewport_layout, setup_robot_eef_visualization
 
 
 # --task_name picks which module to import from this package
@@ -103,7 +103,7 @@ def load_task_config(task_name: str):
 def save_state_to_pkl(task_name: str):
     state = og.sim.dump_state(serialized=True)
     init_dir = os.path.join(
-        _REPO_ROOT, "resources", "init_states",
+        _REPO_ROOT, "oopsiebench", "envs", "behavior1k", "init_states",
     )
     os.makedirs(init_dir, exist_ok=True)
     path = os.path.join(init_dir, f"{task_name}_temp.pkl")
@@ -119,7 +119,7 @@ def load_state_from_pkl(env, task_name: str, task_module=None, *, run_task_reset
     setattr(env, "_teleop_loaded_from_pkl", False)
 
     init_dir = os.path.join(
-        _REPO_ROOT, "resources", "init_states",
+        _REPO_ROOT, "oopsiebench", "envs", "behavior1k", "init_states",
     )
     path = os.path.join(init_dir, f"{task_name}.pkl")
     if not os.path.isfile(path):
@@ -535,8 +535,8 @@ class TeleopWrapper:
             from telemoma.configs.base_config import teleop_config
             from omnigibson.utils.teleop_utils import TeleopSystem
 
-            from utils.telemoma_spacemouse import register_scaled_spacemouse
-            from utils.og_teleop import patch_holonomic_teleop_trunk_and_camera
+            from damagesim.omnigibson.telemoma_spacemouse import register_scaled_spacemouse
+            from damagesim.omnigibson.og_teleop import patch_holonomic_teleop_trunk_and_camera
 
             register_scaled_spacemouse()
 

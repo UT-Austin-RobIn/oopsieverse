@@ -97,7 +97,7 @@ EXTERNAL_CAMERA_CONFIGS = {
     },
 }
 
-INIT_STATE_PATH = "resources/init_states/shelve_item.pkl"
+INIT_STATE_PATH = "oopsiebench/envs/behavior1k/init_states/shelve_item.pkl"
 
 # ── Public entry point ──────────────────────────────────────────────────
 

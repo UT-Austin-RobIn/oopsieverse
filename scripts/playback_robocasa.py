@@ -34,7 +34,7 @@ sys.path.insert(1, os.path.join(_project_root, "oopsiebench"))
 
 from robosuite.controllers import load_composite_controller_config
 from envs.registry import EnvironmentRegistry
-from utils.misc_utils import (
+from damagesim.utils.misc_utils import (
     process_traj_to_hdf5,
     flush_current_file,
     save_rgb_camera_video,

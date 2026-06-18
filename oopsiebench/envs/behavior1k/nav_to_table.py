@@ -156,7 +156,7 @@ def get_task_config() -> TaskConfig:
 _BOTTLE_U_XY = 0.03
 _LIFT_Z = 0.1
 
-INIT_STATE_PATH = "resources/init_states/nav_to_table.pkl"
+INIT_STATE_PATH = "oopsiebench/envs/behavior1k/init_states/nav_to_table.pkl"
 
 
 def reset(env):

@@ -28,7 +28,7 @@ import numpy as np
 from robosuite.controllers import load_composite_controller_config
 
 from envs.registry import EnvironmentRegistry
-from utils.misc_utils import process_traj_to_hdf5, flush_current_file
+from damagesim.utils.misc_utils import process_traj_to_hdf5, flush_current_file
 
 
 def recollect_episode(src_f, demo_name, env, output_hdf5_file):

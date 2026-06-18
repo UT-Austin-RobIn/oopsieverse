@@ -70,7 +70,7 @@ EXTERNAL_CAMERA_CONFIGS = {
     },
 }
 
-INIT_STATE_PATH = "resources/init_states/pour_water.pkl"
+INIT_STATE_PATH = "oopsiebench/envs/behavior1k/init_states/pour_water.pkl"
 
 def set_laptop_pose(env, target_deg: float = 130.0):
     """Open the laptop to a specified angle (degrees)."""
