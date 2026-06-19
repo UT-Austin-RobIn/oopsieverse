@@ -463,9 +463,13 @@ def discard_in_progress_traj(env):
         env.discard_current_traj()
 
 
+_RESET_MAX_TRIES = 20
+
+
 def reset_env(env, task_cfg, task_mod):
     """
-    Reset the environment to the initial state.
+    Reset the environment, retrying until every tracked object starts at full
+    health (re-rolls the task's randomized reset if anything spawns damaged).
     """
 
     # Set the viewer camera position and orientation
@@ -475,17 +479,41 @@ def reset_env(env, task_cfg, task_mod):
             orientation=th.tensor(task_cfg.viewer_camera_orn, dtype=th.float32),
         )
 
-    env.reset()
-    # Call task specific reset
-    if task_mod is not None and hasattr(task_mod, "reset") and callable(task_mod.reset):
-        task_mod.reset(env)
+    # Fluid tasks re-init a water particle system; re-running env.reset() (the retry
+    # below) corrupts the water instancer and segfaults the renderer. Reset once and
+    # let the task's own reset keep the robot clear of the counter.
+    if getattr(task_cfg, "use_gpu_dynamics", False):
+        env.reset()
+        if task_mod is not None and hasattr(task_mod, "reset") and callable(task_mod.reset):
+            task_mod.reset(env)
+        env._reset_damage_tracking()
+        for _ in range(5): og.sim.step()
+        return
+
+    damaged = {}
+    for attempt in range(_RESET_MAX_TRIES):
+        env.reset()
+        # Call task specific reset
+        if task_mod is not None and hasattr(task_mod, "reset") and callable(task_mod.reset):
+            task_mod.reset(env)
+
+        env._reset_damage_tracking()
+        for _ in range(5): og.sim.step()
+        update_health = getattr(env, "_update_all_health", None)
+        if callable(update_health):
+            try:
+                update_health()
+            except Exception:
+                pass
+        env_health = env.get_env_health() or {}
+        damaged = {k: round(float(v), 1) for k, v in env_health.items() if v < 100.0}
+        if not damaged:
+            break
+        print(f"[reset_env] attempt {attempt + 1}/{_RESET_MAX_TRIES}: damaged {damaged}, retrying")
+    else:
+        print(f"[reset_env] WARNING: still damaged after {_RESET_MAX_TRIES} attempts: {damaged}")
 
     env._reset_damage_tracking()
-    for _ in range(5): og.sim.step()
-    env_health = env.get_env_health()
-    damaged = {k: v for k, v in (env_health or {}).items() if v < 100.0}
-    if damaged:
-        print(f"health not clean: {damaged}")
 
 
 class TeleopWrapper:

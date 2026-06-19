@@ -283,18 +283,6 @@ def reset(env):
         for _ in range(5):
             og.sim.step()
 
-        # Re-roll the jitter if the robot spawned damaged (e.g. clipped the counter).
-        env._reset_damage_tracking()
-        for _ in range(3):
-            og.sim.step()
-        update_health = getattr(env, "_update_all_health", None)
-        if callable(update_health):
-            try:
-                update_health()
-            except Exception:
-                pass
-        robot_health = float((env.get_env_health() or {}).get(robot.name, 100.0))
-
         plate = env.scene.object_registry("name", "plate")
         clearance = None
         if (plate is not None and place_mat is not None
@@ -303,14 +291,11 @@ def reset(env):
             clearance = float(plate.aabb[0][2]) - float(place_mat.aabb[1][2])
 
         clearance_str = "n/a" if clearance is None else f"{clearance:.3f}"
-        print(f"[place_plate] reset attempt {attempt + 1}/{_MAX_RESET_TRIES}: "
-              f"robot health = {robot_health:.1f}, plate-mat clearance = {clearance_str}")
-        if robot_health >= 100.0 and (clearance is None or clearance >= _MIN_PLATE_CLEARANCE):
+        print(f"[place_plate] reset attempt {attempt + 1}/{_MAX_RESET_TRIES}: plate-mat clearance = {clearance_str}")
+        if clearance is None or clearance >= _MIN_PLATE_CLEARANCE:
             break
     else:
-        print(f"[place_plate] WARNING: no clean reset after {_MAX_RESET_TRIES} attempts")
-
-    env._reset_damage_tracking()
+        print(f"[place_plate] WARNING: plate clearance below {_MIN_PLATE_CLEARANCE} after {_MAX_RESET_TRIES} attempts")
 
 
 def task_completion_check(env):

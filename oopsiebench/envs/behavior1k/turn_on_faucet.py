@@ -56,6 +56,7 @@ EXTERNAL_CAMERA_CONFIGS = {
 _U_XY = 0.05
 _U_YAW = 0.12
 _U_ARM = 0.2
+_MAX_RESET_TRIES = 20
 
 
 def _faucet(env):
@@ -112,31 +113,51 @@ def reset(env):
 
     _set_faucet_off(env)
 
-    pos, orn = robot.get_position_orientation()
-    pos = pos.clone()
-    pos[0] += float(np.random.uniform(-_U_XY, _U_XY))
-    pos[1] += float(np.random.uniform(-_U_XY, _U_XY))
-    euler = T.quat2euler(orn).clone()
-    euler[2] = euler[2] + float(np.random.uniform(-_U_YAW, _U_YAW))
-    robot.set_position_orientation(pos, T.euler2quat(euler))
+    base_pos, base_orn = robot.get_position_orientation()
+    base_q = robot.get_joint_positions().clone()
 
-    q = robot.get_joint_positions().clone()
-    for arm_name in robot.arm_control_idx:
-        idx = robot.arm_control_idx[arm_name]
-        u = (th.rand(len(idx), device=q.device, dtype=q.dtype) * 2 - 1) * _U_ARM
-        q[idx] = q[idx] + u
-    robot.set_joint_positions(q)
-    robot.set_joint_velocities(th.zeros(robot.n_dof, device=q.device, dtype=q.dtype))
-    robot.keep_still()
+    for attempt in range(_MAX_RESET_TRIES):
+        pos = base_pos.clone()
+        pos[0] += float(np.random.uniform(-_U_XY, _U_XY))
+        pos[1] += float(np.random.uniform(-_U_XY, _U_XY))
+        euler = T.quat2euler(base_orn).clone()
+        euler[2] = euler[2] + float(np.random.uniform(-_U_YAW, _U_YAW))
+        robot.set_position_orientation(pos, T.euler2quat(euler))
 
-    for ctrl_name in ("arm_0", "gripper_0"):
-        ctrl = robot.controllers.get(ctrl_name)
-        if ctrl is not None:
-            ctrl.reset()
+        q = base_q.clone()
+        for arm_name in robot.arm_control_idx:
+            idx = robot.arm_control_idx[arm_name]
+            u = (th.rand(len(idx), device=q.device, dtype=q.dtype) * 2 - 1) * _U_ARM
+            q[idx] = q[idx] + u
+        robot.set_joint_positions(q)
+        robot.set_joint_velocities(th.zeros(robot.n_dof, device=q.device, dtype=q.dtype))
+        robot.keep_still()
 
-    for _ in range(10):
-        og.sim.step()
+        for ctrl_name in ("arm_0", "gripper_0"):
+            ctrl = robot.controllers.get(ctrl_name)
+            if ctrl is not None:
+                ctrl.reset()
 
+        for _ in range(10):
+            og.sim.step()
+
+        env._reset_damage_tracking()
+        for _ in range(3):
+            og.sim.step()
+        update_health = getattr(env, "_update_all_health", None)
+        if callable(update_health):
+            try:
+                update_health()
+            except Exception:
+                pass
+        robot_health = float((env.get_env_health() or {}).get(robot.name, 100.0))
+        print(f"[turn_on_faucet] reset attempt {attempt + 1}/{_MAX_RESET_TRIES}: robot health = {robot_health:.1f}")
+        if robot_health >= 100.0:
+            break
+    else:
+        print(f"[turn_on_faucet] WARNING: robot still damaged after {_MAX_RESET_TRIES} attempts")
+
+    env._reset_damage_tracking()
     _set_faucet_off(env)  # ensure it's still off after settling
 
 
