@@ -423,7 +423,7 @@ def parse_args():
                    help="Save an MP4 of the viewer at exit (default: False). If not set, sim optimization is used and no video is saved.")
     p.add_argument("--save_obs_to_hdf5", action="store_true",
                    help="Typically images are saved only during playback. But, use this if you want to save images during teleop.")
-    p.add_argument("--n_episodes", type=int, default=3,
+    p.add_argument("--n_episodes", type=int, default=1,
                    help="Number of teleop episodes to run (default: 1).")
     p.add_argument("--skip_hdf5_save", action="store_true",
                    help="Skip saving the HDF5 file (default: False).")
