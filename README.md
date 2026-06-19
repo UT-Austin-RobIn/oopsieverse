@@ -3,11 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/readme/lift_egg.gif" width="32%"/>
-  &nbsp;
-  <img src="docs/assets/readme/place_log.gif" width="32%"/>
-  &nbsp;
-  <img src="docs/assets/readme/pour_water.gif" width="32%"/>
+  <video src="docs/assets/readme/hero_collage.mp4" width="90%" autoplay loop muted playsinline controls></video>
 </p>
 
 <h4>
