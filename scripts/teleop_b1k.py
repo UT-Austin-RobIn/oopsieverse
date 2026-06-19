@@ -887,7 +887,10 @@ def main():
                 teleop_wrapper.record_step(obs, info)
 
             if hasattr(task_mod, "task_completion_check") and task_mod.task_completion_check(env):
-                for _ in range(20): og.sim.step()
+                for _ in range(20):
+                    obs, reward, terminated, truncated, info = env.step(action.clone())
+                    if args.save_video:
+                        teleop_wrapper.record_step(obs, info)
                 print(f"[TELEOP] Task completed. Ending episode.")
                 EPISODE_DONE[0] = True
                 break

@@ -6,9 +6,12 @@ Robot : FrankaMounted (franka0)
 Damage: mechanical (plate + robot)
 """
 
+import pickle
+
 import numpy as np
 import torch as th
 import omnigibson as og
+import omnigibson.lazy as lazy
 from omnigibson import object_states
 from omnigibson.controllers.controller_base import IsGraspingState
 from omnigibson.utils import transform_utils as T
@@ -18,6 +21,8 @@ from oopsiebench.envs.behavior1k.spatial_checks import gripper_far_from_object
 
 ROBOT_NAME = "franka0"
 ROBOT_TYPE = "FrankaMounted"
+
+INIT_STATE_PATH = "oopsiebench/envs/behavior1k/init_states/place_plate.pkl"
 
 # ── Task objects ─────────────────────────────────────────────────────────
 
@@ -137,6 +142,37 @@ _U_YAW = 0.12
 _U_ARM = 0.2
 _MAT_U_XY = 0.05
 _MAT_U_YAW = 0.08
+_MAX_RESET_TRIES = 20
+_MIN_PLATE_CLEARANCE = 0.15
+
+_LOW_BOUNCE_PHYSICS = {
+    "static_friction": 0.8,
+    "dynamic_friction": 0.7,
+    "restitution": 0.0,
+}
+
+
+def _apply_low_bounce_material(obj, mat_name, **material_kwargs):
+    """Low-restitution collision material on every link of *obj* (runtime only).
+
+    Forces restitutionCombineMode='min' so the 0 wins instead of PhysX averaging it
+    against a bouncy surface; frictionCombineMode='max' keeps friction high.
+    """
+    mat_prim_path = f"{obj.prim_path}/Looks/{mat_name}"
+    physics_mat = lazy.isaacsim.core.api.materials.physics_material.PhysicsMaterial(
+        prim_path=mat_prim_path, name=mat_name, **material_kwargs,
+    )
+    try:
+        stage = lazy.isaacsim.core.utils.stage.get_current_stage()
+        mat_prim = stage.GetPrimAtPath(mat_prim_path)
+        physx_api = lazy.pxr.PhysxSchema.PhysxMaterialAPI.Apply(mat_prim)
+        physx_api.CreateRestitutionCombineModeAttr().Set("min")
+        physx_api.CreateFrictionCombineModeAttr().Set("max")
+    except Exception as e:
+        print(f"[place_plate] could not set restitution combine mode: {e}")
+    for link in obj.links.values():
+        for msh in link.collision_meshes.values():
+            msh.apply_physics_material(physics_mat)
 
 
 def _counter_top_z_under(env, xy_pos):
@@ -170,68 +206,111 @@ def reset(env):
         return
     robot = env.robots[0]
 
-    robot.keep_still()
-    for _ in range(5):
-        og.sim.step()
+    if not getattr(env, "_low_bounce_applied", False):
+        for _name in ("plate", "place_mat"):
+            _obj = env.scene.object_registry("name", _name)
+            if _obj is not None:
+                _apply_low_bounce_material(_obj, f"{_name}_low_bounce_mat", **_LOW_BOUNCE_PHYSICS)
+        env._low_bounce_applied = True
 
-    robot_pos, robot_orn = robot.get_position_orientation()
-    robot_joint_positions = robot.get_joint_positions()
-
-    for ctrl_name in ("arm_0", "gripper_0"):
-        ctrl = robot.controllers.get(ctrl_name)
-        if ctrl is not None:
-            ctrl.reset()
-
-    # Close gripper unless already grasping (loaded states may already hold the plate).
-    try:
-        is_grasping = robot.is_grasping().value == IsGraspingState.TRUE
-    except Exception:
-        is_grasping = True
-    if not is_grasping:
-        try:
-            close_action = th.zeros(robot.action_dim)
-            close_action[robot.gripper_action_idx[robot.default_arm]] = -1.0
-            robot.apply_action(close_action)
-        except Exception:
-            pass
-        robot.keep_still()
-        for _ in range(10):
+    for attempt in range(_MAX_RESET_TRIES):
+        with open(INIT_STATE_PATH, "rb") as f:
+            state_flat_array = pickle.load(f)
+        og.sim.load_state(state_flat_array, serialized=True)
+        for _ in range(5):
             og.sim.step()
 
-    # Jitter the kinematic mat and snap z to the counter below it.
-    place_mat = env.scene.object_registry("name", "place_mat")
-    if place_mat is not None:
-        mpos = th.tensor(PLACE_MAT_POS, dtype=th.float32).clone()
-        mpos[0] += float(np.random.uniform(-_MAT_U_XY, _MAT_U_XY))
-        mpos[1] += float(np.random.uniform(-_MAT_U_XY, _MAT_U_XY))
-        counter_top_z = _counter_top_z_under(env, mpos)
-        if counter_top_z is not None:
-            mat_aabb = getattr(place_mat, "aabb", None)
-            half_h = 0.5 * float(mat_aabb[1][2] - mat_aabb[0][2]) if mat_aabb is not None else 0.0
-            mpos[2] = counter_top_z + half_h + 0.001
-        yaw = float(np.random.uniform(-_MAT_U_YAW, _MAT_U_YAW))
-        morn = T.euler2quat(th.tensor([0.0, 0.0, yaw], dtype=th.float32))
-        place_mat.set_position_orientation(mpos, morn)
-        place_mat.keep_still()
+        robot.keep_still()
+        for _ in range(5):
+            og.sim.step()
 
-    # Restore robot pose with light jitter.
-    pos = robot_pos.clone()
-    pos[0] += float(np.random.uniform(-_U_XY, _U_XY))
-    pos[1] += float(np.random.uniform(-_U_XY, _U_XY))
-    euler = T.quat2euler(robot_orn).clone()
-    euler[2] = euler[2] + float(np.random.uniform(-_U_YAW, _U_YAW))
-    q = robot_joint_positions.clone()
-    for arm_name in robot.arm_control_idx:
-        idx = robot.arm_control_idx[arm_name]
-        u = (th.rand(len(idx), device=q.device, dtype=q.dtype) * 2 - 1) * _U_ARM
-        q[idx] = q[idx] + u
-    robot.set_position_orientation(pos, T.euler2quat(euler))
-    robot.set_joint_positions(q)
-    robot.set_joint_velocities(th.zeros(robot.n_dof))
+        robot_pos, robot_orn = robot.get_position_orientation()
+        robot_joint_positions = robot.get_joint_positions()
 
-    robot.keep_still()
-    for _ in range(5):
-        og.sim.step()
+        for ctrl_name in ("arm_0", "gripper_0"):
+            ctrl = robot.controllers.get(ctrl_name)
+            if ctrl is not None:
+                ctrl.reset()
+
+        # Close gripper unless already grasping (loaded states may already hold the plate).
+        try:
+            is_grasping = robot.is_grasping().value == IsGraspingState.TRUE
+        except Exception:
+            is_grasping = True
+        if not is_grasping:
+            try:
+                close_action = th.zeros(robot.action_dim)
+                close_action[robot.gripper_action_idx[robot.default_arm]] = -1.0
+                robot.apply_action(close_action)
+            except Exception:
+                pass
+            robot.keep_still()
+            for _ in range(10):
+                og.sim.step()
+
+        # Jitter the kinematic mat and snap z to the counter below it.
+        place_mat = env.scene.object_registry("name", "place_mat")
+        if place_mat is not None:
+            mpos = th.tensor(PLACE_MAT_POS, dtype=th.float32).clone()
+            mpos[0] += float(np.random.uniform(-_MAT_U_XY, _MAT_U_XY))
+            mpos[1] += float(np.random.uniform(-_MAT_U_XY, _MAT_U_XY))
+            counter_top_z = _counter_top_z_under(env, mpos)
+            if counter_top_z is not None:
+                mat_aabb = getattr(place_mat, "aabb", None)
+                half_h = 0.5 * float(mat_aabb[1][2] - mat_aabb[0][2]) if mat_aabb is not None else 0.0
+                mpos[2] = counter_top_z + half_h + 0.001
+            yaw = float(np.random.uniform(-_MAT_U_YAW, _MAT_U_YAW))
+            morn = T.euler2quat(th.tensor([0.0, 0.0, yaw], dtype=th.float32))
+            place_mat.set_position_orientation(mpos, morn)
+            place_mat.keep_still()
+
+        # Restore robot pose with light jitter.
+        pos = robot_pos.clone()
+        pos[0] += float(np.random.uniform(-_U_XY, _U_XY))
+        pos[1] += float(np.random.uniform(-_U_XY, _U_XY))
+        euler = T.quat2euler(robot_orn).clone()
+        euler[2] = euler[2] + float(np.random.uniform(-_U_YAW, _U_YAW))
+        q = robot_joint_positions.clone()
+        for arm_name in robot.arm_control_idx:
+            idx = robot.arm_control_idx[arm_name]
+            u = (th.rand(len(idx), device=q.device, dtype=q.dtype) * 2 - 1) * _U_ARM
+            q[idx] = q[idx] + u
+        robot.set_position_orientation(pos, T.euler2quat(euler))
+        robot.set_joint_positions(q)
+        robot.set_joint_velocities(th.zeros(robot.n_dof))
+
+        robot.keep_still()
+        for _ in range(5):
+            og.sim.step()
+
+        # Re-roll the jitter if the robot spawned damaged (e.g. clipped the counter).
+        env._reset_damage_tracking()
+        for _ in range(3):
+            og.sim.step()
+        update_health = getattr(env, "_update_all_health", None)
+        if callable(update_health):
+            try:
+                update_health()
+            except Exception:
+                pass
+        robot_health = float((env.get_env_health() or {}).get(robot.name, 100.0))
+
+        plate = env.scene.object_registry("name", "plate")
+        clearance = None
+        if (plate is not None and place_mat is not None
+                and getattr(plate, "aabb", None) is not None
+                and getattr(place_mat, "aabb", None) is not None):
+            clearance = float(plate.aabb[0][2]) - float(place_mat.aabb[1][2])
+
+        clearance_str = "n/a" if clearance is None else f"{clearance:.3f}"
+        print(f"[place_plate] reset attempt {attempt + 1}/{_MAX_RESET_TRIES}: "
+              f"robot health = {robot_health:.1f}, plate-mat clearance = {clearance_str}")
+        if robot_health >= 100.0 and (clearance is None or clearance >= _MIN_PLATE_CLEARANCE):
+            break
+    else:
+        print(f"[place_plate] WARNING: no clean reset after {_MAX_RESET_TRIES} attempts")
+
+    env._reset_damage_tracking()
 
 
 def task_completion_check(env):
