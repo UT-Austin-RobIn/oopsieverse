@@ -10,9 +10,9 @@
   <img src="docs/assets/readme/pour_water.gif" width="32%"/>
 </p>
 
-<h3>
+<h4>
   <b>This is the official codebase for OopsieVerse, a damage-aware, simulator-agnostic framework and benchmark for learning and evaluating safer robot manipulation. Please follow the documentation for getting started.</b>
-</h3>
+</h4>
 
 <p align="center">
   <font size="5">
