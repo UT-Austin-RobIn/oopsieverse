@@ -9,3 +9,9 @@ Two MP4s per task name:
 Examples: shelve_item_unsafe.mp4, shelve_item_safe.mp4
 
 Tracked in regular git (no Git LFS).
+
+Thumbnails for the docs bench page:
+  docs/assets/videos/thumbnails/behavior1k/<task>_{unsafe,safe}.jpg
+
+Regenerate after adding or replacing MP4s:
+  python scripts/generate_video_thumbnails.py

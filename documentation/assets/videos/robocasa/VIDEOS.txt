@@ -9,3 +9,6 @@ Two MP4s per task name (same <task_name> as in docs/oopsiebench.md):
 Examples: pick_egg_unsafe.mp4, pick_egg_safe.mp4
 
 Tracked in regular git (no Git LFS).
+
+Thumbnails: docs/assets/videos/thumbnails/robocasa/<task>_{unsafe,safe}.jpg
+Regenerate: python scripts/generate_video_thumbnails.py

@@ -87,7 +87,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#install" class="md-skip">
+        <a href="#installation" class="md-skip">
           Skip to content
         </a>
       
@@ -356,6 +356,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
       
         <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#1-clone-the-repository" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -367,10 +378,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-create-the-environment-and-install-simulators" class="md-nav__link">
+  <a href="#2-install-the-simulator" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Create the environment and install simulators
+        2. Install the simulator
       
     </span>
   </a>
@@ -378,10 +389,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-install-the-python-package" class="md-nav__link">
+  <a href="#3-install-oopsieverse" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Install the Python package
+        3. Install OopsieVerse
       
     </span>
   </a>
@@ -553,6 +564,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
       
         <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#1-clone-the-repository" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -564,10 +586,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-create-the-environment-and-install-simulators" class="md-nav__link">
+  <a href="#2-install-the-simulator" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Create the environment and install simulators
+        2. Install the simulator
       
     </span>
   </a>
@@ -575,10 +597,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-install-the-python-package" class="md-nav__link">
+  <a href="#3-install-oopsieverse" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Install the Python package
+        3. Install OopsieVerse
       
     </span>
   </a>
@@ -627,7 +649,12 @@
   
 
 
-<h1 id="install">Install</h1>
+<h1 id="installation">Installation</h1>
+<h2 id="prerequisites">Prerequisites</h2>
+<ul>
+<li>Conda / Miniconda </li>
+<li>For simulators specific prerequisites, refer to <a href="https://behavior.stanford.edu/index.html">BEHAVIOR-1K</a> and <a href="https://robocasa.ai/">RoboCasa</a> prerequisites respectively</li>
+</ul>
 <h2 id="1-clone-the-repository">1. Clone the repository</h2>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio"><input id="__tabbed_1_2" name="__tabbed_1" type="radio"><div class="tabbed-labels"><label for="__tabbed_1_1">Linux / macOS</label><label for="__tabbed_1_2">Windows (PowerShell)</label></div>
 <div class="tabbed-content">
@@ -643,22 +670,28 @@
 </div>
 </div>
 </div>
-<h2 id="2-create-the-environment-and-install-simulators">2. Create the environment and install simulators</h2>
-<p>Run the installer with a fresh conda environment and the simulators you need:</p>
-<div class="highlight"><pre><span></span><code>python<span class="w"> </span>install.py<span class="w"> </span>--new_env<span class="w"> </span>--robocasa<span class="w">   </span><span class="c1"># and/or --behavior1k</span>
-</code></pre></div>
-<p>Activate the environment:</p>
-<div class="highlight"><pre><span></span><code>conda<span class="w"> </span>activate<span class="w"> </span>oopsieverse_robocasa<span class="w">     </span><span class="c1"># or --oopsieverse_b1k</span>
-</code></pre></div>
-<h2 id="3-install-the-python-package">3. Install the Python package</h2>
+<h2 id="2-install-the-simulator">2. Install the simulator</h2>
+<p>Create the environment(s) and install the simulator(s) you need. Each simulator gets its own conda environment (<code>oopsieverse_b1k</code> and/or <code>oopsieverse_robocasa</code>):
+   </p><div class="highlight"><pre><span></span><code><span class="c1"># BEHAVIOR-1K (OmniGibson)</span>
+python<span class="w"> </span>install.py<span class="w"> </span>--new_env<span class="w"> </span>--behavior1k
+
+<span class="c1"># RoboCasa (RoboSuite / MuJoCo)</span>
+python<span class="w"> </span>install.py<span class="w"> </span>--new_env<span class="w"> </span>--robocasa
+
+<span class="c1"># ...or both at once</span>
+python<span class="w"> </span>install.py<span class="w"> </span>--new_env<span class="w"> </span>--behavior1k<span class="w"> </span>--robocasa
+</code></pre></div><p></p>
+<p>OopsieVerse has been validated on specific tagged versions of the underlying simulator. While it may work with other versions, compatibility is not guaranteed. If you encounter any issues with a particular simulator version, please open an issue so we can investigate and improve support.</p>
+<h2 id="3-install-oopsieverse">3. Install OopsieVerse</h2>
 <p>From the repository root:</p>
-<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+<div class="highlight"><pre><span></span><code>conda<span class="w"> </span>activate<span class="w"> </span>oopsieverse_b1k<span class="w">      </span><span class="c1"># or: oopsieverse_robocasa</span>
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
 </code></pre></div>
 <h2 id="4-verify-simulator-installs-optional">4. Verify simulator installs (optional)</h2>
-<p><strong>OmniGibson (example smoke test):</strong></p>
+<p><strong>OmniGibson:</strong></p>
 <div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>omnigibson.examples.robots.all_robots_visualizer
 </code></pre></div>
-<p><strong>RoboCasa (example demo):</strong></p>
+<p><strong>RoboCasa:</strong></p>
 <div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>robocasa.demos.demo_kitchen_scenes
 </code></pre></div>
 <h2 id="5-download-demonstrations">5. Download demonstrations</h2>

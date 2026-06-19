@@ -85,7 +85,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#oopsieverse" class="md-skip">
+        <a href="#documentation" class="md-skip">
           Skip to content
         </a>
       
@@ -273,8 +273,24 @@
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
-        
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
       
       <a href="." class="md-nav__link md-nav__link--active">
         
@@ -292,6 +308,45 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Features
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -449,8 +504,36 @@
   
   
   
-    
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Features
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -470,12 +553,29 @@
   
 
 
+  <h1>Home</h1>
+
 <p align="center">
   <img src="assets/images/oopsieverse_logo.png" alt="OopsieVerse logo" loading="lazy" class="docs-brand-logo">
 </p>
 
-<h1 id="oopsieverse">OopsieVerse</h1>
 <p>OopsieVerse is a <strong>damage-aware</strong>, <strong>simulator-agnostic</strong> framework and benchmark for evaluating and learning safer policies. OopsieVerse models damage as a unified signal called <strong>health</strong>.</p>
+<h2 id="documentation">Documentation</h2>
+<ul>
+<li><strong><a href="install/">Install</a></strong> — Clone the repo, set up conda environments, and install BEHAVIOR-1K (OmniGibson) and/or RoboCasa (MuJoCo).</li>
+<li><strong><a href="quickstart/">Quickstart</a></strong> — Download pre-collected safe/unsafe demos and run teleop or playback with health overlays.</li>
+<li><strong><a href="damagesim/">DamageSim</a></strong> — Core damage API: health evaluators, the <code>DamageableMixin</code> contract, and simulator integration.</li>
+<li><strong><a href="oopsiebench/">OopsieBench</a></strong> — Benchmark task catalog with safe vs. unsafe demo videos for both simulators.</li>
+<li><strong><a href="troubleshooting/">Troubleshooting</a></strong> — Common setup fixes (CUDA/PyTorch, SpaceMouse udev, and related issues).</li>
+</ul>
+<h2 id="key-features">Key Features</h2>
+<ul>
+<li><strong>Unified damage signal</strong> — a single continuous <em>health</em> value per object/link, aggregating mechanical, thermal, and electrical damage.</li>
+<li><strong>Simulator-agnostic</strong> — one consistent damage API across BEHAVIOR-1K (OmniGibson) and RoboCasa (MuJoCo).</li>
+<li><strong>Real-time safety feedback</strong> — live health bars and damage-based object coloring during teleoperation, so collectors can gather safer demonstrations.</li>
+<li><strong>Benchmark tasks</strong> — a growing set of contact-, heat-, and fluid-rich manipulation tasks in realistic kitchens and homes.</li>
+<li><strong>End-to-end pipeline</strong> — teleoperate → playback → render health-overlay videos and compute per-object safety metrics.</li>
+</ul>
 
 
 

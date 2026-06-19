@@ -661,32 +661,41 @@ python<span class="w"> </span>scripts/download_demos.py<span class="w"> </span>-
 python<span class="w"> </span>scripts/quickstart_robocasa.py<span class="w">   </span><span class="c1"># RoboCasa    (conda env: oopsieverse_robocasa)</span>
 </code></pre></div>
 <h2 id="teleoperation-robocasa">Teleoperation (Robocasa)</h2>
-<div class="highlight"><pre><span></span><code>python<span class="w"> </span>scripts/teleop_robocasa.py<span class="w"> </span><span class="se">\</span>
+<p>Collect a demonstration with live health feedback
+</p><div class="highlight"><pre><span></span><code>python<span class="w"> </span>scripts/teleop_robocasa.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--env<span class="w"> </span>open_single_door<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>keyboard<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--health-hud
-</code></pre></div>
+</code></pre></div><p></p>
+<blockquote>
+<p>On <strong>macOS</strong>, use <code>mjpython</code> instead of <code>python</code> when teleoperating with a SpaceMouse.</p>
+</blockquote>
+<p><strong>Available environments:</strong> <code>pick_egg</code>, <code>serve_pastry</code>, <code>place_plate</code>, <code>shelve_item</code>, <code>wipe_counter</code>, <code>open_drawer</code>, <code>close_drawer</code>, <code>open_single_door</code>, <code>turn_on_faucet</code>, <code>turn_on_microwave</code>, <code>turn_on_stove</code>, <code>counter_to_microwave</code>, <code>prepare_coffee</code>, <code>prepare_breakfast</code>, <code>dishes_to_sink</code>, <code>nav_lift_bowl</code>.</p>
 <h2 id="playback-robocasa">Playback (Robocasa)</h2>
-<div class="highlight"><pre><span></span><code>python<span class="w"> </span>scripts/playback_robocasa.py<span class="w"> </span><span class="se">\</span>
+<p>Playback, render videos, and compute health metrics:
+</p><div class="highlight"><pre><span></span><code>python<span class="w"> </span>scripts/playback_robocasa.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--input<span class="w"> </span>oopsiebench/demos/robocasa/teleop/open_single_door_unsafe.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--output<span class="w"> </span>oopsiebench/demos/robocasa/playback/open_single_door_unsafe.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--env<span class="w"> </span>open_single_door<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--playback<span class="w"> </span>--visualize<span class="w"> </span>--metrics
-</code></pre></div>
+</code></pre></div><p></p>
 <h2 id="teleoperation-behavior-1k">Teleoperation (Behavior-1K)</h2>
-<div class="highlight"><pre><span></span><code>python<span class="w"> </span>scripts/teleop_b1k.py<span class="w"> </span><span class="se">\</span>
+<p>Collect a demonstration with live health feedback
+</p><div class="highlight"><pre><span></span><code>python<span class="w"> </span>scripts/teleop_b1k.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--task_name<span class="w"> </span>shelve_item<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--teleop_device<span class="w"> </span>keyboard<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--live_feedback<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--save_video
-</code></pre></div>
+</code></pre></div><p></p>
+<p><strong>Available tasks:</strong> <code>pick_egg</code>, <code>place_plate</code>, <code>fill_bowl</code>, <code>shelve_item</code>, <code>pour_water</code>, <code>wipe_counter</code>, <code>nav_to_table</code>, <code>open_drawer</code>, <code>open_single_door</code>, <code>turn_on_faucet</code>, <code>heat_saucepot</code>, <code>add_firewood</code>, <code>food_in_microwave</code>.</p>
 <h2 id="playback-behavior-1k">Playback (Behavior-1K)</h2>
-<div class="highlight"><pre><span></span><code>python<span class="w"> </span>scripts/playback_b1k.py<span class="w"> </span><span class="se">\</span>
+<p>Playback, render videos, and compute health metrics:
+</p><div class="highlight"><pre><span></span><code>python<span class="w"> </span>scripts/playback_b1k.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--task_name<span class="w"> </span>shelve_item<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--source_hdf5_path<span class="w"> </span>oopsiebench/demos/behavior1k/teleop/shelve_item_unsafe.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--playback_hdf5_path<span class="w"> </span>oopsiebench/demos/behavior1k/playback/shelve_item_unsafe.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--playback<span class="w"> </span>--visualize<span class="w"> </span>--compute_metrics
-</code></pre></div>
+</code></pre></div><p></p>
 
 
 
