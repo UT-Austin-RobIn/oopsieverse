@@ -1,6 +1,8 @@
 # DamageSim
 
-**DamageSim** is defined in **`damagesim/core`**: a portable, physics-informed **health** signal built from generic simulator measurements (forces, motion, temperature-related signals, contact summaries, and similar). Shared abstractions let you plug in different simulators by subclassing the same environment and mixin hooks; this page documents only that **core contract**, not any one engine.
+To be updated
+
+<!-- **DamageSim** is defined in **`damagesim/core`**: a portable, physics-informed **health** signal built from generic simulator measurements (forces, motion, temperature-related signals, contact summaries, and similar). Shared abstractions let you plug in different simulators by subclassing the same environment and mixin hooks; this page documents only that **core contract**, not any one engine.
 
 !!! info "Relationship to OopsieBench"
 
@@ -172,4 +174,4 @@ Use **`damage_info`** when you need interpretability; use **`health`** + **`heal
 
 The **`damagesim/core`** module is authoritative for the abstraction; **other top-level directories under [`damagesim/`](https://github.com/UT-Austin-RobIn/oopsieverse/tree/main/damagesim)** ship concrete integrations (environment subclasses, mixins, parameters, evaluator hooks tied to particular engines). They follow the contracts on this page and add replacement factories, default configs, observation shaping, I/O metadata, and API details specific to each simulator.
 
-When implementing a **new** backend, mirror **`DamageableEnvironment`** and **`DamageableMixin`** hook patterns from core rather than duplicating health math—then place the glue code in its own subdirectory next to **`core`**.
+When implementing a **new** backend, mirror **`DamageableEnvironment`** and **`DamageableMixin`** hook patterns from core rather than duplicating health math—then place the glue code in its own subdirectory next to **`core`**. -->

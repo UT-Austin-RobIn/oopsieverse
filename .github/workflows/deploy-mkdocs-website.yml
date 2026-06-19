@@ -46,6 +46,13 @@ jobs:
       - name: Install MkDocs
         run: pip install "mkdocs-material>=9.5" "mkdocs-glightbox>=0.5.2"
 
+      - name: Generate OopsieBench video thumbnails
+        working-directory: main
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python scripts/generate_video_thumbnails.py
+
       - name: Build MkDocs
         working-directory: main
         env:

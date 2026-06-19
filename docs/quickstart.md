@@ -19,14 +19,19 @@ python scripts/quickstart_robocasa.py   # RoboCasa    (conda env: oopsieverse_ro
 ```
 
 ## Teleoperation (Robocasa)
+Collect a demonstration with live health feedback
 ```bash
 python scripts/teleop_robocasa.py \
   --env open_single_door \
   --device keyboard \
   --health-hud
 ```
+> On **macOS**, use `mjpython` instead of `python` when teleoperating with a SpaceMouse.
+
+**Available environments:** `pick_egg`, `serve_pastry`, `place_plate`, `shelve_item`, `wipe_counter`, `open_drawer`, `close_drawer`, `open_single_door`, `turn_on_faucet`, `turn_on_microwave`, `turn_on_stove`, `counter_to_microwave`, `prepare_coffee`, `prepare_breakfast`, `dishes_to_sink`, `nav_lift_bowl`.
 
 ## Playback (Robocasa)
+Playback, render videos, and compute health metrics:
 ```bash
 python scripts/playback_robocasa.py \
   --input oopsiebench/demos/robocasa/teleop/open_single_door_unsafe.hdf5 \
@@ -36,7 +41,7 @@ python scripts/playback_robocasa.py \
 ```
 
 ## Teleoperation (Behavior-1K)
-
+Collect a demonstration with live health feedback
 ```bash
 python scripts/teleop_b1k.py \
   --task_name shelve_item \
@@ -45,8 +50,10 @@ python scripts/teleop_b1k.py \
   --save_video
 ```
 
-## Playback (Behavior-1K)
+**Available tasks:** `pick_egg`, `place_plate`, `fill_bowl`, `shelve_item`, `pour_water`, `wipe_counter`, `nav_to_table`, `open_drawer`, `open_single_door`, `turn_on_faucet`, `heat_saucepot`, `add_firewood`, `food_in_microwave`.
 
+## Playback (Behavior-1K)
+Playback, render videos, and compute health metrics:
 ```bash
 python scripts/playback_b1k.py \
   --task_name shelve_item \

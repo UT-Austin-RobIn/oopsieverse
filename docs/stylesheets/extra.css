@@ -102,13 +102,82 @@
   white-space: normal;
 }
 
-/* Keep video buttons compact; center under header badges */
+/* Keep video thumbnail cells compact; center under header badges */
 .md-typeset .oopsiebench-task-table-wrapper table thead th:nth-child(n + 3),
 .md-typeset .oopsiebench-task-table-wrapper table tbody td:nth-child(n + 3) {
   width: 1%;
   white-space: nowrap;
   text-align: center;
-  vertical-align: top;
+  vertical-align: middle;
+  padding-inline: 0.35rem;
+}
+
+/* Clickable demo thumbnails (GLightbox opens the MP4) */
+.md-typeset a.oopsiebench-video-thumb {
+  display: inline-block;
+  position: relative;
+  line-height: 0;
+  border-radius: 0.35rem;
+  overflow: hidden;
+  vertical-align: middle;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.md-typeset a.oopsiebench-video-thumb:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+.md-typeset a.oopsiebench-video-thumb img {
+  display: block;
+  width: 9.5rem;
+  max-width: min(9.5rem, 22vw);
+  height: auto;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  margin: 0;
+  border: 2px solid transparent;
+}
+
+.md-typeset a.oopsiebench-video-thumb--unsafe img {
+  border-color: rgba(220, 38, 38, 0.55);
+}
+
+.md-typeset a.oopsiebench-video-thumb--safe img {
+  border-color: rgba(22, 163, 74, 0.55);
+}
+
+.md-typeset a.oopsiebench-video-thumb::after {
+  content: "▶";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.35rem;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.65);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.md-typeset a.oopsiebench-video-thumb:hover::after {
+  opacity: 1;
+}
+
+.md-typeset span.oopsiebench-video-missing.oopsiebench-video-thumb {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.md-typeset .oopsiebench-video-thumb__placeholder {
+  display: inline-block;
+  padding: 0.35rem 0.5rem;
+  color: var(--md-default-fg-color--lighter, #888);
+  font-size: 0.78rem;
+  font-style: italic;
+  white-space: nowrap;
 }
 
 .md-typeset .oopsiebench-task-table-wrapper table .md-button {

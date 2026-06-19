@@ -1,4 +1,9 @@
-# Install
+# Installation
+
+
+## Prerequisites
+- Conda / Miniconda 
+- For simulators specific prerequisites, refer to [BEHAVIOR-1K](https://behavior.stanford.edu/index.html) and [RoboCasa](https://robocasa.ai/) prerequisites respectively
 
 ## 1. Clone the repository
 
@@ -16,37 +21,39 @@
     cd oopsieverse
     ```
 
-## 2. Create the environment and install simulators
+## 2. Install the simulator
+Create the environment(s) and install the simulator(s) you need. Each simulator gets its own conda environment (`oopsieverse_b1k` and/or `oopsieverse_robocasa`):
+   ```bash
+   # BEHAVIOR-1K (OmniGibson)
+   python install.py --new_env --behavior1k
 
-Run the installer with a fresh conda environment and the simulators you need:
+   # RoboCasa (RoboSuite / MuJoCo)
+   python install.py --new_env --robocasa
 
-```bash
-python install.py --new_env --robocasa   # and/or --behavior1k
-```
+   # ...or both at once
+   python install.py --new_env --behavior1k --robocasa
+   ```
 
-Activate the environment:
+OopsieVerse has been validated on specific tagged versions of the underlying simulator. While it may work with other versions, compatibility is not guaranteed. If you encounter any issues with a particular simulator version, please open an issue so we can investigate and improve support.
 
-```bash
-conda activate oopsieverse_robocasa     # or --oopsieverse_b1k
-```
-
-## 3. Install the Python package
+## 3. Install OopsieVerse
 
 From the repository root:
 
 ```bash
+conda activate oopsieverse_b1k      # or: oopsieverse_robocasa
 pip install -e .
 ```
 
 ## 4. Verify simulator installs (optional)
 
-**OmniGibson (example smoke test):**
+**OmniGibson:**
 
 ```bash
 python -m omnigibson.examples.robots.all_robots_visualizer
 ```
 
-**RoboCasa (example demo):**
+**RoboCasa:**
 
 ```bash
 python -m robocasa.demos.demo_kitchen_scenes
