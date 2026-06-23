@@ -25,7 +25,7 @@ import sys
 
 from huggingface_hub import HfApi, snapshot_download
 
-REPO_ID = "arnavbalaji21/oopsieverse_demos"
+REPO_ID = "ut-robin-lab/oopsieverse-demos"
 REPO_TYPE = "dataset"
 SIMS = ("robocasa", "behavior1k")  # top-level folders in the repo
 
