@@ -16,6 +16,7 @@ class EnvConfig:
     env_class: Type
     damageable_class: Type
     camera_name: str = "robot0_agentview_right"
+    playback_cameras: Optional[List[str]] = None
     robot: str = "PandaOmron"
     control_freq: int = 20
     damageable_objects: Optional[List[str]] = None
@@ -79,7 +80,17 @@ _ROBOT_OVERRIDES = {
 
 # Per-env camera overrides for robots that lack the default kitchen agentview.
 _CAMERA_OVERRIDES = {
-    "shelve_item": "robot0_robotview",
+    "shelve_item": "shelve_item_right",
+}
+
+# Cameras available for playback when --camera all_cameras (Panda lacks agentview).
+_PLAYBACK_CAMERA_OVERRIDES = {
+    "shelve_item": [
+        "shelve_item_left",
+        "shelve_item_right",
+        "robot0_robotview",
+        "robot0_eye_in_hand",
+    ],
 }
 
 
@@ -94,6 +105,8 @@ def _register(env_name: str, module_name: str, env_cls_name: str, damageable_cls
         cfg_kwargs["robot"] = _ROBOT_OVERRIDES[env_name]
     if env_name in _CAMERA_OVERRIDES:
         cfg_kwargs["camera_name"] = _CAMERA_OVERRIDES[env_name]
+    if env_name in _PLAYBACK_CAMERA_OVERRIDES:
+        cfg_kwargs["playback_cameras"] = _PLAYBACK_CAMERA_OVERRIDES[env_name]
 
     EnvironmentRegistry.register(env_name, EnvConfig(**cfg_kwargs))
 

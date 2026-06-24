@@ -53,6 +53,18 @@ DEFAULT_FORCE_KEYS = ["impact_forces", "filtered_qs_forces"]
 DEFAULT_CAMERA_NAME = "robot0_agentview_right"
 
 
+def _get_preferred_visualize_camera(env_name):
+    """Prefer env TASK_CAMERA_NAME when defined, else DEFAULT_CAMERA_NAME."""
+    try:
+        env_class = EnvironmentRegistry.get(env_name).env_class
+        task_camera = getattr(env_class, "TASK_CAMERA_NAME", None)
+        if task_camera:
+            return task_camera
+    except ValueError:
+        pass
+    return DEFAULT_CAMERA_NAME
+
+
 def _to_str(value):
     if isinstance(value, bytes):
         return value.decode("utf-8")
@@ -275,7 +287,14 @@ def main():
             return
 
         if args.camera == "all_cameras":
-            camera_names = ["robot0_eye_in_hand", "robot0_agentview_left", "robot0_agentview_right"]
+            if env_config.playback_cameras:
+                camera_names = env_config.playback_cameras
+            else:
+                camera_names = [
+                    "robot0_eye_in_hand",
+                    "robot0_agentview_left",
+                    "robot0_agentview_right",
+                ]
         else:
             camera_names = [args.camera]
 
@@ -309,6 +328,7 @@ def main():
             translucent_robot=False,
             has_renderer=True,
             has_offscreen_renderer=True,
+            render_camera=env_config.camera_name,
             ignore_done=True,
             use_camera_obs=True,
             camera_names=camera_names,
@@ -401,7 +421,7 @@ def main():
                 if not image_keys:
                     print(f"Skipping visualization for {demo_name} — no image observations found")
                     continue
-                preferred_image_key = f"{DEFAULT_CAMERA_NAME}_image"
+                preferred_image_key = f"{_get_preferred_visualize_camera(args.env)}_image"
                 image_key = preferred_image_key if preferred_image_key in image_keys else image_keys[0]
                 camera_name = image_key[:-6]
                 segmentation_key = f"{camera_name}_segmentation_class"

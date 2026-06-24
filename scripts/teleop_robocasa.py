@@ -867,6 +867,14 @@ def collect_human_trajectory(
             if hasattr(base_env, '_check_success') and base_env._check_success():
                 task_success = True
                 print("\n[TASK SUCCESS DETECTED - Episode complete!]")
+                # Ensure the environment renders one last time for GUI to update (success indicator, animations, etc.)
+                if render:
+                    for _ in range(10):
+                        env.render()
+                if live_hud_renderer:
+                    for _ in range(10):
+                        live_hud_renderer.render(health_states)
+       
                 break
         except Exception:
             pass

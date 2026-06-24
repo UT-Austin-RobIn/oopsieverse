@@ -19,6 +19,7 @@ tmp/
 MUJOCO_LOG.TXT
 oopsieverse.code-workspace
 teleop_demos/
+resources/
 
 # MkDocs local build output
 site/
