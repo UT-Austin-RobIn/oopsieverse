@@ -402,8 +402,10 @@
        OopsieBench grid + modal
        ============================================================ */
     .oopsiebench-grid {
-      display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
-      grid-template-rows: repeat(3, auto); gap: .8rem; margin-top: 1.8rem;
+      display: grid; grid-template-columns: repeat(8, minmax(0, 1fr));
+      grid-template-rows: repeat(4, auto); gap: .5rem; margin-top: 1.8rem;
+      /* break out of the 1000px container so the 8x4 tiles are larger */
+      width: min(1320px, 94vw); margin-left: 50%; transform: translateX(-50%);
     }
     .oopsiebench-tile {
       position: relative; border-radius: 12px; overflow: hidden; cursor: pointer;
@@ -554,7 +556,7 @@
     @media (max-width: 1023px) {
       .vla-video-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .il-task-col { flex: 0 1 45%; }
-      .oopsiebench-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .oopsiebench-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     }
     @media (max-width: 600px) {
       .vla-video-grid { grid-template-columns: 1fr; }
@@ -1029,7 +1031,7 @@
       </div>
     </div>
     <div class="ov-nav-actions">
-      <a href="static/pdfs/oopsieverse.pdf" class="nav-github" target="_blank" rel="noopener noreferrer" aria-label="Paper" title="Paper">
+      <a href="https://arxiv.org/abs/2606.31993" class="nav-github" target="_blank" rel="noopener noreferrer" aria-label="Paper" title="Paper">
         <i class="fas fa-file-pdf"></i>
       </a>
       <a href="https://robin-lab.cs.utexas.edu/oopsieverse/documentation/" class="nav-github" target="_blank" rel="noopener noreferrer" aria-label="Documentation" title="Documentation">
@@ -1047,8 +1049,8 @@
 
   <!-- ================= HERO (video background) ================= -->
   <header class="ov-hero" id="top">
-    <video class="hero-bg-video" autoplay muted loop playsinline>
-      <source src="static/videos/hero_collage.mp4?v=3" type="video/mp4">
+    <video class="hero-bg-video" id="heroVideo" autoplay muted playsinline>
+      <source src="static/videos/hero_collage.mp4?v=4" type="video/mp4">
     </video>
     <div class="hero-scrim" aria-hidden="true"></div>
     <div class="hero-inner">
@@ -1071,7 +1073,7 @@
     <div class="hero-venue"><span class="venue-pip" aria-hidden="true"></span>Robotics: Science and Systems (RSS) 2026</div>
 
     <div class="hero-actions">
-      <a href="static/pdfs/oopsieverse.pdf" target="_blank" class="btn btn-primary">
+      <a href="https://arxiv.org/abs/2606.31993" target="_blank" class="btn btn-primary">
         <i class="fas fa-file-pdf"></i><span>Paper</span>
       </a>
       <a href="https://robin-lab.cs.utexas.edu/oopsieverse/documentation/" class="btn btn-primary">
@@ -1107,10 +1109,10 @@
       <div class="abstract-card">
         <p class="abstract-lead">What if your home robot finishes the job but breaks your kitchen in the process?</p>
         <p>
-          Robots keep getting better at handling everyday objects, but finishing the task isn't the whole story. A robot that picks up an egg and cracks it, or pours a glass of water and spills half of it, still isn't ready for a real home. Safety is the part that's missing, and today's simulators barely measure it.
+          Robots keep getting better at handling everyday objects. But finishing the task isn't the whole story. A robot that picks up an egg and cracks it still isn't ready for a real home. Neither is one that pours a glass of water and spills half of it. Safety is the part that's missing. And today's simulators barely measure it.
         </p>
         <p>
-          OopsieVerse is a unified, damage-aware simulation framework for household manipulation. At its core, DamageSim turns physical signals like contact forces, heat, and liquid into measurable mechanical, thermal, and fluid damage, so the benchmark can score not just whether a robot finished the task, but whether it did so safely. It runs in both BEHAVIOR-1K and RoboCasa, and supports safer data collection, damage-aware imitation and reinforcement learning, and Vision-Language-Action safety evaluation.
+          OopsieVerse is a unified, damage-aware simulation framework for household manipulation. At its core, DamageSim turns physical signals like contact forces, heat, and liquid into measurable mechanical, thermal, and fluid damage. This lets the benchmark score not just whether a robot finished the task, but whether it did so safely. It runs in both BEHAVIOR-1K and RoboCasa. It also supports safer data collection, damage-aware imitation and reinforcement learning, and Vision-Language-Action safety evaluation.
         </p>
       </div>
       <div class="abstract-showcase">
@@ -1279,7 +1281,7 @@
       </div>
 
       <div class="lead-text reveal">
-        <p>OopsieBench is a suite of 32 household tasks in total (15 tasks shown in the grid below; hover a tile to see its name).
+        <p>OopsieBench is a suite of 32 household tasks in total (all shown in the grid below; hover a tile to see its name).
           The suite is designed to (i) expose policies to realistic, physically damaging failure modes in household manipulation,
           and (ii) make safety measurable by contrasting easy but risky strategies with safer ones that require more careful
           interaction (e.g., gentler contact, safer approaches, or avoiding hazards).
@@ -1288,68 +1290,133 @@
       </div>
 
       <div class="oopsiebench-grid" aria-label="OopsieBench tasks (hover to see task name)">
-        <!-- Row 1: pour water, shelve item, place log, place bowl, open drawer -->
         <div class="oopsiebench-tile reveal">
-          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/pour_water_unsafe.mp4" type="video/mp4"></video></div>
-          <span class="oopsiebench-label">Pour Water</span>
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/robocasa_pick_egg_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Pick Egg (RoboCasa)</span>
         </div>
         <div class="oopsiebench-tile reveal">
-          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/ignite_wood_unsafe.mp4" type="video/mp4"></video></div>
-          <span class="oopsiebench-label">Ignite Wood</span>
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/robocasa_vla_microwave_put_task_cropped.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Place In Microwave (RoboCasa)</span>
         </div>
         <div class="oopsiebench-tile reveal">
-          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/add_firewood_unsafe.mp4" type="video/mp4"></video></div>
-          <span class="oopsiebench-label">Add Firewood</span>
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/robocasa_turn_on_stove_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Turn On Stove (RoboCasa)</span>
         </div>
         <div class="oopsiebench-tile reveal">
-          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/fill_bowl_unsafe.mp4" type="video/mp4"></video></div>
-          <span class="oopsiebench-label">Fill Bowl</span>
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/og_turn_on_faucet_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Turn On Faucet (B1K)</span>
         </div>
         <div class="oopsiebench-tile reveal">
-          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/open_drawer_unsafe.mp4" type="video/mp4"></video></div>
-          <span class="oopsiebench-label">Open Drawer</span>
-        </div>
-        <!-- Row 2: nav to table (leftmost), then rest -->
-        <div class="oopsiebench-tile reveal">
-          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/nav_to_table_unsafe.mp4" type="video/mp4"></video></div>
-          <span class="oopsiebench-label">Nav to Table</span>
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/robocasa_open_single_door_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Open Single Door (RoboCasa)</span>
         </div>
         <div class="oopsiebench-tile reveal">
-          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/attach_camera_unsafe.mp4" type="video/mp4"></video></div>
-          <span class="oopsiebench-label">Attach Camera</span>
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/og_fill_bowl_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Fill Bowl (B1K)</span>
         </div>
         <div class="oopsiebench-tile reveal">
-          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/clean_trumpet_unsafe.mp4" type="video/mp4"></video></div>
-          <span class="oopsiebench-label">Pick Scrub</span>
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/og_vla_camera_task.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Attach Camera (B1K)</span>
         </div>
         <div class="oopsiebench-tile reveal">
-          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/shelve_item_unsafe.mp4" type="video/mp4"></video></div>
-          <span class="oopsiebench-label">Shelve Item</span>
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/og_food_in_microwave_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Food in Microwave (B1K)</span>
         </div>
         <div class="oopsiebench-tile reveal">
-          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/open_single_door_unsafe.mp4" type="video/mp4"></video></div>
-          <span class="oopsiebench-label">Open Single Door</span>
-        </div>
-        <!-- Row 3: lift egg (leftmost), then rest -->
-        <div class="oopsiebench-tile reveal">
-          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/pick_egg_unsafe.mp4" type="video/mp4"></video></div>
-          <span class="oopsiebench-label">Lift Egg</span>
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/robocasa_dishes_to_sink_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Dishes to Sink (RoboCasa)</span>
         </div>
         <div class="oopsiebench-tile reveal">
-          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/place_plate_unsafe.mp4" type="video/mp4"></video></div>
-          <span class="oopsiebench-label">Place Plate</span>
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/robocasa_turn_on_microwave_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Turn On Microwave (RoboCasa)</span>
         </div>
         <div class="oopsiebench-tile reveal">
-          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/place_in_microwave_unsafe.mp4" type="video/mp4"></video></div>
-          <span class="oopsiebench-label">Put Cup in Microwave</span>
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/robocasa_place_plate_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Place Plate (RoboCasa)</span>
         </div>
         <div class="oopsiebench-tile reveal">
-          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/turn_on_microwave_unsafe.mp4" type="video/mp4"></video></div>
-          <span class="oopsiebench-label">Turn on Microwave</span>
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/robocasa_nav_lift_bowl_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Nav &amp; Lift Bowl (RoboCasa)</span>
         </div>
         <div class="oopsiebench-tile reveal">
-          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/wipe_counter_unsafe.mp4" type="video/mp4"></video></div>
-          <span class="oopsiebench-label">Wipe Counter</span>
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/robocasa_serve_pastry_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Serve Pastry (RoboCasa)</span>
+        </div>
+        <div class="oopsiebench-tile reveal">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/og_pick_egg_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Pick Egg (B1K)</span>
+        </div>
+        <div class="oopsiebench-tile reveal">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/og_pour_water_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Pour Water (B1K)</span>
+        </div>
+        <div class="oopsiebench-tile reveal">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/robocasa_vla_microwave_task_stove_cropped.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Turn on Stove (RoboCasa)</span>
+        </div>
+        <div class="oopsiebench-tile reveal">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/og_nav_to_table_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Nav to Table (B1K)</span>
+        </div>
+        <div class="oopsiebench-tile reveal">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/robocasa_wipe_counter_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Wipe Counter (RoboCasa)</span>
+        </div>
+        <div class="oopsiebench-tile reveal">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/og_wipe_counter_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Wipe Counter (B1K)</span>
+        </div>
+        <div class="oopsiebench-tile reveal">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/og_shelve_item_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Shelve Item (B1K)</span>
+        </div>
+        <div class="oopsiebench-tile reveal">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/robocasa_turn_on_faucet_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Turn On Faucet (RoboCasa)</span>
+        </div>
+        <div class="oopsiebench-tile reveal">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/og_heat_saucepot_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Heat Saucepot (B1K)</span>
+        </div>
+        <div class="oopsiebench-tile reveal">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/og_open_drawer_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Open Drawer (B1K)</span>
+        </div>
+        <div class="oopsiebench-tile reveal">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/og_vla_trumpet_task.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Pick Scrub (B1K)</span>
+        </div>
+        <div class="oopsiebench-tile reveal">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/robocasa_counter_to_microwave_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Counter to Microwave (RoboCasa)</span>
+        </div>
+        <div class="oopsiebench-tile reveal">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/og_open_single_door_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Open Single Door (B1K)</span>
+        </div>
+        <div class="oopsiebench-tile reveal">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/robocasa_vla_microwave_task_2_cropped.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Toggle on Microwave (RoboCasa)</span>
+        </div>
+        <div class="oopsiebench-tile reveal">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/og_place_plate_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Place Plate (B1K)</span>
+        </div>
+        <div class="oopsiebench-tile reveal">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/og_add_firewood_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Add Firewood (B1K)</span>
+        </div>
+        <div class="oopsiebench-tile reveal">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/robocasa_prepare_breakfast_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Prepare Breakfast (RoboCasa)</span>
+        </div>
+        <div class="oopsiebench-tile reveal">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/robocasa_prepare_coffee_unsafe.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Prepare Coffee (RoboCasa)</span>
+        </div>
+        <div class="oopsiebench-tile reveal">
+          <div class="video-box"><video autoplay muted loop playsinline><source src="static/task_videos/grid/og_vla_firewood_task.mp4" type="video/mp4"></video></div>
+          <span class="oopsiebench-label">Ignite Wood (B1K)</span>
         </div>
       </div>
 
@@ -2118,6 +2185,20 @@
               if (p && typeof p.catch === 'function') p.catch(function() {});
             }
           });
+        });
+      })();
+
+      // Hero background: play the intro (zoom-in 8 -> zoom-out to 32) once on load,
+      // then loop only the full-grid tail.
+      (function() {
+        var v = document.getElementById('heroVideo');
+        if (!v) return;
+        var LOOP_START = 4.5; // seconds: point where the zoom-out finishes
+        v.loop = false;
+        v.addEventListener('ended', function() {
+          v.currentTime = LOOP_START;
+          var p = v.play();
+          if (p && typeof p.catch === 'function') p.catch(function() {});
         });
       })();
 
