@@ -41,6 +41,7 @@ from damagesim.utils.misc_utils import (
     save_rgb_force_video,
 )
 from damagesim.utils.visualization import save_rgb_health_video_with_overlay
+from damagesim.robosuite.damageable_env import normalize_class_name
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -442,7 +443,9 @@ def main():
                         if obj_name not in health_by_object or health_by_object[obj_name][i] >= 100:
                             continue
                         seg_instance_info = obs_info.get(camera_type, {}).get(camera_name, {}).get("seg_instance", {})
-                        seg_key = next((k for k, v in seg_instance_info.items() if v == obj_name), None)
+                        # Normalize both sides so the robot ("PandaOmron") matches its seg class "robot".
+                        target_class = normalize_class_name(str(obj_name))
+                        seg_key = next((k for k, v in seg_instance_info.items() if normalize_class_name(str(v)) == target_class), None)
                         if seg_key is None:
                             continue
                         seg_instance_key = int(seg_key)
