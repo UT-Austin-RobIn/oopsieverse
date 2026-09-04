@@ -37,7 +37,7 @@ from robosuite.devices import Keyboard, SpaceMouse
 from damagesim.robosuite.io_utils import ContinuousGripperKeyboard, ContinuousGripperSpaceMouse
 
 from envs.registry import EnvironmentRegistry
-from damagesim.utils.misc_utils import process_traj_to_hdf5, flush_current_file
+from damagesim.utils.misc_utils import process_traj_to_hdf5, flush_current_file, robocasa_check_success
 from damagesim.robosuite.utils import apply_gripper_finger_geom_friction
 from damagesim.utils.visualization import render_health_bar_overlay, OBJ_NAME_DISPLAY_NAME_MAPPING
 
@@ -136,6 +136,7 @@ class DamageDataCollectionWrapper:
             "rewards": reward,
             "dones": done,
             "info": save_info,
+            "task_completion": robocasa_check_success(self.env),
         }
         self.episode_data.append(step_data)
         return obs, reward, done, info

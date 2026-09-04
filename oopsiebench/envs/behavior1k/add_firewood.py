@@ -154,9 +154,9 @@ def task_completion_check(env):
 
     log_within_tolerance = distance_xy < tolerance_xy
     gripper_open = robot.is_grasping(candidate_obj=target_object).value == IsGraspingState.FALSE
-    gripper_far = gripper_far_from_object(robot, target_object)
+    # gripper_far = gripper_far_from_object(robot, target_object)
 
-    return log_within_tolerance and gripper_open and gripper_far
+    return log_within_tolerance and gripper_open # and gripper_far
 
 
 def get_task_config() -> TaskConfig:

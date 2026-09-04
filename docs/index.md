@@ -15,6 +15,7 @@ OopsieVerse is a **damage-aware**, **simulator-agnostic** framework and benchmar
 - **[Quickstart](quickstart.md)** — Download pre-collected safe/unsafe demos and run teleop or playback with health overlays.
 - **[DamageSim](damagesim.md)** — Core damage API: health evaluators, the `DamageableMixin` contract, and simulator integration.
 - **[OopsieBench](oopsiebench.md)** — Benchmark task catalog with safe vs. unsafe demo videos for both simulators.
+- **[Learning](learning.md)** — Paper-experiment tasks, demo counts, playback-for-training, and CFM training commands.
 - **[Troubleshooting](troubleshooting.md)** — Common setup fixes (CUDA/PyTorch, SpaceMouse udev, and related issues).
 
 ## Key Features

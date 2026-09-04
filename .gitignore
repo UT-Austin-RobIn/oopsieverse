@@ -20,6 +20,7 @@ MUJOCO_LOG.TXT
 oopsieverse.code-workspace
 teleop_demos/
 resources/
+checkpoints/
 
 # MkDocs local build output
 site/

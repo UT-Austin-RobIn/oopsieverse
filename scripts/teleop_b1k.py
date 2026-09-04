@@ -855,6 +855,7 @@ def main():
             save_obs_to_hdf5=args.save_obs_to_hdf5,
             transition_systems=transition_systems,
         )
+        env.task_completion_fn = getattr(task_mod, "task_completion_check", None)
     else:
         env = base_env
     # ================================================

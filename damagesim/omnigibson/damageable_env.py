@@ -386,6 +386,9 @@ class OGDamageableEnvironment(DamageableEnvironment, Environment):
 class OGDamageableDataCollectionWrapper(DataCollectionWrapper):
     """Extends OG DataCollectionWrapper to store health metadata."""
 
+    # Optional ``callable(env) -> bool`` set by teleop (task_completion_check).
+    task_completion_fn = None
+
     def __init__(self, *args, save_video=False, save_obs_to_hdf5=False, transition_systems=(), **kwargs):
         self._save_video = save_video
         self._save_obs_to_hdf5 = save_obs_to_hdf5
@@ -393,6 +396,18 @@ class OGDamageableDataCollectionWrapper(DataCollectionWrapper):
         # Kitchen scenes auto-init water; recording every system breaks playback for dry tasks.
         self._transition_systems = frozenset(transition_systems)
         super().__init__(*args, **kwargs)
+
+    def step(self, action, n_render_iterations=1, episode_step_count=0, init_skip_steps=0):
+        # Parent DataWrapper.step has trajectory recording commented out; re-enable here.
+        next_obs, reward, terminated, truncated, info = self.env.step(
+            action,
+            n_render_iterations=n_render_iterations,
+            episode_step_count=episode_step_count,
+            init_skip_steps=init_skip_steps,
+        )
+        self.step_count += 1
+        self._record_step_trajectory(action, next_obs, reward, terminated, truncated, info)
+        return next_obs, reward, terminated, truncated, info
 
     def add_transition_info(self, obj, add=True):
         from omnigibson.objects.object_base import BaseObject
@@ -443,11 +458,17 @@ class OGDamageableDataCollectionWrapper(DataCollectionWrapper):
         super()._optimize_sim_for_data_collection(viewport_camera_path)
 
     def _parse_step_data(self, action, obs, reward, terminated, truncated, info):
+        from damagesim.utils.misc_utils import evaluate_task_completion
+
         step_data = super()._parse_step_data(action, obs, reward, terminated, truncated, info)
         if self._save_obs_to_hdf5:
             # process_traj_to_hdf5 expects flat obs: modality_key -> tensor per step
             step_data["obs"] = flatten_obs(obs)
             step_data["info"] = info
+        completed = evaluate_task_completion(self.task_completion_fn, self.env)
+        step_data["task_completion"] = completed
+        # B1K: reward mirrors task_completion (1.0 wherever the check is True).
+        step_data["reward"] = 1.0 if completed else 0.0
         return step_data
 
     def discard_current_traj(self):
@@ -487,6 +508,8 @@ class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
 
     playback_reset_fn = None
     playback_step_fn = None
+    # Optional ``callable(env) -> bool`` set by playback_b1k (task_completion_check).
+    task_completion_fn = None
 
     def _run_task_playback_reset(self) -> None:
         fn = getattr(self, "playback_reset_fn", None)
@@ -857,6 +880,8 @@ class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
         self.current_obs, _, _, _, init_info = self.env.step(
             action=action[0], n_render_iterations=self.n_render_iterations + first_time_load_n_iteration, playback=True, init_skip_steps=self.init_skip_steps
         )
+        # Seed so the initial T+1 frame can read info even before the first loop step assigns it.
+        info = init_info
 
         print("After reset health: ", self.current_obs["health"])
         # breakpoint()
@@ -903,18 +928,28 @@ class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
                                 evaluator.update_link_positions_and_velocities()
             
             if i == self.init_skip_steps + 1:
-                # Save the initial obs
+                # Save the initial state-aligned frame (obs / info / task_completion at T+1[0]).
+                # Do not record action/reward/terminated/truncated here so those stay length T.
+                from damagesim.utils.misc_utils import evaluate_task_completion
+                from damagesim.utils.playback_schema import is_image_obs_key
+
                 obs_data = self._process_obs(obs=self.current_obs, info=info)
                 if not save_images:
-                    obs_data_modified = dict()
-                    for key in obs_data:
-                        if key.endswith("rgb") or key.endswith("depth") or key.endswith("seg_instance") or key.endswith("seg_semantic"):
-                            continue
-                    step_data = {"obs": obs_data_modified}
-                else:
-                    step_data = {"obs": obs_data}
-
-                # Overwrite the health and damage info with the datacollection values
+                    obs_data = {
+                        key: val for key, val in obs_data.items() if not is_image_obs_key(key)
+                    }
+                # ``info`` is from the previous playback step (aligned with current_obs);
+                # fall back to post-reset init_info if this is somehow the first iteration.
+                step_info = dict(info) if info is not None else dict(init_info)
+                if datacollection_damage_info is not None:
+                    step_info["damage_info"] = datacollection_damage_info[i]
+                step_data = {
+                    "obs": obs_data,
+                    "info": step_info,
+                    "task_completion": evaluate_task_completion(
+                        self.task_completion_fn, self.env
+                    ),
+                }
                 if datacollection_health is not None:
                     step_data["obs"]["health"] = datacollection_health[i]
                 self.current_traj_history.append(step_data)
@@ -1015,22 +1050,29 @@ class OGDamageableDataPlaybackWrapper(DataPlaybackWrapper):
 
         return result
 
+    def _process_obs(self, obs, info):
+        """Canonicalize OG flattened obs into the shared playback schema."""
+        from damagesim.utils.playback_schema import canonicalize_b1k_obs
+
+        return canonicalize_b1k_obs(obs)
+
     def _parse_step_data(self, action, obs, reward, terminated, truncated, info, datacollection_health=None, datacollection_damage_info=None, save_images=True):
         # Store action, obs, reward, terminated, truncated, info
+        from damagesim.utils.misc_utils import evaluate_task_completion
+        from damagesim.utils.playback_schema import is_image_obs_key
+
         step_data = dict()
         obs_data = self._process_obs(obs=obs, info=info)
         if not save_images:
-            obs_data_modified = dict()
-            for key in obs_data:
-                if key.endswith("rgb") or key.endswith("depth") or key.endswith("seg_instance") or key.endswith("seg_semantic"):
-                    continue
-                else:
-                    obs_data_modified[key] = obs_data[key]
-            step_data["obs"] = obs_data_modified
-        else:
-            step_data["obs"] = obs_data
+            obs_data = {
+                key: val for key, val in obs_data.items() if not is_image_obs_key(key)
+            }
+        completed = evaluate_task_completion(self.task_completion_fn, self.env)
+        step_data["obs"] = obs_data
         step_data["action"] = action
-        step_data["reward"] = reward
+        # B1K: do not copy teleop reward; mirror task_completion instead.
+        step_data["reward"] = 1.0 if completed else 0.0
+        step_data["task_completion"] = completed
         step_data["terminated"] = terminated
         step_data["truncated"] = truncated
         step_data["info"] = info

@@ -13,11 +13,11 @@ from learning.utils import denormalize_action
 
 @dataclass
 class PolicyConfig:
-    """Configuration for CFM Policy matching B1KDataset setup."""
+    """Configuration for CFM Policy matching PlaybackDataset setup."""
     # Data dimensions
     action_dim: int = 7  # Franka: [ee_pos, ee_angle, gripper] 
     action_chunk_size: int = 8
-    state_dim: int = 24  # Proprio dimension
+    state_dim: int = 23  # Canonical playback proprio (no grasp)
     
     # Observation setup
     num_seg_views: int = 3  # Number of segmentation camera views
@@ -93,14 +93,14 @@ class CFMPolicy(nn.Module):
         super().__init__()
         self.config = config
         if config.action_min is not None and config.action_max is not None:
-            action_min = torch.tensor(config.action_min)[None, None, :]
-            action_max = torch.tensor(config.action_max)[None, None, :]
+            action_min = torch.as_tensor(config.action_min, dtype=torch.float32)[None, None, :]
+            action_max = torch.as_tensor(config.action_max, dtype=torch.float32)[None, None, :]
             self.register_buffer("action_min", action_min)
             self.register_buffer("action_max", action_max)
         self.action_shape = (config.action_chunk_size, config.action_dim)
         self._build_model()
 
-    def _build_model(self, device="cuda"):
+    def _build_model(self):
         cfg = self.config
         
         # Segmentation encoder (shared across all views)
@@ -139,8 +139,6 @@ class CFMPolicy(nn.Module):
         
         # Output projection
         self.action_head = nn.Linear(cfg.feature_dim, cfg.action_dim)
-
-        self.to(device)
 
     def encode_segmentation(self, seg_images: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
@@ -426,8 +424,8 @@ class CFMPolicy(nn.Module):
 
 
 if __name__ == "__main__":
-    from dataset.b1k_dataset import B1KDataset
-    from models.trainers.cfm_trainer import CFMTrainer, TrainerConfig
+    from learning.dataset import PlaybackDataset
+    from learning.train_eval.cfm_trainer import CFMTrainer, TrainerConfig
     
     # Create policy
     policy_config = PolicyConfig()
@@ -435,8 +433,8 @@ if __name__ == "__main__":
     policy.print_parameter_summary()
     
     # Create dataset
-    dataset = B1KDataset(
-        data_path="../safe-manipulation-benchmark/resources/playback_data/shelf_place_bad_trajs_playback.hdf5",
+    dataset = PlaybackDataset(
+        data_path="demos/behavior1k/playback_data/shelve_cereal_box_1.hdf5",
         frame_stack=2,
         action_chunk_size=8,
         seg_img_size=(128, 128),
@@ -460,4 +458,4 @@ if __name__ == "__main__":
             print("Action summation", action_summation)
             print(f"Action sample:\n{action[0, 0, :]}")
             print(f"GT Action sample:\n{sample['action'][0, :]}")
-            print("Loss", torch.norm(action[0] - sample['action'].to("cuda")))
+            print("Loss", torch.norm(action[0] - sample['action'].to(device)))

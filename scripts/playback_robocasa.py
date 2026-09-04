@@ -39,7 +39,12 @@ from damagesim.utils.misc_utils import (
     flush_current_file,
     save_rgb_camera_video,
     save_rgb_force_video,
+    robocasa_check_success,
+    SAFE_ENV_HEALTH_THRESHOLD,
+    is_safe_task_completion,
+    read_final_task_completion,
 )
+from damagesim.utils.playback_schema import canonicalize_traj_obs, list_playback_cameras, cam_rgb_key, cam_seg_key
 from damagesim.utils.visualization import save_rgb_health_video_with_overlay
 from damagesim.robosuite.damageable_env import normalize_class_name
 
@@ -147,6 +152,7 @@ def sync_damage_evaluator_velocities(env):
 
 
 def flush_playback_traj(env, traj_grp_name, traj_data, playback_hdf5_file):
+    canonicalize_traj_obs(traj_data, suite="robocasa")
     traj_grp = process_traj_to_hdf5(
         env, traj_grp_name, traj_data,
         nested_keys=("obs", "info"), output_hdf5=playback_hdf5_file
@@ -214,7 +220,7 @@ def playback_episode(src_f, demo_name, env, playback_hdf5_file):
     sync_damage_evaluator_velocities(env)
 
     obs, info = env.get_observations()
-    traj_data = [{"obs": obs, "info": info}]
+    traj_data = [{"obs": obs, "info": info, "task_completion": robocasa_check_success(env)}]
 
     for i in range(num_actions):
         env.sim.set_state_from_flattened(states[i])
@@ -222,7 +228,13 @@ def playback_episode(src_f, demo_name, env, playback_hdf5_file):
         sync_damage_evaluator_velocities(env)
 
         obs, reward, done, info = env.step(actions[i])
-        traj_data.append({"obs": obs, "action": actions[i], "reward": reward, "info": info})
+        traj_data.append({
+            "obs": obs,
+            "action": actions[i],
+            "reward": reward,
+            "info": info,
+            "task_completion": robocasa_check_success(env),
+        })
 
         if (i + 1) % 100 == 0:
             print(f"  {i + 1}/{num_actions} steps")
@@ -253,6 +265,9 @@ Examples:
 
   # Playback + visualize and compute metrics
   python scripts/playback_robocasa.py --input ENV_NAME.hdf5 --output ENV_NAME_rendered.hdf5 --env ENV_NAME --visualize --metrics
+
+  # Playback only specific demos (e.g. demo_0 and demo_3)
+  python scripts/playback_robocasa.py --input ENV_NAME.hdf5 --output ENV_NAME_rendered.hdf5 --env ENV_NAME --playback --demo_ids 0 3
         """
     )
     parser.add_argument("--input", required=True, help="Path to collected (teleop) HDF5 file")
@@ -263,6 +278,7 @@ Examples:
     parser.add_argument("--height", type=int, default=256, help="Frame height (default: 256)")
     parser.add_argument("--low-dim", action="store_true", help="Use low-dimensional observations")
     parser.add_argument("--playback", action="store_true", help="Replay recorded HDF5.")
+    parser.add_argument("--demo_ids", nargs="*", type=int, default=None, help="Specific demo IDs to playback (e.g. 0 3 for demo_0, demo_3).")
     parser.add_argument("--visualize", action="store_true", help="Render and save videos after playback")
     parser.add_argument("--metrics", action="store_true", help="Compute and print health metrics after playback")
     return parser
@@ -321,6 +337,18 @@ def main():
             return
 
         demos = list(src_f["data"].keys())
+        demo_ids = args.demo_ids if args.demo_ids else None
+        if demo_ids is not None:
+            selected = {f"demo_{i}" for i in demo_ids}
+            missing = sorted(selected - set(demos))
+            if missing:
+                print(f"Warning: requested demo(s) not found: {missing}")
+            demos = [d for d in demos if d in selected]
+            if not demos:
+                print("No matching demos to playback")
+                src_f.close()
+                playback_hdf5_file.close()
+                return
         print(f"Found demos: {demos}\n")
 
         env = env_config.damageable_class(
@@ -381,6 +409,8 @@ def main():
 
         final_obj_healths = defaultdict(list)
         final_env_healths = []
+        task_completions = []
+        safe_task_completions = []
 
         for demo_name in sorted(f["data"].keys()):
             print(f"Episode: {demo_name}")
@@ -414,25 +444,39 @@ def main():
                         current_env_health += health_by_object[obj_name][-1]
                         counted_objects += 1
                 if counted_objects:
-                    final_env_healths.append(current_env_health / counted_objects)
+                    current_env_health = current_env_health / counted_objects
+                    final_env_healths.append(current_env_health)
+                else:
+                    current_env_health = 0.0
+
+                completed = read_final_task_completion(demo_group)
+                safe = is_safe_task_completion(completed, current_env_health)
+                task_completions.append(completed)
+                safe_task_completions.append(safe)
+                if "task_completion" not in demo_group:
+                    print("  warning: missing task_completion dataset; treating as False")
+                print(f"  task_completion: {completed}")
+                print(
+                    f"  safe_task_completion: {safe} "
+                    f"(env health={current_env_health:.1f}%, threshold={SAFE_ENV_HEALTH_THRESHOLD})"
+                )
 
             if args.visualize:
-                obs_keys = list(demo_group["obs"].keys())
-                image_keys = [k for k in obs_keys if k.endswith("_image")]
-                if not image_keys:
-                    print(f"Skipping visualization for {demo_name} — no image observations found")
+                cam_names = list_playback_cameras(demo_group["obs"])
+                if not cam_names:
+                    print(f"Skipping visualization for {demo_name} — no cam/* observations found")
                     continue
-                preferred_image_key = f"{_get_preferred_visualize_camera(args.env)}_image"
-                image_key = preferred_image_key if preferred_image_key in image_keys else image_keys[0]
-                camera_name = image_key[:-6]
-                segmentation_key = f"{camera_name}_segmentation_class"
-                if segmentation_key not in obs_keys:
-                    print(f"Skipping visualization for {demo_name} — missing {segmentation_key}")
+                preferred = _get_preferred_visualize_camera(args.env)
+                camera_name = preferred if preferred in cam_names else cam_names[0]
+                rgb_key = cam_rgb_key(camera_name)
+                seg_key = cam_seg_key(camera_name)
+                if rgb_key not in demo_group["obs"] or seg_key not in demo_group["obs"]:
+                    print(f"Skipping visualization for {demo_name} — missing {rgb_key} or {seg_key}")
                     continue
 
-                imgs = demo_group[f"obs/{image_key}"]
+                imgs = demo_group[f"obs/{rgb_key}"]
                 new_imgs = []
-                imgs_seg = demo_group[f"obs/{segmentation_key}"]
+                imgs_seg = demo_group[f"obs/{seg_key}"]
 
                 for i, img in enumerate(imgs):
                     img = cv2.cvtColor(img[:, :, :3], cv2.COLOR_RGB2BGR)
@@ -445,10 +489,10 @@ def main():
                         seg_instance_info = obs_info.get(camera_type, {}).get(camera_name, {}).get("seg_instance", {})
                         # Normalize both sides so the robot ("PandaOmron") matches its seg class "robot".
                         target_class = normalize_class_name(str(obj_name))
-                        seg_key = next((k for k, v in seg_instance_info.items() if normalize_class_name(str(v)) == target_class), None)
-                        if seg_key is None:
+                        seg_key_id = next((k for k, v in seg_instance_info.items() if normalize_class_name(str(v)) == target_class), None)
+                        if seg_key_id is None:
                             continue
-                        seg_instance_key = int(seg_key)
+                        seg_instance_key = int(seg_key_id)
                         alpha = 1 - health_by_object[obj_name][i] / 100.0
                         overlay_color = np.array([0, 0, 255], dtype=np.uint8)
                         mask = img_seg == seg_instance_key
@@ -512,6 +556,11 @@ def main():
                 print(f"  {obj_name}: avg final health = {np.mean(final_obj_healths[obj_name]):.1f}%")
         if final_env_healths:
             print(f"  Overall env: avg final health = {np.mean(final_env_healths):.1f}%")
+        total_eps = len(task_completions)
+        n_success = sum(task_completions)
+        n_safe = sum(safe_task_completions)
+        print(f"  Task completion: {n_success} / {total_eps} ({100.0 * n_success / max(total_eps, 1):.1f}%)")
+        print(f"  Safe task completion: {n_safe} / {total_eps} ({100.0 * n_safe / max(total_eps, 1):.1f}%)")
 
     print("\nPlayback complete.")
 

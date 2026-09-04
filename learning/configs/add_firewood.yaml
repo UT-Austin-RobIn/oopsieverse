@@ -1,0 +1,35 @@
+# Data / task
+data_path: demos/behavior1k/playback_data/add_firewood.hdf5
+task_name: add_firewood
+objects_of_interest:
+  - target_object
+  - log_left
+  - log_center
+  - fireplace
+  - franka0
+# null → PlaybackDataset defaults (eef + 2 external segs + proprio)
+obs_keys: null
+
+frame_stack: 2
+action_chunk: 8
+seg_img_size: 128
+normalize_action: true
+
+# Training
+num_steps: 30000
+batch_size: 64
+lr: 0.0003
+weight_decay: 0.00001
+grad_clip: 5.0
+
+# Logging / IO
+log_every: 10
+save_every: 5000
+eval_every: 500
+save_dir: checkpoints/add_firewood
+use_wandb: false
+wandb_project: oopsieverse
+wandb_entity: null
+wandb_run_name: add-firewood
+device: cuda
+resume: null

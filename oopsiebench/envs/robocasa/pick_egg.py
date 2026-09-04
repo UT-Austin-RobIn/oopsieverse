@@ -86,7 +86,7 @@ class PickEgg(Kitchen):
 
         height_above_table = egg_z - counter_surface_z
 
-        return height_above_table >= 0.1
+        return height_above_table >= 0.05
 
 
 

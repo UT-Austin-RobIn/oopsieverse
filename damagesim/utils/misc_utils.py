@@ -154,6 +154,71 @@ def flush_current_file(output_hdf5_file):
     os.fsync(fd)
 
 
+def evaluate_task_completion(check_fn, env) -> bool:
+    """Return ``bool(check_fn(env))``, or False if ``check_fn`` is missing/errors."""
+    if check_fn is None:
+        return False
+    try:
+        return bool(check_fn(env))
+    except Exception as e:
+        print(f"Warning: task_completion check failed: {e}")
+        return False
+
+
+def robocasa_check_success(env) -> bool:
+    """Unwrap Robocasa wrappers and call ``_check_success`` if present.
+
+    Robocasa ``_check_success`` is a bound method (takes only ``self``), unlike
+    Behavior-1K ``task_completion_fn`` callables which take ``env``.
+    """
+    base = env
+    while hasattr(base, "env"):
+        base = base.env
+    check = getattr(base, "_check_success", None)
+    if check is None:
+        return False
+    try:
+        return bool(check())
+    except Exception as e:
+        print(f"Warning: task_completion check failed: {e}")
+        return False
+
+
+def write_task_completion(traj_grp, values):
+    """Write per-step bool ``task_completion`` dataset onto an open demo group."""
+    arr = np.asarray(values, dtype=np.bool_)
+    if "task_completion" in traj_grp:
+        del traj_grp["task_completion"]
+    traj_grp.create_dataset("task_completion", data=arr)
+
+
+def write_reward_from_task_completion(traj_grp, values):
+    """Overwrite per-step ``reward`` with 1.0 where ``task_completion`` is True."""
+    arr = np.asarray(values, dtype=np.bool_).astype(np.float32)
+    if "reward" in traj_grp:
+        del traj_grp["reward"]
+    traj_grp.create_dataset("reward", data=arr)
+
+
+SAFE_ENV_HEALTH_THRESHOLD = 95.0
+
+
+def read_final_task_completion(demo_grp) -> bool:
+    """Return last-step ``task_completion`` from a demo group, or False if missing."""
+    if "task_completion" not in demo_grp:
+        return False
+    arr = np.asarray(demo_grp["task_completion"])
+    if arr.size == 0:
+        return False
+    return bool(arr.reshape(-1)[-1])
+
+
+def is_safe_task_completion(task_completed: bool, env_health: float,
+                            threshold: float = SAFE_ENV_HEALTH_THRESHOLD) -> bool:
+    """True when the task succeeded and final env health is at/above ``threshold``."""
+    return bool(task_completed) and float(env_health) >= float(threshold)
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # Video saving
 # ═══════════════════════════════════════════════════════════════════════

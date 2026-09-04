@@ -9,6 +9,12 @@ python scripts/download_demos.py                  # both simulators
 python scripts/download_demos.py --sim robocasa   # or just one (robocasa / behavior1k)
 ```
 
+Paper live-feedback study demos (with / without live feedback, plus combined `all_data`) go under `oopsiebench/demos/paper_demos/teleop_data/`:
+
+```bash
+python scripts/download_demos.py --paper-demos
+```
+
 ## Interactive visualizer (easiest)
 
 Pick a task, pick safe/unsafe, and replay it into a health-overlay video — no flags to remember:

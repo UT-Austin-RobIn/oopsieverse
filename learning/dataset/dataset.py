@@ -6,6 +6,19 @@ import torch
 import torch.nn.functional as F
 import torch.utils.data as data
 from learning.utils import denormalize_action, normalize_action
+from damagesim.utils.playback_schema import (
+    PROPRIO_DIM,
+    canonical_seg_key_from_obs_info_camera,
+)
+
+
+# Default B1K shelve_item cameras + proprio (unified playback schema).
+DEFAULT_OBS_KEYS = [
+    "cam/eef/seg",
+    "cam/external_sensor0/seg",
+    "cam/external_sensor1/seg",
+    "proprio",
+]
 
 
 class ResizeSegmentation:
@@ -46,18 +59,13 @@ class ResizeSegmentation:
         return sample
 
 
-class B1KDataset(data.Dataset):
+class PlaybackDataset(data.Dataset):
     def __init__(
         self, 
         data_path, 
         frame_stack=2, 
         action_chunk_size=8,
-        obs_keys=[
-            "franka0::franka0:eef_link:Camera:0::seg_instance",
-            "external::external_sensor0::seg_instance",
-            "external::external_sensor1::seg_instance",
-            "franka0::proprio",
-        ],
+        obs_keys=None,
         seg_img_size=(128, 128),
         transform=None,
         load_seg_mapping=True,
@@ -65,11 +73,15 @@ class B1KDataset(data.Dataset):
         normalize_action=True
     ):
         """
+        Dataset for unified playback HDF5s (B1K and Robocasa).
+
         Args:
             data_path: Path to HDF5 file
             frame_stack: Number of frames to stack for observations (default: 2)
             action_chunk_size: Number of future actions to predict (default: 8)
-            obs_keys: List of observation keys to load (e.g., ['rgb', 'state'])
+            obs_keys: List of observation keys to load under ``obs/``
+                (canonical: ``cam/{name}/seg``, ``proprio``). Defaults to
+                :data:`DEFAULT_OBS_KEYS` (B1K shelve-style cameras).
             seg_img_size: Target size (H, W) for segmentation images (default: 128x128)
             transform: Optional additional transform to apply to samples
             load_seg_mapping: Whether to load segmentation ID to class name mapping
@@ -80,12 +92,17 @@ class B1KDataset(data.Dataset):
         self.data_path = data_path
         self.frame_stack = frame_stack
         self.action_chunk_size = action_chunk_size
-        self.obs_keys = obs_keys
+        self.obs_keys = list(obs_keys) if obs_keys is not None else list(DEFAULT_OBS_KEYS)
         self.seg_img_size = seg_img_size
         self.transform = transform
         self.load_seg_mapping = load_seg_mapping
         self.objects_of_interest = objects_of_interest
         self.normalize_action = normalize_action
+        self.state_dim = PROPRIO_DIM
+        self.num_seg_views = sum(1 for k in self.obs_keys if "seg" in k)
+        self.action_dim = None
+        self.action_min = None
+        self.action_max = None
 
         # Built-in resize transform for segmentation images
         self.resize_seg = ResizeSegmentation(size=seg_img_size) if seg_img_size else None
@@ -135,9 +152,18 @@ class B1KDataset(data.Dataset):
                     if "seg" not in obs_key or obs_key not in obs_grp:
                         continue
                     
-                    # Load entire trajectory's seg images: [T, H, W]
+                    # Load entire trajectory's seg images: [T+1, H, W] (state-aligned)
                     seg_images = obs_grp[obs_key][:].astype(np.int64)
                     T, H, W = seg_images.shape
+
+                    n_obs_info = len(self.seg_mappings.get(demo_key, {}))
+                    if n_obs_info != T:
+                        raise ValueError(
+                            f"{demo_key}: len(info/obs_info)={n_obs_info} != "
+                            f"len(obs/{obs_key})={T}. Playback HDF5 must store "
+                            f"state-aligned info at T+1 (re-run playback after the "
+                            f"T+1 info unification)."
+                        )
                     
                     # Create output array for remapped images
                     remapped = np.zeros((T, H, W), dtype=np.int64)
@@ -171,12 +197,14 @@ class B1KDataset(data.Dataset):
         
         The obs_info in HDF5 is stored as: data/demo_X/info/obs_info[timestep] -> JSON string
         JSON structure: {camera_type: {camera_name: {"seg_instance": {seg_id: class_name}}}}
+        ``obs_info`` is state-aligned with ``obs`` (length T+1).
         
         Creates:
             - self.class_to_id: dict mapping class name -> consistent integer ID (for policy inference)
             - self.id_to_class: dict mapping integer ID -> class name (for decoding)
             - self.seg_mappings: per-demo, per-timestep mapping of original seg IDs to class names
               Structure: {demo_key: {timestep: {obs_key: {seg_id: class_name}}}}
+              where obs_key uses canonical ``cam/{name}/seg`` paths.
         """
         all_classes = set()
         
@@ -212,9 +240,13 @@ class B1KDataset(data.Dataset):
                                                 seg_mapping = obs_info[camera_type][camera_name]["seg_instance"]
                                                 # seg_mapping: {"1": "object_name", "2": "another_obj", ...}
                                                 all_classes.update(seg_mapping.values())
-                                                
-                                                # Build obs_key to match your obs_keys format
-                                                obs_key = f"{camera_type}::{camera_name}::seg_instance"
+
+                                                # Match unified playback keys: cam/{name}/seg
+                                                obs_key = canonical_seg_key_from_obs_info_camera(
+                                                    camera_name
+                                                )
+                                                if obs_key is None:
+                                                    continue
                                                 # Store mapping: seg_id (int) -> class_name
                                                 self.seg_mappings[demo_key][timestep][obs_key] = {
                                                     int(k): v for k, v in seg_mapping.items()
@@ -254,7 +286,7 @@ class B1KDataset(data.Dataset):
         Args:
             demo_key: Demo key (e.g., "demo_0")
             timestep: Timestep index (integer)
-            obs_key: Observation key (e.g., "external::external_sensor0::seg_instance")
+            obs_key: Observation key (e.g., "cam/external_sensor0/seg")
             seg_id: Segmentation ID from the image (integer)
         
         Returns:
@@ -274,7 +306,7 @@ class B1KDataset(data.Dataset):
         Args:
             demo_key: Demo key (e.g., "demo_0")
             timestep: Timestep index (integer)
-            obs_key: Observation key (e.g., "external::external_sensor0::seg_instance")
+            obs_key: Observation key (e.g., "cam/external_sensor0/seg")
             seg_id: Segmentation ID from the image (integer)
         
         Returns:
@@ -290,7 +322,7 @@ class B1KDataset(data.Dataset):
         Args:
             demo_key: Demo key (e.g., "demo_0")
             timestep: Timestep index (integer)
-            obs_key: Observation key (e.g., "external::external_sensor0::seg_instance")
+            obs_key: Observation key (e.g., "cam/external_sensor0/seg")
         
         Returns:
             Dict mapping seg_id (int) -> class_name (str), or empty dict if not found
@@ -309,7 +341,7 @@ class B1KDataset(data.Dataset):
             seg_image: Segmentation image tensor with original seg IDs
             demo_key: Demo key (e.g., "demo_0")
             timestep: Timestep index (integer)
-            obs_key: Observation key (e.g., "external::external_sensor0::seg_instance")
+            obs_key: Observation key (e.g., "cam/external_sensor0/seg")
         
         Returns:
             Remapped segmentation image with global class IDs
@@ -331,7 +363,10 @@ class B1KDataset(data.Dataset):
             
             for demo_key in demo_keys:
                 demo_grp = data_grp[demo_key]
-                traj_len = demo_grp["action"].shape[0]
+                action_shape = demo_grp["action"].shape
+                traj_len = action_shape[0]
+                if self.action_dim is None and len(action_shape) > 1:
+                    self.action_dim = int(action_shape[-1])
 
                 # Valid timesteps: need (frame_stack - 1) frames before and action_chunk_size frames after
                 # Start from (frame_stack - 1) to have enough history
@@ -343,7 +378,10 @@ class B1KDataset(data.Dataset):
                     self.samples.append((demo_key, t))
         
         print(f"Indexed {len(self.samples)} samples from {len(demo_keys)} trajectories")
-        print(f"Frame stack: {self.frame_stack}, Action chunk: {self.action_chunk_size}")
+        print(
+            f"Frame stack: {self.frame_stack}, Action chunk: {self.action_chunk_size}, "
+            f"action_dim: {self.action_dim}"
+        )
 
     def _load_trajectory(self, demo_key):
         """Load and cache a trajectory."""
@@ -354,7 +392,7 @@ class B1KDataset(data.Dataset):
             demo_grp = f["data"][demo_key]
             
             traj = {
-                "action": demo_grp["action"][:],
+                "action": np.asarray(demo_grp["action"][:], dtype=np.float32),
             }
             # Load observation keys if specified
             obs_grp = demo_grp["obs"]
@@ -368,14 +406,14 @@ class B1KDataset(data.Dataset):
         return traj
 
     def compute_action_norm_stat(self):
-        """Compute the norm statistics of the actions."""
+        """Compute the norm statistics of the actions (float32)."""
         all_actions = []
         with h5py.File(self.data_path, "r") as f:
             data_grp = f["data"]
             demo_keys = sorted([k for k in data_grp.keys() if k.startswith("demo_")])
             for demo_key in demo_keys:
                 demo_grp = data_grp[demo_key]
-                actions = demo_grp["action"][:]
+                actions = np.asarray(demo_grp["action"][:], dtype=np.float32)
                 if actions.shape[0] == 0:
                     print("No actions found for demo {demo_key}")
                     continue
@@ -384,8 +422,8 @@ class B1KDataset(data.Dataset):
                 all_actions.append(actions)
                 print(f"Action norm statistics for demo {demo_key}: Min:{demo_action_min}, Max:{demo_action_max}")
         all_actions = np.concatenate(all_actions, axis=0)
-        action_min = np.min(all_actions, axis=0)
-        action_max = np.max(all_actions, axis=0)
+        action_min = np.min(all_actions, axis=0).astype(np.float32)
+        action_max = np.max(all_actions, axis=0).astype(np.float32)
         print(f"Overall action norm statistics: Min:{action_min}, Max:{action_max}")
         return action_min, action_max
 
@@ -406,7 +444,7 @@ class B1KDataset(data.Dataset):
                 obs_key = f"obs_{key}"
                 if obs_key in traj:
                     # Get frames from t - frame_stack + 1 to t (inclusive)
-                    if 'proprio' in key:
+                    if key == "proprio" or key.endswith("proprio"):
                         stacked = traj[obs_key][t]
                         sample['obs']['proprio'] = torch.from_numpy(stacked).float()
                     else:
@@ -423,8 +461,10 @@ class B1KDataset(data.Dataset):
                             sample['obs']['extero'][key] = torch.from_numpy(stacked).float()
         
         # Get action chunk: [t, t+1, ..., t + action_chunk_size - 1]
-        action_chunk = traj["action"][t : t + self.action_chunk_size]
-        sample["action"] = torch.from_numpy(action_chunk).float()
+        action_chunk = np.asarray(
+            traj["action"][t : t + self.action_chunk_size], dtype=np.float32
+        )
+        sample["action"] = torch.from_numpy(action_chunk)
         if self.normalize_action:
             sample["action"] = normalize_action(sample["action"], self.action_min, self.action_max)
         
@@ -443,54 +483,32 @@ class B1KDataset(data.Dataset):
         return sample
 
 if __name__ == "__main__":
-    obs_keys = [
-        "franka0::franka0:eef_link:Camera:0::seg_instance",
-        "external::external_sensor0::seg_instance",
-        "external::external_sensor1::seg_instance",
-        "franka0::proprio",
-    ]
-    objects_of_interest = None 
     objects_of_interest = ["box_of_crackers", "book", "bottle_of_wine", "bottle_of_beer", "stand"]
-    dataset = B1KDataset(
-        data_path="../../data/safemanibench/shelve_item_good_bad_playback_no_idle_100.hdf5",
+    dataset = PlaybackDataset(
+        data_path="demos/behavior1k/playback_data/shelve_cereal_box_1.hdf5",
         frame_stack=2,
         action_chunk_size=8,
-        obs_keys=obs_keys,
-        load_seg_mapping=True,  # Enable loading seg ID -> class name mapping
+        load_seg_mapping=True,
         normalize_action=True,
         objects_of_interest=objects_of_interest,
     )
     print(f"\nDataset size: {len(dataset)}")
-    
-    # Get a sample
+    print(f"state_dim={dataset.state_dim}, num_seg_views={dataset.num_seg_views}")
+
     sample = dataset[0]
     print(f"\nSample keys: {sample.keys()}")
     print(f"Demo key: {sample['demo_key']}, Timestep: {sample['timestep']}")
     print(f"Action shape: {sample['action'].shape}")
-    
-    # Show segmentation mapping
-    if "seg_mapping" in sample:
-        print(f"\nSegmentation ID -> Class Name mapping:")
-        for obs_key, mapping in sample["seg_mapping"].items():
-            print(f"  {obs_key}:")
-            for seg_id, class_name in mapping.items():
-                print(f"    {seg_id}: {class_name}")
-    
-    # Example: Get unique global class IDs in the pre-remapped image
-    for obs_key in ["external::external_sensor0::seg_instance"]:
+    print(f"Proprio shape: {sample['obs']['proprio'].shape}")
+    print(f"Extero keys: {list(sample['obs']['extero'].keys())}")
+
+    for obs_key in ["cam/external_sensor0/seg"]:
         if obs_key in sample['obs']['extero']:
             seg_img = sample['obs']['extero'][obs_key]
             unique_class_ids = torch.unique(seg_img).int().tolist()
             print(f"\nUnique global class IDs in {obs_key}: {unique_class_ids}")
-            
-            # Look up class names from global IDs
             for class_id in unique_class_ids:
                 class_name = dataset.id_to_class.get(class_id, "unknown")
                 print(f"  global_class_id {class_id} -> class_name '{class_name}'")
-    
-    # Show class_to_id and id_to_class mappings (for use in policy)
-    print(f"\nGlobal class_to_id mapping (use in policy):")
-    for cls_name, idx in dataset.class_to_id.items():
-        print(f"  '{cls_name}' -> {idx}")
+
     print(f"\nTotal number of segmentation classes: {dataset.num_seg_classes}")
-        

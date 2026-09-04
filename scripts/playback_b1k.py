@@ -53,6 +53,7 @@ from omnigibson.macros import gm
 from damagesim.omnigibson.damageable_env import (
     OGDamageableDataPlaybackWrapper,
 )
+from damagesim.utils.playback_schema import playback_proprio_keys
 
 # ── Task-config registry ────────────────────────────────────────────────
 
@@ -103,6 +104,7 @@ def attach_task_playback_hooks(env, task_cfg, task_mod) -> None:
         if task_cfg.playback_step_fn is not None
         else getattr(task_mod, "playback_step", None)
     )
+    env.task_completion_fn = getattr(task_mod, "task_completion_check", None)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -169,7 +171,7 @@ def extract_health_from_hdf5(
     for obj_link_name in target_objects_health_with_links:
         idx = np.where(health_list_link_names == obj_link_name)[0]
         if len(idx) > 0:
-            health[obj_link_name] = all_obj_healths[:, idx[0]][1:]  # skip t=0
+            health[obj_link_name] = all_obj_healths[:, idx[0]]
         else:
             health[obj_link_name] = None
 
@@ -297,9 +299,10 @@ def overlay_health_on_frames(
     health: dict,
 ):
     """
-    Read RGB + seg_instance frames from HDF5, tint damaged objects red,
+    Read RGB + seg frames from HDF5, tint damaged objects red,
     and return the resulting numpy array of RGB frames.
     """
+    from damagesim.utils.playback_schema import cam_rgb_key, cam_seg_key
     from damagesim.utils.visualization import apply_playback_health_tint_to_frames
 
     obs_info_list = []
@@ -309,10 +312,11 @@ def overlay_health_on_frames(
         )
         obs_info_list.append(obs_info)
 
-    imgs = np.array(f[f"data/{demo_key}/obs/{camera_type}::{camera_name}::rgb"])[1:]
-    imgs_seg = list(
-        np.array(f[f"data/{demo_key}/obs/{camera_type}::{camera_name}::seg_instance"])[1:]
-    )
+    rgb_path = f"data/{demo_key}/obs/{cam_rgb_key(camera_name)}"
+    seg_path = f"data/{demo_key}/obs/{cam_seg_key(camera_name)}"
+    # obs / info are both T+1 and state-aligned; do not drop the initial frame.
+    imgs = np.array(f[rgb_path])
+    imgs_seg = list(np.array(f[seg_path]))
 
     return apply_playback_health_tint_to_frames(
         imgs,
@@ -368,10 +372,12 @@ def run_playback(args, task_cfg, task_mod):
         robot_obs_modalities = ["proprio", "rgb", "seg_instance"]
     else:
         robot_obs_modalities = ["proprio"]
+    # 23-D proprio (no grasp_*) to match Robocasa / canonical schema.
     env = wrapper_cls.create_from_hdf5(
         input_path=args.source_hdf5_path,
         output_path=args.playback_hdf5_path,
         robot_obs_modalities=robot_obs_modalities,
+        robot_proprio_keys=playback_proprio_keys(arm="0"),
         robot_sensor_config=robot_sensor_config,
         external_sensors_config=external_sensors_config,
         exclude_sensor_names=task_cfg.exclude_sensor_names,
@@ -563,16 +569,25 @@ def run_visualize(args, task_cfg):
 # ═══════════════════════════════════════════════════════════════════════
 
 def run_compute_metrics(args, task_cfg):
-    """Print per-object and per-episode health summaries."""
+    """Print per-object and per-episode health / task-completion summaries."""
+    from damagesim.utils.misc_utils import (
+        SAFE_ENV_HEALTH_THRESHOLD,
+        is_safe_task_completion,
+        read_final_task_completion,
+    )
+
     f = h5py.File(args.playback_hdf5_path, "r")
 
     final_obj_healths: Dict[str, list] = defaultdict(list)
     final_env_healths: list = []
+    task_completions: list = []
+    safe_task_completions: list = []
 
     for demo_key in sorted(f["data"].keys()):
         if not demo_key.startswith("demo_"):
             continue
         demo_idx = int(demo_key.split("_")[-1])
+        demo_grp = f[f"data/{demo_key}"]
 
         health = extract_health_from_hdf5(
             f,
@@ -593,7 +608,19 @@ def run_compute_metrics(args, task_cfg):
                 valid += 1
                 print(f"  {obj_name:30s}  final health = {final_val:.2f}")
         if valid:
-            final_env_healths.append(env_health / valid)
+            env_health = env_health / valid
+            final_env_healths.append(env_health)
+        else:
+            env_health = 0.0
+
+        completed = read_final_task_completion(demo_grp)
+        safe = is_safe_task_completion(completed, env_health)
+        task_completions.append(completed)
+        safe_task_completions.append(safe)
+        if "task_completion" not in demo_grp:
+            print("  warning: missing task_completion dataset; treating as False")
+        print(f"  {'task_completion':30s}  {completed}")
+        print(f"  {'safe_task_completion':30s}  {safe}  (env health={env_health:.2f}, threshold={SAFE_ENV_HEALTH_THRESHOLD})")
 
     # Summary
     print("\n" + "=" * 60)
@@ -609,7 +636,11 @@ def run_compute_metrics(args, task_cfg):
         for eh in final_env_healths
         if eh >= 100.0
     )
+    n_success = sum(task_completions)
+    n_safe = sum(safe_task_completions)
     print(f"  Zero-damage episodes: {zero_dmg} / {total_eps}")
+    print(f"  Task completion: {n_success} / {total_eps} ({100.0 * n_success / max(total_eps, 1):.1f}%)")
+    print(f"  Safe task completion: {n_safe} / {total_eps} ({100.0 * n_safe / max(total_eps, 1):.1f}%)")
     print("=" * 60)
 
     f.close()

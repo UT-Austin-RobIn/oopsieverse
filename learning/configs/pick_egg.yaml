@@ -1,0 +1,36 @@
+# Data / task
+# Placeholder until canonical Robocasa playback HDF5 is generated
+data_path: demos/robocasa/playback_data/pick_egg.hdf5
+task_name: pick_egg
+objects_of_interest:
+  - egg
+  - robot
+obs_keys:
+  - cam/robot0_eye_in_hand/seg
+  - cam/robot0_agentview_right/seg
+  - cam/robot0_agentview_left/seg
+  - proprio
+
+frame_stack: 2
+action_chunk: 8
+seg_img_size: 128
+normalize_action: true
+
+# Training
+num_steps: 30000
+batch_size: 64
+lr: 0.0003
+weight_decay: 0.00001
+grad_clip: 5.0
+
+# Logging / IO
+log_every: 10
+save_every: 5000
+eval_every: 500
+save_dir: checkpoints/pick_egg
+use_wandb: false
+wandb_project: oopsieverse
+wandb_entity: null
+wandb_run_name: pick-egg
+device: cuda
+resume: null
