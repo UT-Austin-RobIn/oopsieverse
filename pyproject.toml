@@ -20,7 +20,9 @@ dependencies = [
     "scipy",
     "tyro",
     "tqdm",           # useful for progress bars in install.py
-    "numba==0.62.1"
+    "numba==0.62.1",
+    "openai>=1.40",   # LLM params: one client for every provider (damagesim/llm_params/models.py)
+    "pydantic>=2",
     # add more Python-only dependencies here
 ]
 

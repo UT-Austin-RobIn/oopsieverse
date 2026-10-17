@@ -21,6 +21,7 @@ oopsieverse.code-workspace
 teleop_demos/
 resources/
 checkpoints/
+runs/
 
 # MkDocs local build output
 site/
