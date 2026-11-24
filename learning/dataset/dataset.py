@@ -368,11 +368,12 @@ class PlaybackDataset(data.Dataset):
                 if self.action_dim is None and len(action_shape) > 1:
                     self.action_dim = int(action_shape[-1])
 
-                # Valid timesteps: need (frame_stack - 1) frames before and action_chunk_size frames after
+                # Valid timesteps: need (frame_stack - 1) frames before
                 # Start from (frame_stack - 1) to have enough history
-                # End at (traj_len - action_chunk_size) to have enough future actions
+                # End at the last action; chunks running past the end are padded in __getitem__,
+                # so the final steps of a demo (e.g. a release or a last press) are also trained on
                 start_idx = self.frame_stack - 1
-                end_idx = traj_len - self.action_chunk_size
+                end_idx = traj_len - 1
                 
                 for t in range(start_idx, end_idx + 1):
                     self.samples.append((demo_key, t))
@@ -464,6 +465,10 @@ class PlaybackDataset(data.Dataset):
         action_chunk = np.asarray(
             traj["action"][t : t + self.action_chunk_size], dtype=np.float32
         )
+        # Near the end of a demo, pad by repeating the final action
+        if len(action_chunk) < self.action_chunk_size:
+            pad = np.repeat(action_chunk[-1:], self.action_chunk_size - len(action_chunk), axis=0)
+            action_chunk = np.concatenate([action_chunk, pad], axis=0)
         sample["action"] = torch.from_numpy(action_chunk)
         if self.normalize_action:
             sample["action"] = normalize_action(sample["action"], self.action_min, self.action_max)
